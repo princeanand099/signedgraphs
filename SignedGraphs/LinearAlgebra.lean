@@ -109,12 +109,13 @@ private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     ∃ e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ),
       ∀ x : V → ℝ, dotProduct x (A *ᵥ x) = ∑ i : V, hA.eigenvalues i * (e x i) ^ 2 := by
   let U : Matrix V V ℝ := (hA.eigenvectorUnitary : Matrix V V ℝ)
+  have hstar : star U = Uᵀ := Matrix.conjTranspose_eq_transpose_of_trivial U
   have hU_left : Uᵀ * U = 1 := by
-    have h := Matrix.mem_unitaryGroup_iff'.mp hA.eigenvectorUnitary.prop
-    simpa [U, Matrix.star_eq_conjTranspose, Matrix.conjTranspose_eq_transpose_of_trivial] using h
+    have h : star U * U = 1 := Matrix.mem_unitaryGroup_iff'.mp hA.eigenvectorUnitary.prop
+    rwa [hstar] at h
   have hU_right : U * Uᵀ = 1 := by
-    have h := Matrix.mem_unitaryGroup_iff.mp hA.eigenvectorUnitary.prop
-    simpa [U, Matrix.star_eq_conjTranspose, Matrix.conjTranspose_eq_transpose_of_trivial] using h
+    have h : U * star U = 1 := Matrix.mem_unitaryGroup_iff.mp hA.eigenvectorUnitary.prop
+    rwa [hstar] at h
   let e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ) :=
     { toFun := fun x => Uᵀ *ᵥ x
       invFun := fun y => U *ᵥ y
@@ -124,11 +125,12 @@ private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
       right_inv := fun y => by simp [Matrix.mulVec_mulVec, hU_left] }
   refine ⟨e, fun x => ?_⟩
   have hspec : A = U * Matrix.diagonal hA.eigenvalues * Uᵀ := by
-    simpa [U, Matrix.star_eq_conjTranspose, Matrix.conjTranspose_eq_transpose_of_trivial] using
-      hA.spectral_theorem
+    have h := hA.spectral_theorem
+    change A = U * Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues) * star U at h
+    simpa [hstar] using h
   conv_lhs => rw [hspec]
-  rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
-    ← Matrix.vecMul_transpose, Matrix.dotProduct_mulVec]
+  rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec U, Matrix.dotProduct_mulVec,
+    Matrix.vecMul_transpose, ← Matrix.mulVec_mulVec (Matrix.diagonal hA.eigenvalues)]
   simp only [e, LinearEquiv.coe_mk, LinearMap.coe_mk, AddHom.coe_mk,
     Matrix.mulVec_diagonal, dotProduct]
   refine Finset.sum_congr rfl fun i _ => ?_
@@ -155,7 +157,7 @@ private lemma finrank_coordSubmodule (P : V → Prop) [DecidablePred P] :
       right_inv := fun z => by
         ext ⟨i, hi⟩
         simp [hi] }
-  rw [LinearEquiv.finrank_eq e, Module.finrank_fun, Fintype.card_subtype]
+  rw [LinearEquiv.finrank_eq e, Module.finrank_fintype_fun_eq_card, Fintype.card_subtype]
 
 private lemma posInertia_eq_sSup_aux (d : V → ℝ) :
     (Finset.univ.filter fun i : V => 0 < d i).card =
@@ -298,8 +300,8 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
   have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) := by
     intro x
     change dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (P *ᵥ x) (A *ᵥ (P *ᵥ x))
-    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
-      ← Matrix.vecMul_transpose, Matrix.dotProduct_mulVec]
+    rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec Pᵀ, Matrix.dotProduct_mulVec,
+      Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
   have hpos : posInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
     congr 1; ext n; constructor
@@ -423,10 +425,10 @@ theorem signature_mono_of_posSemidef (A B : Matrix V V ℝ) (hA : A.IsHermitian)
 theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermitian) (v : V) :
     |signature A hA - signature (A.submatrix (fun x : {x : V // x ≠ v} => x.1)
       (fun x : {x : V // x ≠ v} => x.1)) (isHermitian_submatrix A hA _)| ≤ 1 := by
-  let W := {x : V // x ≠ v}
-  let A' : Matrix W W ℝ := A.submatrix (fun x : W => x.1) (fun x : W => x.1)
+  let W₀ := {x : V // x ≠ v}
+  let A' : Matrix W₀ W₀ ℝ := A.submatrix (fun x : W₀ => x.1) (fun x : W₀ => x.1)
   have hA' : A'.IsHermitian := isHermitian_submatrix A hA _
-  let ι : (W → ℝ) →ₗ[ℝ] (V → ℝ) :=
+  let ι : (W₀ → ℝ) →ₗ[ℝ] (V → ℝ) :=
     { toFun := fun y u => if h : u = v then 0 else y ⟨u, h⟩
       map_add' := fun y₁ y₂ => by ext u; by_cases h : u = v <;> simp [h]
       map_smul' := fun c y => by ext u; by_cases h : u = v <;> simp [h] }
@@ -435,16 +437,18 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     ext ⟨u, hu⟩
     have := congrFun h u
     simpa [ι, hu] using this
-  have hquad_ι : ∀ y : W → ℝ, dotProduct (ι y) (A *ᵥ ι y) = dotProduct y (A' *ᵥ y) := by
+  have hquad_ι : ∀ y : W₀ → ℝ, dotProduct (ι y) (A *ᵥ ι y) = dotProduct y (A' *ᵥ y) := by
     intro y
     simp only [dotProduct, Matrix.mulVec, ι, A', Matrix.submatrix_apply]
     have hsumV : ∀ f : V → ℝ, f v = 0 →
-        (∑ u : V, f u) = ∑ x : W, f x.1 := by
+        (∑ u : V, f u) = ∑ x : W₀, f x.1 := by
       intro f hfv
       rw [← Finset.add_sum_erase Finset.univ f (Finset.mem_univ v), hfv, zero_add]
-      refine Finset.sum_bij (fun x _ => x.1) (fun x _ => Finset.mem_erase.mpr ⟨x.2, Finset.mem_univ _⟩)
-        (fun a b _ _ h => Subtype.ext h) (fun u hu => ⟨⟨u, (Finset.mem_erase.mp hu).1⟩, Finset.mem_univ _, rfl⟩)
-        (fun _ _ => rfl)
+      refine (Finset.sum_bij (fun (x : W₀) _ => x.1)
+        (fun x _ => Finset.mem_erase.mpr ⟨x.2, Finset.mem_univ _⟩)
+        (fun a _ b _ h => Subtype.ext h)
+        (fun u hu => ⟨⟨u, (Finset.mem_erase.mp hu).1⟩, Finset.mem_univ _, rfl⟩)
+        (fun _ _ => rfl)).symm
     rw [hsumV _ (by simp)]
     refine Finset.sum_congr rfl fun x _ => ?_
     simp only [x.2, ↓reduceDIte]
@@ -453,19 +457,18 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     refine Finset.sum_congr rfl fun z _ => ?_
     simp [z.2]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
-  have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W → ℝ, ι y = x := by
+  have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
     intro x hx
     refine ⟨fun z => x z.1, ?_⟩
     ext u
     by_cases hu : u = v
-    · subst hu; simp [ι]; exact hx
+    · subst hu; simp only [ι, ↓reduceDIte]; exact hx.symm
     · simp [ι, hu]
-  have hfinrank_map_ι : ∀ U : Submodule ℝ (W → ℝ), Module.finrank ℝ (U.map ι) = Module.finrank ℝ U :=
-    fun U => LinearEquiv.finrank_eq (LinearEquiv.ofInjective ι hι_inj).symm ▸
-      (Submodule.equivMapOfInjective ι hι_inj U).finrank_eq.symm
+  have hfinrank_map_ι : ∀ U : Submodule ℝ (W₀ → ℝ), Module.finrank ℝ (U.map ι) = Module.finrank ℝ U :=
+    fun U => (Submodule.equivMapOfInjective ι hι_inj U).finrank_eq.symm
   have hpos_le : posInertia A' hA' ≤ posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
-    refine csSup_le_csSup (posSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (W → ℝ), fun y hy hy0 => ?_⟩ ?_
+    refine csSup_le_csSup (posSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (W₀ → ℝ), fun y hy hy0 => ?_⟩ ?_
     · exfalso; exact hy0 hy
     · rintro n ⟨U, rfl, hU⟩
       refine ⟨U.map ι, hfinrank_map_ι U, ?_⟩
@@ -476,7 +479,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
       exact hU y hy hy0
   have hneg_le : negInertia A' hA' ≤ negInertia A hA := by
     rw [negInertia_eq_sSup, negInertia_eq_sSup]
-    refine csSup_le_csSup (negSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (W → ℝ), fun y hy hy0 => ?_⟩ ?_
+    refine csSup_le_csSup (negSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (W₀ → ℝ), fun y hy hy0 => ?_⟩ ?_
     · exfalso; exact hy0 hy
     · rintro n ⟨U, rfl, hU⟩
       refine ⟨U.map ι, hfinrank_map_ι U, ?_⟩
@@ -511,8 +514,8 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
         exact ⟨y, hx, rfl⟩
     have hfinU' : Module.finrank ℝ U' = Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
       rw [← hfinrank_map_ι U', hU'_map]
-    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₀ : Submodule ℝ (W → ℝ),
-        Module.finrank ℝ W₀ = m ∧ ∀ y ∈ W₀, y ≠ 0 → 0 < dotProduct y (A' *ᵥ y) } := by
+    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
+        Module.finrank ℝ W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → 0 < dotProduct y (A' *ᵥ y) } := by
       refine le_csSup (posSubspace_bddAbove A') ⟨U', rfl, fun y hy hy0 => ?_⟩
       rw [← hquad_ι y]
       exact hU (ι y) hy.1 (fun h => hy0 (hι_inj (by simpa using h)))
@@ -530,8 +533,8 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
         exact ⟨y, hx, rfl⟩
     have hfinU' : Module.finrank ℝ U' = Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
       rw [← hfinrank_map_ι U', hU'_map]
-    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₀ : Submodule ℝ (W → ℝ),
-        Module.finrank ℝ W₀ = m ∧ ∀ y ∈ W₀, y ≠ 0 → dotProduct y (A' *ᵥ y) < 0 } := by
+    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
+        Module.finrank ℝ W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → dotProduct y (A' *ᵥ y) < 0 } := by
       refine le_csSup (negSubspace_bddAbove A') ⟨U', rfl, fun y hy hy0 => ?_⟩
       rw [← hquad_ι y]
       exact hU (ι y) hy.1 (fun h => hy0 (hι_inj (by simpa using h)))
