@@ -55,13 +55,19 @@ theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have hBij : B i j = d (e.symm i) * A (e.symm i) (e.symm j) * d (e.symm j) := by
       simp [B, B₀, D, Matrix.diagonal_transpose, Matrix.diagonal_mul, Matrix.mul_diagonal]
     rw [hBij]
-    dsimp [d]
-    by_cases hi : e.symm i ∈ T <;> by_cases hj : e.symm j ∈ T <;>
-      by_cases hpos : 0 < A (e.symm i) (e.symm j)
-    all_goals
-      simp [hi, hj, hpos] at hsw ⊢
-      try (have hneg : A (e.symm i) (e.symm j) < 0 := lt_of_le_of_ne (not_lt.mp hpos) hAne; linarith)
-      try linarith
+    have hswR : (d (e.symm i) * d (e.symm j)) *
+        (if 0 < A (e.symm i) (e.symm j) then (1 : ℝ) else -1) = 1 := by
+      have h1 : (((if e.symm i ∈ T then (-1 : ℤ) else 1) * (if e.symm j ∈ T then -1 else 1) *
+          (if 0 < A (e.symm i) (e.symm j) then (1 : ℤ) else -1) : ℤ) : ℝ) = (1 : ℝ) := by
+        exact_mod_cast hsw
+      push_cast at h1
+      convert h1 using 2 <;> dsimp [d] <;> split_ifs <;> norm_num
+    by_cases hpos : 0 < A (e.symm i) (e.symm j)
+    · rw [if_pos hpos, mul_one] at hswR
+      nlinarith
+    · have hneg : A (e.symm i) (e.symm j) < 0 := lt_of_le_of_ne (not_lt.mp hpos) hAne
+      rw [if_neg hpos] at hswR
+      nlinarith
   let a : ℝ := B 0 1
   let b : ℝ := B 0 2
   let c : ℝ := B 1 2
@@ -492,7 +498,15 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           · simp [hwx, hwy]
       simp_rw [h1]
       rw [Finset.sum_add_distrib]
-      simp only [Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+      congr 1
+      · rw [Finset.sum_eq_single x']
+        · simp
+        · intro w _ hw; simp [hw]
+        · intro h; exact absurd (Finset.mem_univ x') h
+      · rw [Finset.sum_eq_single y']
+        · simp
+        · intro w _ hw; simp [hw]
+        · intro h; exact absurd (Finset.mem_univ y') h
     rw [hquad]
     have h1 : 0 ≤ 2 * a * b / e₀ := div_nonneg (by nlinarith [ha_pos, hb_pos]) he₀_pos.le
     have h2 : 0 ≤ 2 * c * d₀ / e₀ := div_nonneg (by nlinarith [hc_pos, hd₀_pos]) he₀_pos.le

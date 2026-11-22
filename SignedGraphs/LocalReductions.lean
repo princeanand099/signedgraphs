@@ -594,9 +594,9 @@ private lemma walk_eq_append_last {W : Type*} {G : SimpleGraph W} {a b : W}
       obtain ⟨c, p, h, hr⟩ := ih (by simp)
       exact ⟨c, SimpleGraph.Walk.cons hadj p, h, by rw [hr]; rfl⟩
 
+set_option maxHeartbeats 800000 in
 /-- **Lemma 2.2 (Degree-2 vertex reduction)**: If `v` has degree 2 in `G(A)` (with `|V| ≥ 3`)
 and Theorem 1.2 holds for all NOC matrices of order `|V| - 2`, then `s(A) ≤ 0`. -/
-set_option maxHeartbeats 800000 in
 theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     (hdiag : ∀ u, A u u = 0) (hnoc : MatrixIsNOC A hA.isSymm)
     (hn : 3 ≤ Fintype.card V)
@@ -753,19 +753,21 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have hBtilde_blk : Btilde = Matrix.fromBlocks
       (P₃ᵀ * B_blk.toBlocks₁₁ * P₃) (P₃ᵀ * B_blk.toBlocks₁₂)
       (B_blk.toBlocks₂₁ * P₃) B_blk.toBlocks₂₂ := by
-    have hBblk_split : B_blk = Matrix.fromBlocks B_blk.toBlocks₁₁ B_blk.toBlocks₁₂
-        B_blk.toBlocks₂₁ B_blk.toBlocks₂₂ := (Matrix.fromBlocks_toBlocks B_blk).symm
     have hP1T : P₁ᵀ = Matrix.fromBlocks P₃ᵀ 0 0 1 := by
       simp [P₁, Matrix.fromBlocks_transpose]
-    calc Btilde = P₁ᵀ * B_blk * P₁ := rfl
-      _ = Matrix.fromBlocks P₃ᵀ 0 0 1 *
-            Matrix.fromBlocks B_blk.toBlocks₁₁ B_blk.toBlocks₁₂ B_blk.toBlocks₂₁ B_blk.toBlocks₂₂ *
-            Matrix.fromBlocks P₃ 0 0 1 := by rw [hP1T, hBblk_split]
-      _ = _ := by
-            simp [Matrix.fromBlocks_multiply, Matrix.mul_assoc]
+    have hstep : Btilde = Matrix.fromBlocks P₃ᵀ 0 0 1 *
+        Matrix.fromBlocks B_blk.toBlocks₁₁ B_blk.toBlocks₁₂ B_blk.toBlocks₂₁ B_blk.toBlocks₂₂ *
+        Matrix.fromBlocks P₃ 0 0 1 := by
+      dsimp only [Btilde]
+      rw [hP1T]
+      conv_lhs => rw [← Matrix.fromBlocks_toBlocks B_blk]
+      rfl
+    rw [hstep]
+    simp [Matrix.fromBlocks_multiply, Matrix.mul_assoc]
   have hBtilde₂_eq : Btilde₂ = Matrix.fromBlocks H R Rᵀ A' := by
     ext a b
-    simp only [Btilde₂, Matrix.submatrix_apply, hBtilde_blk]
+    simp only [Btilde₂, Matrix.submatrix_apply, hBtilde_blk, Matrix.toBlocks₁₁, Matrix.toBlocks₁₂,
+      Matrix.toBlocks₂₁, Matrix.toBlocks₂₂, Matrix.of_apply]
     rcases a with i | (⟨⟩ | u) <;> rcases b with j | (⟨⟩ | w)
     · fin_cases i <;> fin_cases j <;>
         simp [e₂, B_blk, e, P₃, H, Matrix.mul_apply, Matrix.transpose_apply, Fin.sum_univ_three,
