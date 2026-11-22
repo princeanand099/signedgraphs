@@ -72,7 +72,7 @@ private lemma component_card_ge_two (G : SimpleGraph V) [DecidableRel G.Adj]
     have hmem := hclosed u hu w hadj
     rw [Finset.mem_union, hCeq, Finset.mem_singleton] at hmem
     rcases hmem with rfl | hA_mem
-    · exact absurd hadj (G.loopless u)
+    · exact absurd hadj (G.loopless.irrefl u)
     · exact hA_mem
   have hd : G.degree u ≤ A.card := by
     rw [← SimpleGraph.card_neighborFinset_eq_degree]
@@ -113,16 +113,17 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
     intro h1
     rcases Finset.card_eq_one.mp h1 with ⟨v, rfl⟩
     apply hdisc
-    simpa using h2conn v
+    simpa only [Finset.coe_singleton] using h2conn v
   have hA_eq2 : A.card = 2 := by omega
   rcases Finset.card_eq_two.mp hA_eq2 with ⟨x, y, hxy, rfl⟩
-  have hnot_pre : ∃ a b : ({x, y}ᶜ : Set V), ¬ (G.induce ({x, y}ᶜ : Set V)).Reachable a b := by
+  let Sxy : Set V := (({x, y} : Finset V) : Set V)
+  have hnot_pre : ∃ a b : (Sxyᶜ : Set V), ¬ (G.induce (Sxyᶜ : Set V)).Reachable a b := by
     by_contra hall
     push Not at hall
     exact hdisc hall
   rcases hnot_pre with ⟨a, b, hab⟩
   let C : Finset V := Finset.univ.filter fun u =>
-    ∃ hu : u ∈ (({x, y} : Finset V)ᶜ : Set V), (G.induce (({x, y} : Finset V)ᶜ : Set V)).Reachable a ⟨u, hu⟩
+    ∃ hu : u ∈ (Sxyᶜ : Set V), (G.induce (Sxyᶜ : Set V)).Reachable a ⟨u, hu⟩
   have ha_mem : a.1 ∈ C := by
     simp only [C, Finset.mem_filter, Finset.mem_univ, true_and]
     exact ⟨a.2, SimpleGraph.Reachable.refl a⟩
@@ -143,8 +144,8 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
     · refine Finset.mem_union_left _ ?_
       simp only [C, Finset.mem_filter, Finset.mem_univ, true_and] at hu ⊢
       rcases hu with ⟨hu', hru⟩
-      have hw' : w ∈ (({x, y} : Finset V)ᶜ : Set V) := hw
-      exact ⟨hw', hru.trans (SimpleGraph.Adj.reachable (show (G.induce (({x, y} : Finset V)ᶜ : Set V)).Adj ⟨u, hu'⟩ ⟨w, hw'⟩ from hadj))⟩
+      have hw' : w ∈ (Sxyᶜ : Set V) := hw
+      exact ⟨hw', hru.trans (SimpleGraph.Adj.reachable (show (G.induce (Sxyᶜ : Set V)).Adj ⟨u, hu'⟩ ⟨w, hw'⟩ from hadj))⟩
   let D : Finset V := (Finset.univ \ {x, y}) \ C
   have hb_D : b.1 ∈ D := by
     simp only [D, Finset.mem_sdiff, Finset.mem_univ, true_and]
@@ -165,7 +166,7 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
       rw [Finset.mem_union] at hmem
       rcases hmem with huC | huxy
       · exact hu.2 huC
-      · exact hu.1.2 huxy
+      · exact hu.1 huxy
   have hC_ge2 : 2 ≤ C.card :=
     component_card_ge_two G hdeg {x, y} C (by rw [Finset.card_pair hxy]) ⟨a.1, ha_mem⟩ hC_disj hC_closed
   have hD_ge2 : 2 ≤ D.card :=
@@ -183,7 +184,7 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
       · exact Or.inl (Or.inr h1)
       · by_cases h2 : u ∈ C
         · exact Or.inl (Or.inl h2)
-        · exact Or.inr (Or.inl ⟨⟨Finset.mem_univ u, h1⟩, h2⟩)
+        · exact Or.inr (Or.inl ⟨⟨trivial, h1⟩, h2⟩)
     hinter := by
       ext u
       simp only [Finset.mem_inter, Finset.mem_union, D, Finset.mem_sdiff, Finset.mem_univ, true_and]
@@ -215,7 +216,7 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
       · simp [hwx, hwy] at hwxy
   }⟩
 
-private lemma twoSep_flip {G : SimpleGraph V} (d : TwoSep G) : TwoSep G where
+private def twoSep_flip {G : SimpleGraph V} (d : TwoSep G) : TwoSep G where
   VH := d.VG₂
   VG₂ := d.VH
   x := d.x
@@ -236,7 +237,7 @@ private lemma twoSep_y_mem_VH {G : SimpleGraph V} (d : TwoSep G) : d.y ∈ d.VH 
   have : d.y ∈ d.VH ∩ d.VG₂ := by rw [d.hinter]; simp
   exact (Finset.mem_inter.mp this).1
 
-private lemma twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
+private noncomputable def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
     (hconn : G.Preconnected)
     (h2conn : ∀ v : V, (G.induce ({v}ᶜ : Set V)).Preconnected)
     (hdeg : ∀ v : V, 3 ≤ G.degree v)
@@ -350,7 +351,12 @@ private lemma twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
   let S : Finset V := A.map emb
   let O : Finset V := C_other.map emb
   have hS_card : S.card ≤ 2 := by simpa [S] using hA
-  have hC_disj_S : Disjoint C S := Finset.disjoint_map.mpr hCA_disj
+  have hC_disj_S : Disjoint C S := by
+    rw [Finset.disjoint_left]
+    intro z hz1 hz2
+    rcases Finset.mem_map.mp hz1 with ⟨a, ha, rfl⟩
+    rcases Finset.mem_map.mp hz2 with ⟨b, hb, hba⟩
+    exact Finset.disjoint_left.mp hCA_disj ha (Subtype.ext hba ▸ hb)
   have hC_closed : ∀ u ∈ C, ∀ w : V, G.Adj u w → w ∈ C ∪ S := by
     intro u hu w hadj
     rcases Finset.mem_map.mp hu with ⟨u_sub, hu_sub, rfl⟩
@@ -414,7 +420,8 @@ private lemma twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
     rw [hSs, Finset.mem_union, Finset.mem_singleton] at hmem
     rcases hmem with hbC | rfl
     · exact hb hbC
-    · rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
+    · dsimp only [pG] at hb_supp
+      rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
       rcases hb_supp with ⟨b', _, hb'eq⟩
       exact b'.2 hb'eq.symm
   have hS_eq2 : S.card = 2 := by omega
@@ -433,7 +440,7 @@ private lemma twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
       intro z hz
       have : z ∈ d.VH ∩ d.VG₂ := by rw [d.hinter]; exact hz
       exact (Finset.mem_inter.mp this).2
-    rw [Finset.card_sdiff hsub, Finset.card_pair d.hxy]
+    rw [Finset.card_sdiff, Finset.inter_eq_left.mpr hsub, Finset.card_pair d.hxy]
     have := d.hcardG₂; omega
   have hS_sub_VH : S ⊆ d.VH := by
     intro z hz
@@ -515,13 +522,13 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
         have hsub : ({d₁.x, d₁.y} : Finset V) ⊆ d₁.VH := by
           intro z hz; exact (Finset.mem_inter.mp (by rw [d₁.hinter]; exact hz)).1
         have hc : 2 ≤ (d₁.VH \ {d₁.x, d₁.y}).card := by
-          rw [Finset.card_sdiff hsub, Finset.card_pair d₁.hxy]; have := d₁.hcardH; omega
+          rw [Finset.card_sdiff, Finset.inter_eq_left.mpr hsub, Finset.card_pair d₁.hxy]; have := d₁.hcardH; omega
         exact Finset.card_pos.mp (by omega)
       have hG₂_int : (d₁.VG₂ \ {d₁.x, d₁.y}).Nonempty := by
         have hsub : ({d₁.x, d₁.y} : Finset V) ⊆ d₁.VG₂ := by
           intro z hz; exact (Finset.mem_inter.mp (by rw [d₁.hinter]; exact hz)).2
         have hc : 2 ≤ (d₁.VG₂ \ {d₁.x, d₁.y}).card := by
-          rw [Finset.card_sdiff hsub, Finset.card_pair d₁.hxy]; have := d₁.hcardG₂; omega
+          rw [Finset.card_sdiff, Finset.inter_eq_left.mpr hsub, Finset.card_pair d₁.hxy]; have := d₁.hcardG₂; omega
         exact Finset.card_pos.mp (by omega)
       rcases hH_int with ⟨w₁, hw₁⟩
       rcases hG₂_int with ⟨w₂, hw₂⟩
@@ -546,6 +553,7 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
         exact (Finset.mem_sdiff.mp hw₂).2 hinter
       obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set (d₁.VH \ {d₁.x, d₁.y}) pG hw₁ hw₂_nH
       have hb_ne_other : b ≠ other := by
+        dsimp only [pG] at hb_supp
         rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
         rcases hb_supp with ⟨b', _, hb'eq⟩
         exact hb'eq ▸ b'.2
@@ -566,8 +574,8 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
       have hbu : b = u := by
         rcases hxy with rfl | rfl <;> rcases hb_xy with rfl | rfl
         · rfl
-        · exact absurd rfl (by simpa [other] using hb_ne_other)
-        · exact absurd rfl (by simpa [other, d₁.hxy.symm] using hb_ne_other)
+        · exact absurd rfl (by simp [other] at hb_ne_other)
+        · exact absurd rfl (by simp [other, d₁.hxy.symm] at hb_ne_other)
         · rfl
       subst hbu
       exact ⟨a, ha_VH, ha_nxy.1, ha_nxy.2, hadj.symm⟩
@@ -631,7 +639,7 @@ theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [Decidab
   -- Step 2: Choose a TwoSep d₂ with d₂.VH ⊆ d₁.VG₂ minimizing VH.card
   let d₁_flip := twoSep_flip d₁
   have hex2 : ∃ k : ℕ, ∃ d : TwoSep G, d.VH ⊆ d₁.VG₂ ∧ d.VH.card = k :=
-    ⟨d₁_flip.VH.card, d₁_flip, Finset.Subset.refl _, rfl⟩
+    ⟨d₁_flip.VH.card, d₁_flip, Finset.Subset.refl d₁.VG₂, rfl⟩
   let k₂ := Nat.find hex2
   obtain ⟨d₂, hd₂_sub, hd₂_card⟩ := Nat.find_spec hex2
   have hd₂_min : ∀ d' : TwoSep G, d'.VH ⊆ d₁.VG₂ → d₂.VH.card ≤ d'.VH.card := by

@@ -770,7 +770,22 @@ private lemma petersenGraph_adj_decide (i j : Fin 10) :
        (i.val < 5 ∧ j.val = i.val + 5) ∨
        (j.val < 5 ∧ i.val = j.val + 5)) := by
   simp only [petersenGraph, SimpleGraph.fromRel_adj]
-  tauto
+  constructor
+  · rintro ⟨hne, h | h⟩
+    · exact ⟨hne, h⟩
+    · refine ⟨hne, ?_⟩
+      rcases h with ⟨h1, h2, h3 | h3⟩ | ⟨h1, h2, h3 | h3⟩ | h | h
+      · exact Or.inl ⟨h2, h1, Or.inr h3⟩
+      · exact Or.inl ⟨h2, h1, Or.inl h3⟩
+      · exact Or.inr (Or.inl ⟨h2, h1, Or.inr h3⟩)
+      · exact Or.inr (Or.inl ⟨h2, h1, Or.inl h3⟩)
+      · exact Or.inr (Or.inr (Or.inr h))
+      · exact Or.inr (Or.inr (Or.inl h))
+  · rintro ⟨hne, h⟩
+    exact ⟨hne, Or.inl h⟩
+
+instance instDecidableRelPetersenGraphAdj : DecidableRel petersenGraph.Adj :=
+  fun i j => decidable_of_iff _ (petersenGraph_adj_decide i j).symm
 
 /-- Canonical vertex index in `Fin 10` for the 8 interior vertices `(2,4,5,6; 3,7,8,9)`
 and 2 boundary vertices `(0,1)` of `Petersen`. -/
@@ -880,7 +895,7 @@ theorem petersen_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have hw : ∀ k : Fin 14, 0 < w k := by
     intro k
     fin_cases k <;> dsimp [w] <;>
-      linarith [hB_neg _ _ ((petersenGraph_adj_decide _ _).mpr (by decide))]
+      (apply neg_pos.mpr; apply hB_neg; exact (petersenGraph_adj_decide _ _).mpr (by decide))
   let eFull : (Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ Empty) ≃ Fin 10 :=
     (Equiv.sumCongr (Equiv.refl _) (Equiv.sumEmpty (Fin 2) Empty)).trans petersenEquiv
   let B_blk := B.submatrix eFull eFull
@@ -889,39 +904,43 @@ theorem petersen_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
   let G₂ : Matrix (Fin 2 ⊕ Empty) (Fin 2 ⊕ Empty) ℝ := B_blk.toBlocks₂₂
   have hG₂ : G₂.IsHermitian := isHermitian_submatrix B_blk hB_blk Sum.inr
   have hG₂_00 : G₂ (Sum.inl 0) (Sum.inl 0) = 0 := by
-    simpa [G₂, B_blk, eFull, petersenEquiv, petersenIdx] using hB_diag 0
-  have hB_blk_eq : B_blk = Matrix.fromBlocks (petersenAint w)
-      (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)
-      (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)ᵀ
-      G₂ := by
-    ext p q
-    rcases p with (a | a) | (i | ⟨⟩) <;> rcases q with (b | b) | (j | ⟨⟩)
-    · fin_cases a <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint] <;>
-        exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases a <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenB, w] <;>
-        first | rfl | exact hB_sym _ _ | exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases a <;> fin_cases j <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR, petersenRU, w] <;>
-        first | rfl | exact hB_sym _ _ | exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases a <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenB, w] <;>
-        first | rfl | exact hB_sym _ _ | exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases a <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenC, w] <;>
-        first | rfl | exact hB_sym _ _ | exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases a <;> fin_cases j <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR] <;>
-        exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases i <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR, petersenRU, w] <;>
-        first | rfl | exact hB_sym _ _ | exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · fin_cases i <;> fin_cases b <;>
-        simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR] <;>
-        exact hB_zero _ _ (not_petersenGraph_adj _ _ (by decide))
-    · rfl
-  refine petersen_block_signature_nonpos w hw G₂ hG₂ hG₂_00 B_blk hB_blk hB_blk_eq ?_ ?_
+    change B 0 0 = 0
+    exact hB_diag 0
+  refine petersen_block_signature_nonpos w hw G₂ hG₂ hG₂_00 B_blk hB_blk ?_ ?_ ?_
+  · ext p q
+    rcases p with (a | a) | (i | e)
+    · rcases q with (b | b) | (j | f)
+      · fin_cases a <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint] <;>
+          (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · fin_cases a <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenB, w] <;>
+          first | rfl | exact hB_sym _ _ | (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · fin_cases a <;> fin_cases j <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR, petersenRU, w] <;>
+          first | rfl | exact hB_sym _ _ | (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · exact Empty.elim f
+    · rcases q with (b | b) | (j | f)
+      · fin_cases a <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenB, w] <;>
+          first | rfl | exact hB_sym _ _ | (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · fin_cases a <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenAint, petersenC, w] <;>
+          first | rfl | exact hB_sym _ _ | (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · fin_cases a <;> fin_cases j <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR] <;>
+          (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · exact Empty.elim f
+    · rcases q with (b | b) | (j | f)
+      · fin_cases i <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR, petersenRU, w] <;>
+          first | rfl | exact hB_sym _ _ | (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · fin_cases i <;> fin_cases b <;>
+          simp [B_blk, eFull, petersenEquiv, petersenIdx, petersenR] <;>
+          (apply hB_zero; exact not_petersenGraph_adj _ _ (by decide))
+      · rfl
+      · exact Empty.elim f
+    · exact Empty.elim e
   · intro hdet
     let e₂ : Fin 2 ≃ Fin 2 ⊕ Empty := (Equiv.sumEmpty (Fin 2) Empty).symm
     let M₂ := (G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) Empty ℝ) 0 0).submatrix e₂ e₂
@@ -1015,7 +1034,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have hw : ∀ k : Fin 14, 0 < w k := by
     intro k
     fin_cases k <;> dsimp [w] <;>
-      linarith [hB_H_neg _ _ (by decide) ((petersenGraph_adj_decide _ _).mpr (by decide))]
+      (apply neg_pos.mpr; apply hB_H_neg _ _ (by decide); exact (petersenGraph_adj_decide _ _).mpr (by decide))
   let U := {v : V // v ∉ VH}
   let eFull : (Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U) ≃ V :=
     { toFun := fun
@@ -1071,7 +1090,8 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   let G₂ : Matrix (Fin 2 ⊕ U) (Fin 2 ⊕ U) ℝ := B_blk.toBlocks₂₂
   have hG₂ : G₂.IsHermitian := isHermitian_submatrix B_blk hB_blk Sum.inr
   have hG₂_00 : G₂ (Sum.inl 0) (Sum.inl 0) = 0 := by
-    simpa [G₂, B_blk, eFull, petersenIdx] using hB_diag (eH 0).1
+    change B (eH 0).1 (eH 0).1 = 0
+    exact hB_diag (eH 0).1
   have hB_blk_eq : B_blk = Matrix.fromBlocks (petersenAint w)
       (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)
       (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)ᵀ
@@ -1080,32 +1100,32 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     rcases p with (a | a) | (i | u) <;> rcases q with (b | b) | (j | v)
     · fin_cases a <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenAint] <;>
-        exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenAint, petersenB, w] <;>
-        first | rfl | exact hsym_B _ _ | exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        first | rfl | exact hsym_B _ _ | (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;> fin_cases j <;>
         simp [B_blk, eFull, petersenIdx, petersenR, petersenRU, w] <;>
-        first | rfl | exact hsym_B _ _ | exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        first | rfl | exact hsym_B _ _ | (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;>
         (simp [B_blk, eFull, petersenIdx]; exact hB_cross _ (by decide) (by decide) v.1 v.2)
     · fin_cases a <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenAint, petersenB, w] <;>
-        first | rfl | exact hsym_B _ _ | exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        first | rfl | exact hsym_B _ _ | (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenAint, petersenC, w] <;>
-        first | rfl | exact hsym_B _ _ | exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        first | rfl | exact hsym_B _ _ | (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;> fin_cases j <;>
         simp [B_blk, eFull, petersenIdx, petersenR] <;>
-        exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases a <;>
         (simp [B_blk, eFull, petersenIdx]; exact hB_cross _ (by decide) (by decide) v.1 v.2)
     · fin_cases i <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenR, petersenRU, w] <;>
-        first | rfl | exact hsym_B _ _ | exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        first | rfl | exact hsym_B _ _ | (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · fin_cases i <;> fin_cases b <;>
         simp [B_blk, eFull, petersenIdx, petersenR] <;>
-        exact hB_H_zero _ _ (by decide) (not_petersenGraph_adj _ _ (by decide))
+        (apply hB_H_zero _ _ (by decide); exact not_petersenGraph_adj _ _ (by decide))
     · rfl
     · rfl
     · fin_cases b <;>
@@ -1115,7 +1135,8 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     · rfl
     · rfl
   refine petersen_block_signature_nonpos w hw G₂ hG₂ hG₂_00 B_blk hB_blk hB_blk_eq ?_ ?_
-  · intro hdet
+  · -- Case 1: det(B) ≠ 0 → Weyl + NOC lift via 7-edge negative path 0-5-8-3-4-9-6-1
+    intro hdet
     obtain ⟨hm0, hm1, hμ_pos, hmsym⟩ := petersenMH_signs w hw hdet
     let μ : ℝ := petersenMH w 0 1
     let A_schur := G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) U ℝ) 0 0
@@ -1139,8 +1160,10 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have hA'_diag : ∀ z : Fin 2 ⊕ U, A' z z = 0 := by
       intro z
       rcases z with i | u
-      · fin_cases i <;> simp [A', G₂, B_blk, eFull, petersenIdx, hB_diag]
-      · simp [A', G₂, B_blk, eFull, hB_diag]
+      · fin_cases i
+        · change G₂ (Sum.inl 0) (Sum.inl 0) = 0; exact hB_diag (eH 0).1
+        · change G₂ (Sum.inl 1) (Sum.inl 1) = 0; exact hB_diag (eH 1).1
+      · change G₂ (Sum.inr u) (Sum.inr u) = 0; exact hB_diag u.1
     have hWeyl : signature A_schur hA_schur_H ≤ signature A' hA'_H := by
       refine signature_mono_of_posSemidef A_schur A' hA_schur_H hA'_H ?_
       rw [Matrix.posSemidef_iff_dotProduct_mulVec]
@@ -1198,9 +1221,12 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           · intro h; exact absurd (Finset.mem_univ _) h
       rw [hquad]
       nlinarith [sq_nonneg (z (Sum.inl 0)), sq_nonneg (z (Sum.inl 1))]
+    -- Prove A' is NOC
     let embV : Fin 2 ⊕ U → V := fun z => eFull (Sum.inr z)
     have hembV_inj : Function.Injective embV := fun a b h =>
       Sum.inr.inj (eFull.injective h)
+    have hembV_0 : embV (Sum.inl 0) = (eH 0).1 := rfl
+    have hembV_1 : embV (Sum.inl 1) = (eH 1).1 := rfl
     have hG₂_eq_B : ∀ z₁ z₂ : Fin 2 ⊕ U, G₂ z₁ z₂ = B (embV z₁) (embV z₂) := fun _ _ => rfl
     have hembV_ne_int : ∀ (z : Fin 2 ⊕ U) (i : Fin 10), i ≠ 0 → i ≠ 1 → embV z ≠ (eH i).1 := by
       intro z i hi0 hi1 h
@@ -1210,7 +1236,9 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have hinv := petersenEquiv.right_inv i
           change petersenIdx (petersenIdxInv i) = i at hinv
           rw [hpi] at hinv
-          simpa [eFull, hinv] using h
+          change embV z = (eH (petersenIdx (Sum.inl p))).1
+          rw [hinv]
+          exact h
         | inr k =>
           exfalso
           have hinv := petersenEquiv.right_inv i
@@ -1264,7 +1292,8 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have hAdj := SimpleGraph.Walk.adj_of_mem_edges c hedge
           simpa [matrixSignedGraph, matrixGraph, A', x', y'] using hAdj.2
         rcases lt_or_gt_of_ne hA'_xy_ne with hneg | hpos
-        · have hBxy_neg : B (embV x') (embV y') < 0 := by
+        · -- B x y + μ < 0 ⇒ B x y < 0 (same sign!), direct embedding lift
+          have hBxy_neg : B (embV x') (embV y') < 0 := by
             rw [← hG₂_eq_B]; linarith
           let embG : (matrixSignedGraph A' hA'_H.isSymm).graph ↪g
               (matrixSignedGraph B hB.isSymm).graph :=
@@ -1305,15 +1334,18 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 change (matrixSignedGraph B hB.isSymm).sign s(embV s₁, embV s₂) = _
                 by_cases h : (s₁ = Sum.inl 0 ∧ s₂ = Sum.inl 1) ∨ (s₁ = Sum.inl 1 ∧ s₂ = Sum.inl 0)
                 · rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
-                  · simp [matrixSignedGraph, A', not_lt.mpr hBxy_neg.le, not_lt.mpr hneg.le]
-                  · simp [matrixSignedGraph, A', hsym_B (embV y') (embV x'),
+                  · dsimp only [x', y'] at hBxy_neg hneg
+                    simp [matrixSignedGraph, A', not_lt.mpr hBxy_neg.le, not_lt.mpr hneg.le]
+                  · dsimp only [x', y'] at hBxy_neg hneg
+                    simp [matrixSignedGraph, A', hsym_B (embV (Sum.inl 1)) (embV (Sum.inl 0)),
                       hG₂_sym (Sum.inl 1) (Sum.inl 0), not_lt.mpr hBxy_neg.le, not_lt.mpr hneg.le]
                 · simp [matrixSignedGraph, A', h, hG₂_eq_B]
               rw [h1]; exact congrArg _ ihr
           have hnoc' := hB_noc (embV w₀) c' hc' (hlen'.symm ▸ hodd)
           rw [signedCycleType, ← hlen', ← hsign' c]
           exact hnoc'
-        · have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
+        · -- B x y + μ > 0: replace positive edge x'y' by 7-edge negative path 0-5-8-3-4-9-6-1
+          have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
           let c₀ := c.rotate x' hx'_mem
           have hc₀ : c₀.IsCycle := hc.rotate hx'_mem
           have hlen₀ : c₀.length = c.length := SimpleGraph.Walk.length_rotate c x' hx'_mem
@@ -1408,41 +1440,54 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have ha5 := hE 4 9 (by decide) ((petersenGraph_adj_decide 4 9).mpr (by decide))
           have ha6 := hE 9 6 (by decide) ((petersenGraph_adj_decide 9 6).mpr (by decide))
           have ha7 := hE 6 1 (by decide) ((petersenGraph_adj_decide 6 1).mpr (by decide))
+          let P' : (matrixSignedGraph B hB.isSymm).graph.Walk (eH 1).1 (eH 0).1 := P
           let cyc : (matrixSignedGraph B hB.isSymm).graph.Walk (eH 0).1 (eH 0).1 :=
             SimpleGraph.Walk.cons ha1 (SimpleGraph.Walk.cons ha2 (SimpleGraph.Walk.cons ha3
               (SimpleGraph.Walk.cons ha4 (SimpleGraph.Walk.cons ha5 (SimpleGraph.Walk.cons ha6
-                (SimpleGraph.Walk.cons ha7 P))))))
+                (SimpleGraph.Walk.cons ha7 P'))))))
           have hcyc_supp_nd : cyc.support.tail.Nodup := by
-            simp only [cyc, SimpleGraph.Walk.support_cons, List.tail_cons, List.nodup_cons,
-              List.mem_cons, not_or]
-            refine ⟨⟨heH_ne 5 8 (by decide), heH_ne 5 3 (by decide), heH_ne 5 4 (by decide),
-              heH_ne 5 9 (by decide), heH_ne 5 6 (by decide), hnotP 5 (by decide) (by decide)⟩,
-              ⟨heH_ne 8 3 (by decide), heH_ne 8 4 (by decide), heH_ne 8 9 (by decide),
-              heH_ne 8 6 (by decide), hnotP 8 (by decide) (by decide)⟩,
-              ⟨heH_ne 3 4 (by decide), heH_ne 3 9 (by decide), heH_ne 3 6 (by decide),
-              hnotP 3 (by decide) (by decide)⟩,
-              ⟨heH_ne 4 9 (by decide), heH_ne 4 6 (by decide), hnotP 4 (by decide) (by decide)⟩,
-              ⟨heH_ne 9 6 (by decide), hnotP 9 (by decide) (by decide)⟩,
-              hnotP 6 (by decide) (by decide), hP_path.support_nodup⟩
+            have heq_supp : cyc.support.tail =
+                ([(5 : Fin 10), 8, 3, 4, 9, 6].map fun k => (eH k).1) ++ P'.support := by
+              simp [cyc, SimpleGraph.Walk.support_cons]
+            rw [heq_supp, List.nodup_append]
+            refine ⟨(by decide : ([(5 : Fin 10), 8, 3, 4, 9, 6]).Nodup).map
+              (fun a b h => eH.injective (Subtype.ext h)), hP_path.support_nodup, ?_⟩
+            intro v hv w hw hvw
+            subst hvw
+            rw [List.mem_map] at hv
+            rcases hv with ⟨k, hk, rfl⟩
+            have hk0 : k ≠ 0 := by fin_cases k <;> simp at hk ⊢
+            have hk1 : k ≠ 1 := by fin_cases k <;> simp at hk ⊢
+            exact hnotP k hk0 hk1 hw
           have hcyc : cyc.IsCycle := by
             have htrail : cyc.IsTrail := by
               refine ⟨?_⟩
-              have hnotE : ∀ (a b : Fin 10), b ≠ 0 → b ≠ 1 → s((eH a).1, (eH b).1) ∉ P.edges :=
-                fun a b hb0 hb1 hm => hnotP b hb0 hb1 (SimpleGraph.Walk.snd_mem_support_of_mem_edges P hm)
-              have hnotE1 : ∀ (a b : Fin 10), a ≠ 0 → a ≠ 1 → s((eH a).1, (eH b).1) ∉ P.edges :=
-                fun a b ha0 ha1 hm => hnotP a ha0 ha1 (SimpleGraph.Walk.fst_mem_support_of_mem_edges P hm)
-              simp only [cyc, SimpleGraph.Walk.edges_cons, List.nodup_cons, List.mem_cons, not_or]
-              refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, hnotE 0 5 (by decide) (by decide)⟩,
-                ⟨?_, ?_, ?_, ?_, ?_, hnotE1 5 8 (by decide) (by decide)⟩,
-                ⟨?_, ?_, ?_, ?_, hnotE1 8 3 (by decide) (by decide)⟩,
-                ⟨?_, ?_, ?_, hnotE1 3 4 (by decide) (by decide)⟩,
-                ⟨?_, ?_, hnotE1 4 9 (by decide) (by decide)⟩,
-                ⟨?_, hnotE1 9 6 (by decide) (by decide)⟩,
-                hnotE1 6 1 (by decide) (by decide), hP_path.isTrail.edges_nodup⟩
-              all_goals
-                intro h
-                rcases Sym2.eq_iff.mp h with ⟨h1, h2⟩ | ⟨h1, h2⟩ <;>
-                  exact heH_ne _ _ (by decide) (by first | exact h1 | exact h2 | exact h1.symm | exact h2.symm)
+              have heq_edges : cyc.edges =
+                  ([s((0 : Fin 10), 5), s(5, 8), s(8, 3), s(3, 4), s(4, 9), s(9, 6), s(6, 1)].map
+                    (Sym2.map fun k => (eH k).1)) ++ P'.edges := by
+                simp [cyc, SimpleGraph.Walk.edges_cons]
+              rw [heq_edges, List.nodup_append]
+              refine ⟨(by decide :
+                  ([s((0 : Fin 10), 5), s(5, 8), s(8, 3), s(3, 4), s(4, 9), s(9, 6), s(6, 1)]).Nodup).map
+                (Sym2.map.injective (fun a b h => eH.injective (Subtype.ext h))),
+                hP_path.isTrail.edges_nodup, ?_⟩
+              intro e1 he1 e2 he2 heq
+              subst heq
+              rw [List.mem_map] at he1
+              rcases he1 with ⟨e0, he0_mem, rfl⟩
+              have hnotE : ∀ (a b : Fin 10), b ≠ 0 → b ≠ 1 → s((eH a).1, (eH b).1) ∉ P'.edges :=
+                fun a b hb0 hb1 hm => hnotP b hb0 hb1 (SimpleGraph.Walk.snd_mem_support_of_mem_edges P' hm)
+              have hnotE1 : ∀ (a b : Fin 10), a ≠ 0 → a ≠ 1 → s((eH a).1, (eH b).1) ∉ P'.edges :=
+                fun a b ha0 ha1 hm => hnotP a ha0 ha1 (SimpleGraph.Walk.fst_mem_support_of_mem_edges P' hm)
+              simp only [List.mem_cons, List.not_mem_nil, or_false] at he0_mem
+              rcases he0_mem with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+              · exact hnotE 0 5 (by decide) (by decide) he2
+              · exact hnotE1 5 8 (by decide) (by decide) he2
+              · exact hnotE1 8 3 (by decide) (by decide) he2
+              · exact hnotE1 3 4 (by decide) (by decide) he2
+              · exact hnotE1 4 9 (by decide) (by decide) he2
+              · exact hnotE1 9 6 (by decide) (by decide) he2
+              · exact hnotE1 6 1 (by decide) (by decide) he2
             exact ⟨⟨htrail, fun h => absurd (congrArg SimpleGraph.Walk.length h) (by simp [cyc])⟩,
               hcyc_supp_nd⟩
           have hcyc_len : cyc.length = c.length + 6 := by
@@ -1496,7 +1541,8 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         exact hnoc_q
     have hA'_le := ih (Fin 2 ⊕ U) hcard_W A' hA'_H hA'_diag hA'_noc
     exact le_trans hWeyl hA'_le
-  · have hU_le : Fintype.card U ≤ Fintype.card V - 8 := by omega
+  · -- Case 2: det(B) = 0 → G₂.submatrix Sum.inr Sum.inr is B|_U (NOC, card |V| - 10 ≤ |V| - 8)
+    have hU_le : Fintype.card U ≤ Fintype.card V - 8 := by omega
     have hU_diag : ∀ u : U, (G₂.submatrix Sum.inr Sum.inr) u u = 0 := fun u => hB_diag u.1
     have hU_noc : MatrixIsNOC (G₂.submatrix Sum.inr Sum.inr)
         (isHermitian_submatrix G₂ hG₂ Sum.inr).isSymm := by
