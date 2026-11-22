@@ -1,4 +1,4 @@
-import SignedGraphs.ParityAndCycles
+import SignedGraphs.TwoOddCycles
 
 /-!
 # Classification of 3-Connected Non-Bipartite NOC Signed Graphs (Theorem 3.1)
@@ -342,7 +342,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
     by_cases hev' : Even c'.length
     · exact False.elim (cycle_pair_obstructions_disjoint_even_odd S hconn h3 hnoc c' c hc' hc hev' hodd hdisj')
     · rw [Nat.not_even_iff_odd] at hev'
-      exact Or.inr (cycle_pair_obstructions_two_disjoint_odd S hconn h3 hnoc c' c hc' hc hev' hodd hdisj')
+      exact Or.inr (cycle_pair_obstructions_two_disjoint_odd_impl S hconn h3 hnoc c' c hc' hc hev' hodd hdisj')
   · push Not at hex_cyc
     -- G - V(c) is acyclic!
     have hacyc_out : ∀ (v' : V) (c' : G.Walk v' v'), c'.IsCycle → ¬ Disjoint c'.support.toFinset c.support.toFinset :=
@@ -1066,6 +1066,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             ring
           rw [h2RL, hQ0] at hsum
           exact absurd hsum (by decide)
+        --Wait: avoid the messy hy_nS in hside by passing hyC : y ∈ c.support!
         have hb_not_L1 : b ∉ L1.support := by
           intro hb1
           have hnd := hL_path.support_nodup
