@@ -105,19 +105,165 @@ lemma isHermitian_submatrix {W : Type*} (A : Matrix V V ℝ) (hA : A.IsHermitian
   change (A.submatrix f f)ᴴ = A.submatrix f f
   rw [Matrix.conjTranspose_submatrix, hA.eq]
 
+private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
+    ∃ e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ),
+      ∀ x : V → ℝ, dotProduct x (A *ᵥ x) = ∑ i : V, hA.eigenvalues i * (e x i) ^ 2 := by
+  let U : Matrix V V ℝ := (hA.eigenvectorUnitary : Matrix V V ℝ)
+  have hU_mem := hA.eigenvectorUnitary.prop
+  rw [Matrix.mem_unitaryGroup_iff'] at hU_mem
+  have hU_left : Uᵀ * U = 1 := by
+    simpa [U, Matrix.conjTranspose_eq_transpose_of_trivial] using hU_mem
+  have hU_mem2 := hA.eigenvectorUnitary.prop
+  rw [Matrix.mem_unitaryGroup_iff] at hU_mem2
+  have hU_right : U * Uᵀ = 1 := by
+    simpa [U, Matrix.conjTranspose_eq_transpose_of_trivial] using hU_mem2
+  let e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ) :=
+    { toFun := fun x => Uᵀ *ᵥ x
+      invFun := fun y => U *ᵥ y
+      map_add' := fun x y => Matrix.mulVec_add Uᵀ x y
+      map_smul' := fun c x => Matrix.mulVec_smul Uᵀ c x
+      left_inv := fun x => by simp [Matrix.mulVec_mulVec, hU_right]
+      right_inv := fun y => by simp [Matrix.mulVec_mulVec, hU_left] }
+  refine ⟨e, fun x => ?_⟩
+  have hspec : A = U * Matrix.diagonal hA.eigenvalues * Uᵀ := by
+    simpa [U, Matrix.conjTranspose_eq_transpose_of_trivial] using hA.spectral_theorem
+  conv_lhs => rw [hspec]
+  rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec,
+    ← Matrix.vecMul_transpose, Matrix.dotProduct_mulVec]
+  simp only [e, LinearEquiv.coe_mk, LinearMap.coe_mk, AddHom.coe_mk,
+    Matrix.mulVec_diagonal, dotProduct]
+  refine Finset.sum_congr rfl fun i _ => ?_
+  ring
+
+private lemma finrank_coordSubmodule (P : V → Prop) [DecidablePred P] :
+    Module.finrank ℝ (Submodule.pi Set.univ fun i : V => if P i then (⊤ : Submodule ℝ ℝ) else ⊥) =
+      (Finset.univ.filter P).card := by
+  classical
+  have h := Submodule.finrank_pi (R := ℝ) (ι := V) (M := fun _ : V => ℝ)
+    (p := fun i : V => if P i then (⊤ : Submodule ℝ ℝ) else ⊥)
+  rw [h]
+  have hterm : ∀ i : V, Module.finrank ℝ (↥(if P i then (⊤ : Submodule ℝ ℝ) else ⊥)) =
+      if P i then 1 else 0 := by
+    intro i
+    split_ifs <;> simp [finrank_top, finrank_bot]
+  simp_rw [hterm, Finset.sum_ite, Finset.sum_const, Finset.sum_const_zero, smul_eq_mul,
+    mul_one, add_zero]
+
+private lemma posInertia_eq_sSup_aux (d : V → ℝ) :
+    (Finset.univ.filter fun i : V => 0 < d i).card =
+      sSup { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
+        Module.finrank ℝ W = n ∧ ∀ y ∈ W, y ≠ 0 → 0 < ∑ i : V, d i * (y i) ^ 2 } := by
+  classical
+  let S := { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
+    Module.finrank ℝ W = n ∧ ∀ y ∈ W, y ≠ 0 → 0 < ∑ i : V, d i * (y i) ^ 2 }
+  have hbdd : BddAbove S := ⟨Fintype.card V, by rintro n ⟨W, rfl, _⟩; simpa using Submodule.finrank_le W⟩
+  let Wpos : Submodule ℝ (V → ℝ) :=
+    Submodule.pi Set.univ fun i : V => if 0 < d i then ⊤ else ⊥
+  let Wnonpos : Submodule ℝ (V → ℝ) :=
+    Submodule.pi Set.univ fun i : V => if 0 < d i then ⊥ else ⊤
+  have hmem : (Finset.univ.filter fun i : V => 0 < d i).card ∈ S := by
+    refine ⟨Wpos, finrank_coordSubmodule (fun i => 0 < d i), fun y hy hy0 => ?_⟩
+    have hy_zero : ∀ i, ¬ (0 < d i) → y i = 0 := by
+      intro i hi
+      have := hy i trivial
+      simp [hi] at this
+      exact this
+    have hex : ∃ i, 0 < d i ∧ y i ≠ 0 := by
+      by_contra hnone
+      push_neg at hnone
+      apply hy0
+      ext i
+      by_cases hi : 0 < d i
+      · exact hnone i hi
+      · exact hy_zero i hi
+    rcases hex with ⟨i₀, hd₀, hy₀⟩
+    refine Finset.sum_pos' (fun i _ => ?_) ⟨i₀, Finset.mem_univ i₀, ?_⟩
+    · by_cases hi : 0 < d i
+      · exact mul_nonneg hi.le (sq_nonneg _)
+      · simp [hy_zero i hi]
+    · exact mul_pos hd₀ (sq_pos_of_ne_zero hy₀)
+  refine le_antisymm (le_csSup hbdd hmem) (csSup_le ⟨_, hmem⟩ ?_)
+  rintro n ⟨W, rfl, hW⟩
+  have hdisj : W ⊓ Wnonpos = ⊥ := by
+    rw [eq_bot_iff]
+    rintro y ⟨hyW, hyN⟩
+    by_contra hy0
+    have hpos := hW y hyW hy0
+    have hle : ∑ i : V, d i * (y i) ^ 2 ≤ 0 := by
+      refine Finset.sum_nonpos fun i _ => ?_
+      by_cases hi : 0 < d i
+      · have hmemi := hyN i trivial
+        simp [hi] at hmemi
+        simp [hmemi]
+      · exact mul_nonpos_of_nonpos_of_nonneg (not_lt.mp hi) (sq_nonneg _)
+    linarith
+  have hsum := Submodule.finrank_sup_add_finrank_inf_eq W Wnonpos
+  rw [hdisj, finrank_bot, add_zero] at hsum
+  have hle_card : Module.finrank ℝ (W ⊔ Wnonpos) ≤ Fintype.card V := by
+    simpa using Submodule.finrank_le (W ⊔ Wnonpos)
+  have hnonpos_card : Module.finrank ℝ Wnonpos = (Finset.univ.filter fun i : V => ¬ (0 < d i)).card := by
+    have := finrank_coordSubmodule (fun i => ¬ (0 < d i))
+    convert this using 2
+    ext i
+    split_ifs <;> simp_all
+  have hpart : (Finset.univ.filter fun i : V => 0 < d i).card +
+      (Finset.univ.filter fun i : V => ¬ (0 < d i)).card = Fintype.card V := by
+    rw [Finset.filter_card_add_filter_neg_card_eq_card]
+  omega
+
 /-- Variational characterization of `posInertia`: maximum dimension of a subspace on which
 `x ↦ x ⬝ᵥ (A *ᵥ x)` is strictly positive on nonzero vectors. -/
 theorem posInertia_eq_sSup (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     posInertia A hA = sSup { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
       Module.finrank ℝ W = n ∧ ∀ x ∈ W, x ≠ 0 → 0 < dotProduct x (A *ᵥ x) } := by
-  sorry
+  obtain ⟨e, he⟩ := spectral_quad_form A hA
+  unfold posInertia
+  rw [posInertia_eq_sSup_aux hA.eigenvalues]
+  congr 1; ext n; constructor
+  · rintro ⟨W, rfl, hW⟩
+    refine ⟨W.map e.symm.toLinearMap, LinearEquiv.finrank_map_eq e.symm W, ?_⟩
+    rintro x hx hx0
+    rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
+    have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
+    rw [he (e.symm y), LinearEquiv.apply_symm_apply]
+    exact hW y hy hy0
+  · rintro ⟨W, rfl, hW⟩
+    refine ⟨W.map e.toLinearMap, LinearEquiv.finrank_map_eq e W, ?_⟩
+    rintro y hy hy0
+    rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
+    have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+    rw [← he x]
+    exact hW x hx hx0
 
 /-- Variational characterization of `negInertia`: maximum dimension of a subspace on which
 `x ↦ x ⬝ᵥ (A *ᵥ x)` is strictly negative on nonzero vectors. -/
 theorem negInertia_eq_sSup (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     negInertia A hA = sSup { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
       Module.finrank ℝ W = n ∧ ∀ x ∈ W, x ≠ 0 → dotProduct x (A *ᵥ x) < 0 } := by
-  sorry
+  obtain ⟨e, he⟩ := spectral_quad_form A hA
+  have hneg_card : (Finset.univ.filter fun i : V => hA.eigenvalues i < 0).card =
+      (Finset.univ.filter fun i : V => 0 < -hA.eigenvalues i).card := by
+    congr 1; ext i; simp [neg_pos]
+  unfold negInertia
+  rw [hneg_card, posInertia_eq_sSup_aux (-hA.eigenvalues)]
+  congr 1; ext n; constructor
+  · rintro ⟨W, rfl, hW⟩
+    refine ⟨W.map e.symm.toLinearMap, LinearEquiv.finrank_map_eq e.symm W, ?_⟩
+    rintro x hx hx0
+    rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
+    have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
+    rw [he (e.symm y), LinearEquiv.apply_symm_apply]
+    have hypos := hW y hy hy0
+    simp only [Pi.neg_apply, neg_mul, Finset.sum_neg_distrib, neg_pos] at hypos
+    exact hypos
+  · rintro ⟨W, rfl, hW⟩
+    refine ⟨W.map e.toLinearMap, LinearEquiv.finrank_map_eq e W, ?_⟩
+    rintro y hy hy0
+    rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
+    have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+    simp only [Pi.neg_apply, neg_mul, Finset.sum_neg_distrib, neg_pos]
+    rw [← he x]
+    exact hW x hx hx0
 
 private lemma posSubspace_bddAbove (A : Matrix V V ℝ) :
     BddAbove { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
@@ -146,8 +292,8 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
   have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) := by
     intro x
     change dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (P *ᵥ x) (A *ᵥ (P *ᵥ x))
-    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
-      Matrix.vecMul_transpose]
+    rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec Pᵀ, Matrix.dotProduct_mulVec,
+      Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
   have hpos : posInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
     congr 1; ext n; constructor
@@ -164,6 +310,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
+      change 0 < dotProduct (e.symm y) ((Pᵀ * A * P) *ᵥ e.symm y)
       rw [hquad (e.symm y)]
       change 0 < dotProduct (e (e.symm y)) (A *ᵥ e (e.symm y))
       rw [LinearEquiv.apply_symm_apply]
@@ -184,6 +331,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
+      change dotProduct (e.symm y) ((Pᵀ * A * P) *ᵥ e.symm y) < 0
       rw [hquad (e.symm y)]
       change dotProduct (e (e.symm y)) (A *ᵥ e (e.symm y)) < 0
       rw [LinearEquiv.apply_symm_apply]
@@ -226,8 +374,8 @@ theorem signature_eq_zero_of_bipartite (A : Matrix V V ℝ) (hA : A.IsHermitian)
       · simp [hAuv]
       · have hadj : (matrixGraph A hA.isSymm).Adj u v := ⟨huv, hAuv⟩
         have hne := hf hadj
-        have hfu : f u = 0 ∨ f u = 1 := Fin.cases (Or.inl rfl) (fun _ => Or.inr rfl) (f u)
-        have hfv : f v = 0 ∨ f v = 1 := Fin.cases (Or.inl rfl) (fun _ => Or.inr rfl) (f v)
+        have hfu : f u = 0 ∨ f u = 1 := by omega
+        have hfv : f v = 0 ∨ f v = 1 := by omega
         rcases hfu with hu | hu <;> rcases hfv with hv | hv
         · exfalso; exact hne (by rw [hu, hv])
         · simp [hu, hv]
@@ -236,7 +384,7 @@ theorem signature_eq_zero_of_bipartite (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have h1 : signature (-A) (isHermitian_neg A hA) = signature A hA := by
     have := signature_congr A D hA hD_det
     simpa [hDAD] using this
-  rw [signature_neg] at h1
+  rw [signature_neg A hA] at h1
   omega
 
 /-- Weyl's monotonicity theorem for signature: if `B - A` is positive semidefinite,
@@ -251,13 +399,13 @@ theorem signature_mono_of_posSemidef (A B : Matrix V V ℝ) (hA : A.IsHermitian)
     exact hnn
   have hpos : posInertia A hA ≤ posInertia B hB := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
-    refine csSup_le_csSup (posSubspace_bddAbove B) ⟨0, ⊥, rfl, fun x hx hx0 => ?_⟩ ?_
+    refine csSup_le_csSup (posSubspace_bddAbove B) ⟨0, ⊥, finrank_bot ℝ (V → ℝ), fun x hx hx0 => ?_⟩ ?_
     · exfalso; exact hx0 (Submodule.mem_bot.mp hx)
     · rintro n ⟨W, rfl, hW⟩
       exact ⟨W, rfl, fun x hx hx0 => lt_of_lt_of_le (hW x hx hx0) (hquad x)⟩
   have hneg : negInertia B hB ≤ negInertia A hA := by
     rw [negInertia_eq_sSup, negInertia_eq_sSup]
-    refine csSup_le_csSup (negSubspace_bddAbove A) ⟨0, ⊥, rfl, fun x hx hx0 => ?_⟩ ?_
+    refine csSup_le_csSup (negSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (V → ℝ), fun x hx hx0 => ?_⟩ ?_
     · exfalso; exact hx0 (Submodule.mem_bot.mp hx)
     · rintro n ⟨W, rfl, hW⟩
       exact ⟨W, rfl, fun x hx hx0 => lt_of_le_of_lt (hquad x) (hW x hx hx0)⟩
@@ -269,6 +417,63 @@ theorem signature_mono_of_posSemidef (A B : Matrix V V ℝ) (hA : A.IsHermitian)
 theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermitian) (v : V) :
     |signature A hA - signature (A.submatrix (fun x : {x : V // x ≠ v} => x.1)
       (fun x : {x : V // x ≠ v} => x.1)) (isHermitian_submatrix A hA _)| ≤ 1 := by
+  let W := {x : V // x ≠ v}
+  let A' : Matrix W W ℝ := A.submatrix (fun x : W => x.1) (fun x : W => x.1)
+  have hA' : A'.IsHermitian := isHermitian_submatrix A hA _
+  let ι : (W → ℝ) →ₗ[ℝ] (V → ℝ) :=
+    { toFun := fun y u => if h : u = v then 0 else y ⟨u, h⟩
+      map_add' := fun y₁ y₂ => by ext u; split_ifs <;> simp
+      map_smul' := fun c y => by ext u; split_ifs <;> simp }
+  have hι_inj : Function.Injective ι := by
+    intro y₁ y₂ h
+    ext ⟨u, hu⟩
+    have := congrFun h u
+    simpa [ι, hu] using this
+  have hquad_ι : ∀ y : W → ℝ, dotProduct (ι y) (A *ᵥ ι y) = dotProduct y (A' *ᵥ y) := by
+    intro y
+    simp only [dotProduct, Matrix.mulVec, ι, A', Matrix.submatrix_apply]
+    have hsumV : ∀ f : V → ℝ, f v = 0 →
+        (∑ u : V, f u) = ∑ x : W, f x.1 := by
+      intro f hfv
+      rw [← Finset.add_sum_erase Finset.univ f (Finset.mem_univ v), hfv, zero_add]
+      refine Finset.sum_bij (fun x _ => x.1) (fun x _ => Finset.mem_erase.mpr ⟨x.2, Finset.mem_univ _⟩)
+        (fun a b _ _ h => Subtype.ext h) (fun u hu => ⟨⟨u, (Finset.mem_erase.mp hu).1⟩, Finset.mem_univ _, rfl⟩)
+        (fun _ _ => rfl)
+    rw [hsumV _ (by simp)]
+    refine Finset.sum_congr rfl fun x _ => ?_
+    simp only [x.2, ↓reduceDIte]
+    congr 1
+    rw [hsumV _ (by simp)]
+    refine Finset.sum_congr rfl fun z _ => ?_
+    simp [z.2]
+  let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
+  have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W → ℝ, ι y = x := by
+    intro x hx
+    refine ⟨fun z => x z.1, ?_⟩
+    ext u
+    by_cases hu : u = v
+    · subst hu; simpa [ι, proj] using hx
+    · simp [ι, hu]
+  have hpos_le : posInertia A' hA' ≤ posInertia A hA := by
+    rw [posInertia_eq_sSup, posInertia_eq_sSup]
+    refine csSup_le_csSup (posSubspace_bddAbove A) ⟨0, ⊥, finrank_bot ℝ (W → ℝ), fun y hy hy0 => ?_⟩ ?_
+    · exfalso; exact hy0 (Submodule.mem_bot.mp hy)
+    · rintro n ⟨U, rfl, hU⟩
+      refine ⟨U.map ι, LinearMap.finrank_map_of_inj ι hι_inj U, ?_⟩
+      rintro x hx hx0
+      rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
+      have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
+      rw [hquad_ι y]
+      exact hU y hy hy0
+  have hpos_ge : posInertia A hA ≤ posInertia A' hA' + 1 := by
+    rw [posInertia_eq_sSup, posInertia_eq_sSup]
+    refine Nat.le_add_of_sub_le ?_
+    refine csSup_le ⟨0, ⊥, finrank_bot ℝ (V → ℝ), fun x hx hx0 => by exfalso; exact hx0 (Submodule.mem_bot.mp hx)⟩ ?_
+    rintro n ⟨U, rfl, hU⟩
+    have hcodim : Module.finrank ℝ U - 1 ≤ Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
+      have h1 := Submodule.finrank_quotient_le_finrank_of_le (U := U) (V := LinearMap.ker proj)
+      sorry
+    sorry
   sorry
 
 end MatrixInequalities
