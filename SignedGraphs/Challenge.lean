@@ -20,7 +20,9 @@ noncomputable def matSig {n : ℕ} (A : Matrix (Fin n) (Fin n) ℝ) (hA : A.IsHe
 /-- Underlying graph of a real symmetric matrix `A` on `Fin n`: `i ~ j` iff `i ≠ j ∧ A i j ≠ 0`. -/
 def adjGraph {n : ℕ} (A : Matrix (Fin n) (Fin n) ℝ) (hA : A.IsSymm) : SimpleGraph (Fin n) where
   Adj i j := i ≠ j ∧ A i j ≠ 0
-  symm := ⟨fun _ _ h => ⟨h.1.symm, by simpa [congrFun (congrFun hA _) _] using h.2⟩⟩
+  symm := ⟨fun i j h => by
+    have hsym : A j i = A i j := congrFun (congrFun hA i) j
+    exact ⟨h.1.symm, by rw [hsym]; exact h.2⟩⟩
   loopless := ⟨fun _ h => h.1 rfl⟩
 
 /-- Sign product along a walk in `Fin n`. -/

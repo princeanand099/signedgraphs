@@ -102,10 +102,88 @@ def IsNOCModFour (S : SignedGraph V) : Prop :=
   ∀ (v : V) (c : S.graph.Walk v v), c.IsCycle → Odd c.length →
     walkModFourWeight S.sign c = 3
 
+private lemma list_modFourWeight_and_prod (σ : Sym2 V → ℤ) :
+    ∀ (l : List (Sym2 V)), (∀ e ∈ l, σ e = 1 ∨ σ e = -1) →
+      (l.map (modFourWeight σ)).sum =
+        (l.length : ZMod 4) + 2 * ((l.countP (fun e => decide (σ e = -1)) : ℕ) : ZMod 4) ∧
+      (l.map σ).prod = (-1 : ℤ) ^ (l.countP (fun e => decide (σ e = -1)))
+  | [], _ => by simp
+  | e :: l, hl => by
+    have he : σ e = 1 ∨ σ e = -1 := hl e (by simp)
+    have hl' : ∀ x ∈ l, σ x = 1 ∨ σ x = -1 := fun x hx => hl x (by simp [hx])
+    obtain ⟨ih1, ih2⟩ := list_modFourWeight_and_prod σ l hl'
+    simp only [List.map_cons, List.sum_cons, List.prod_cons, List.length_cons,
+      List.countP_cons, Nat.cast_add, Nat.cast_one]
+    rw [ih1, ih2]
+    rcases he with h1 | hneg
+    · have hne : ¬ (σ e = -1) := by omega
+      simp only [modFourWeight, h1, ↓reduceIte, decide_eq_true_eq, hne, decide_false,
+        Bool.false_eq_true, ↓reduceIte, Nat.add_zero, one_mul]
+      refine ⟨by ring, rfl⟩
+    · have hne : ¬ (σ e = 1) := by omega
+      simp only [modFourWeight, hneg, hne, ↓reduceIte, decide_true, Nat.cast_add, Nat.cast_one]
+      refine ⟨by ring, ?_⟩
+      rw [pow_succ']
+      ring
+
+/-- An odd cycle `C` has `ϵ(C) = -1` if and only if `w_σ(C) = 3` in `ZMod 4`. -/
+theorem signedCycleType_eq_neg_one_iff_modFourWeight_eq_three (S : SignedGraph V)
+    {v : V} (c : S.graph.Walk v v) (hodd : Odd c.length) :
+    signedCycleType S.sign c = -1 ↔ walkModFourWeight S.sign c = 3 := by
+  have hl : ∀ e ∈ c.edges, S.sign e = 1 ∨ S.sign e = -1 := fun e he =>
+    S.sign_pm_one e (c.edges_subset_edgeSet he)
+  obtain ⟨hw, hp⟩ := list_modFourWeight_and_prod S.sign c.edges hl
+  have hlen : c.edges.length = c.length := SimpleGraph.Walk.length_edges c
+  rcases hodd with ⟨k, hk⟩
+  have hdiv : c.length / 2 = k := by omega
+  unfold signedCycleType walkModFourWeight walkSignProd
+  rw [hw, hp, hlen, hdiv, hk]
+  set r := c.edges.countP (fun e => decide (S.sign e = -1))
+  have hpow : (-1 : ℤ) ^ k * (-1 : ℤ) ^ r = (-1 : ℤ) ^ (k + r) := by rw [← pow_add]
+  rw [hpow, neg_one_pow_eq_neg_one_iff]
+  constructor
+  · intro hkr
+    rcases hkr with ⟨m, hm⟩
+    have hkr2 : k + r = 2 * m + 1 := hm
+    have : ((2 * k + 1 : ℕ) : ZMod 4) + 2 * (r : ZMod 4) =
+        ((2 * (k + r) + 1 : ℕ) : ZMod 4) := by push_cast; ring
+    rw [this, hkr2]
+    have h4 : ((2 * (2 * m + 1) + 1 : ℕ) : ZMod 4) = 4 * (m : ZMod 4) + 3 := by
+      push_cast; ring
+    rw [h4]
+    have h4z : (4 : ZMod 4) = 0 := rfl
+    rw [h4z, zero_mul, zero_add]
+  · intro hmod
+    by_cases hev : Even (k + r)
+    · rcases hev with ⟨m, hm⟩
+      have hkr2 : k + r = 2 * m := by omega
+      have h4 : ((2 * k + 1 : ℕ) : ZMod 4) + 2 * (r : ZMod 4) =
+          ((2 * (k + r) + 1 : ℕ) : ZMod 4) := by push_cast; ring
+      rw [h4, hkr2] at hmod
+      have h4m : ((2 * (2 * m) + 1 : ℕ) : ZMod 4) = 4 * (m : ZMod 4) + 1 := by
+        push_cast; ring
+      rw [h4m] at hmod
+      have h4z : (4 : ZMod 4) = 0 := rfl
+      rw [h4z, zero_mul, zero_add] at hmod
+      exfalso
+      revert hmod
+      decide
+    · exact Nat.not_even_iff_odd.mp hev
+
+/-- Equivalence between `IsNOC` and `IsNOCModFour` (Section 1, p. 2). -/
+theorem isNOC_iff_isNOCModFour (S : SignedGraph V) : IsNOC S ↔ IsNOCModFour S := by
+  constructor
+  · intro h v c hc hodd
+    exact (signedCycleType_eq_neg_one_iff_modFourWeight_eq_three S c hodd).mp (h v c hc hodd)
+  · intro h v c hc hodd
+    exact (signedCycleType_eq_neg_one_iff_modFourWeight_eq_three S c hodd).mpr (h v c hc hodd)
+
 /-- Underlying simple graph of a real symmetric matrix `A`. -/
 def matrixGraph (A : Matrix V V ℝ) (hA : A.IsSymm) : SimpleGraph V where
   Adj u v := u ≠ v ∧ A u v ≠ 0
-  symm := ⟨fun _ _ h => ⟨h.1.symm, by simpa [congrFun (congrFun hA _) _] using h.2⟩⟩
+  symm := ⟨fun u v h => by
+    have hsym : A v u = A u v := congrFun (congrFun hA u) v
+    exact ⟨h.1.symm, by rw [hsym]; exact h.2⟩⟩
   loopless := ⟨fun _ h => h.1 rfl⟩
 
 /-- Underlying signed graph `(G(A), σ_A)` of a real symmetric matrix `A`. -/
