@@ -443,13 +443,13 @@ lemma matrixIsNOC_submatrix_injective {V W : Type*} [Fintype V] [DecidableEq V]
     (hAf : (A.submatrix f f).IsSymm) :
     MatrixIsNOC (A.submatrix f f) hAf := by
   intro w c hc hodd
-  let emb : matrixGraph (A.submatrix f f) hAf ↪g matrixGraph A hA :=
+  let emb : (matrixSignedGraph (A.submatrix f f) hAf).graph ↪g (matrixSignedGraph A hA).graph :=
     { toFun := f
       inj' := hf
       map_rel_iff' := by
         intro a b
-        simp [matrixGraph, hf.ne_iff] }
-  let c' : (matrixGraph A hA).Walk (f w) (f w) := c.map emb.toHom
+        simp [matrixSignedGraph, matrixGraph, hf.ne_iff] }
+  let c' : (matrixSignedGraph A hA).graph.Walk (f w) (f w) := c.map emb.toHom
   have hc' : c'.IsCycle := hc.map emb.injective
   have hlen : c'.length = c.length := SimpleGraph.Walk.length_map emb.toHom c
   have hodd' : Odd c'.length := hlen.symm ▸ hodd
@@ -463,13 +463,12 @@ lemma matrixIsNOC_submatrix_injective {V W : Type*} [Fintype V] [DecidableEq V]
       simp only [SimpleGraph.Walk.map_cons, walkSignProd, SimpleGraph.Walk.edges_cons,
         List.map_cons, List.prod_cons]
       have h1 : (matrixSignedGraph A hA).sign s(emb.toHom u, emb.toHom x) =
-          (matrixSignedGraph (A.submatrix f f) hAf).sign s(u, x) := by
-        simp only [matrixSignedGraph, emb, SimpleGraph.Embedding.coe_toHom, RelEmbedding.coe_mk,
-          Function.Embedding.coeFn_mk, Sym2.lift_mk, Matrix.submatrix_apply]
+          (matrixSignedGraph (A.submatrix f f) hAf).sign s(u, x) := rfl
       rw [h1]
       exact congrArg _ ih
   have hnoc' := hnoc (f w) c' hc' hodd'
-  simpa only [signedCycleType, c', hlen, hsign c] using hnoc'
+  rw [signedCycleType, ← hlen, ← hsign c]
+  exact hnoc'
 
 private lemma sign_ite_mul (a b : ℝ) (ha : a ≠ 0) (hb : b ≠ 0) :
     (if 0 < a * b then (1 : ℤ) else -1) =
@@ -485,15 +484,16 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
     (d : V → ℝ) (hd : ∀ u, d u ≠ 0)
     (hB : (Matrix.diagonal d * A * Matrix.diagonal d).IsSymm) :
     MatrixIsNOC (Matrix.diagonal d * A * Matrix.diagonal d) hB := by
-  let emb : matrixGraph (Matrix.diagonal d * A * Matrix.diagonal d) hB ↪g matrixGraph A hA :=
+  let emb : (matrixSignedGraph (Matrix.diagonal d * A * Matrix.diagonal d) hB).graph ↪g
+      (matrixSignedGraph A hA).graph :=
     { toFun := id
       inj' := Function.injective_id
       map_rel_iff' := by
         intro a b
-        simp [matrixGraph, Matrix.diagonal_mul, Matrix.mul_diagonal, hd a, hd b] }
+        simp [matrixSignedGraph, matrixGraph, Matrix.diagonal_mul, Matrix.mul_diagonal, hd a, hd b] }
   let S : Finset V := Finset.univ.filter fun u : V => d u < 0
   intro v c hc hodd
-  let c' : (matrixGraph A hA).Walk v v := c.map emb.toHom
+  let c' : (matrixSignedGraph A hA).graph.Walk v v := c.map emb.toHom
   have hc' : c'.IsCycle := hc.map emb.injective
   have hlen : c'.length = c.length := SimpleGraph.Walk.length_map emb.toHom c
   have hodd' : Odd c'.length := hlen.symm ▸ hodd
@@ -535,8 +535,8 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
       rw [h1]
       exact congrArg _ ih
   have hnoc' := hnoc v c' hc' hodd'
-  rw [signedCycleType, hsign c, walkSignProd_switch]
-  simpa only [signedCycleType, c', hlen] using hnoc'
+  rw [signedCycleType, ← hlen, hsign c, walkSignProd_switch]
+  exact hnoc'
 
 end MatrixHelpers
 

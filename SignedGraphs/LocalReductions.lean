@@ -599,11 +599,6 @@ private lemma sign_diff_cases (a b : ℝ) (hab : a - b ≠ 0) :
     · have hb : 0 < b := by linarith
       exact Or.inr ⟨ne_of_gt hb, by simp [hb, hpos]⟩
 
-private lemma walkSignProd_reverse {V : Type*} {G : SimpleGraph V} (σ : Sym2 V → ℤ)
-    {a b : V} (p : G.Walk a b) :
-    walkSignProd σ p.reverse = walkSignProd σ p := by
-  simp only [walkSignProd, SimpleGraph.Walk.edges_reverse, List.map_reverse, List.prod_reverse]
-
 /-- **Lemma 2.2 (Degree-2 vertex reduction)**: If `v` has degree 2 in `G(A)` (with `|V| ≥ 3`)
 and Theorem 1.2 holds for all NOC matrices of order `|V| - 2`, then `s(A) ≤ 0`. -/
 theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
@@ -877,6 +872,14 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     · simp [A'₀]
     · simp [A'₀, A', hB_diag u.1]
   -- Helper: lift any walk in A'₀ avoiding Sum.inl () to a walk in B inside U
+  let projU : Unit ⊕ U → V := fun | Sum.inl () => v | Sum.inr u => u.1
+  have hprojU_inj : ∀ a b : Unit ⊕ U, a ≠ Sum.inl () → b ≠ Sum.inl () → projU a = projU b → a = b := by
+    intro a b ha hb hEq
+    rcases a with ⟨⟩ | u₁
+    · exact absurd rfl ha
+    · rcases b with ⟨⟩ | u₂
+      · exact absurd rfl hb
+      · exact congrArg Sum.inr (Subtype.ext hEq)
   have hlift : ∀ {a b : U} (p : (matrixGraph A'₀ hA'₀.isSymm).Walk (Sum.inr a) (Sum.inr b)),
       Sum.inl () ∉ p.support →
       ∃ q : (matrixGraph B hB.isSymm).Walk a.1 b.1,
@@ -887,8 +890,6 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         (p.support.Nodup → q.support.Nodup) ∧
         (p.IsCycle → q.IsCycle) := by
     intro a b p hnot
-    -- Define the subgraph embedding on U into V
-    let fU : U → V := fun u => u.1
     have hrec : ∀ {s t : Unit ⊕ U} (p : (matrixGraph A'₀ hA'₀.isSymm).Walk s t),
         Sum.inl () ∉ p.support →
         ∀ (as : U) (bs : U), s = Sum.inr as → t = Sum.inr bs →
@@ -896,14 +897,15 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           q.length = p.length ∧
           walkSignProd (matrixSignedGraph B hB.isSymm).sign q =
             walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign p ∧
-          q.support = p.support.map (fun | Sum.inl () => v | Sum.inr u => u.1) := by
+          q.support = p.support.map projU ∧
+          q.edges = p.edges.map (Sym2.map projU) := by
       intro s t p
       induction p with
       | nil =>
         intro _ as bs hs ht
         have hEq : as = bs := Sum.inr.inj (hs.symm.trans ht)
         subst hEq
-        exact ⟨SimpleGraph.Walk.nil, rfl, rfl, by simp [hs]⟩
+        exact ⟨SimpleGraph.Walk.nil, rfl, rfl, by simp [hs, projU], rfl⟩
       | @cons s₁ s₂ s₃ hadj p ih =>
         intro hnot as bs hs ht
         have hs₂ : ∃ u₂ : U, s₂ = Sum.inr u₂ := by
@@ -917,12 +919,12 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         rcases hs₂ with ⟨u₂, hu₂⟩
         have hnot_p : Sum.inl () ∉ p.support := fun hm =>
           hnot (by simp [SimpleGraph.Walk.support_cons, hm])
-        obtain ⟨q', hq'len, hq'sign, hq'supp⟩ := ih hnot_p u₂ bs hu₂ ht
+        obtain ⟨q', hq'len, hq'sign, hq'supp, hq'edges⟩ := ih hnot_p u₂ bs hu₂ ht
         have hadjB : (matrixGraph B hB.isSymm).Adj as.1 u₂.1 := by
           subst hs; subst hu₂
           refine ⟨fun h => hadj.1 (congrArg Sum.inr (Subtype.ext h)), ?_⟩
           simpa [matrixGraph, A'₀, A'] using hadj.2
-        refine ⟨SimpleGraph.Walk.cons hadjB q', by simp [hq'len], ?_, ?_⟩
+        refine ⟨SimpleGraph.Walk.cons hadjB q', by simp [hq'len], ?_, ?_, ?_⟩
         · subst hs; subst hu₂
           simp only [walkSignProd, SimpleGraph.Walk.edges_cons, List.map_cons, List.prod_cons]
           have h1 : (matrixSignedGraph B hB.isSymm).sign s(as.1, u₂.1) =
@@ -930,8 +932,10 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             simp [matrixSignedGraph, A'₀, A']
           rw [h1]
           exact congrArg _ hq'sign
-        · simp [SimpleGraph.Walk.support_cons, hs, hq'supp]
-    obtain ⟨q, hqlen, hqsign, hqsupp⟩ := hrec p hnot a b rfl rfl
+        · simp [SimpleGraph.Walk.support_cons, hs, projU, hq'supp]
+        · subst hs; subst hu₂
+          simp [SimpleGraph.Walk.edges_cons, projU, hq'edges]
+    obtain ⟨q, hqlen, hqsign, hqsupp, hqedges⟩ := hrec p hnot a b rfl rfl
     refine ⟨q, hqlen, hqsign, ?_, ?_, ?_⟩
     · intro z hz
       rw [hqsupp] at hz
@@ -943,11 +947,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       rw [hqsupp]
       refine List.Nodup.map_on ?_ hnd
       intro w₁ hw₁ w₂ hw₂ hEq
-      rcases w₁ with ⟨⟩ | u₁
-      · exact absurd hw₁ hnot
-      · rcases w₂ with ⟨⟩ | u₂
-        · exact absurd hw₂ hnot
-        · exact congrArg Sum.inr (Subtype.ext hEq)
+      exact hprojU_inj w₁ w₂ (fun h => hnot (h ▸ hw₁)) (fun h => hnot (h ▸ hw₂)) hEq
     · intro hcyc
       have hne : q ≠ SimpleGraph.Walk.nil := by
         intro hqnil
@@ -957,37 +957,29 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         rw [hqsupp, List.map_tail]
         refine List.Nodup.map_on ?_ hcyc.support_nodup
         intro w₁ hw₁ w₂ hw₂ hEq
-        have hw₁' : w₁ ∈ p.support := List.mem_of_mem_tail hw₁
-        have hw₂' : w₂ ∈ p.support := List.mem_of_mem_tail hw₂
-        rcases w₁ with ⟨⟩ | u₁
-        · exact absurd hw₁' hnot
-        · rcases w₂ with ⟨⟩ | u₂
-          · exact absurd hw₂' hnot
-          · exact congrArg Sum.inr (Subtype.ext hEq)
+        exact hprojU_inj w₁ w₂
+          (fun h => hnot (h ▸ List.mem_of_mem_tail hw₁))
+          (fun h => hnot (h ▸ List.mem_of_mem_tail hw₂)) hEq
       have hedges : q.edges.Nodup := by
-        have hlen3 : 3 ≤ q.length := by rw [hqlen]; exact hcyc.three_le_length
-        have htr : q.IsTrail := by
-          rw [SimpleGraph.Walk.isTrail_def]
-          -- From support.tail.Nodup and length ≥ 3, edges are nodup
-          cases q with
-          | nil => simp at hlen3
-          | @cons _ w₁ _ h₁ r =>
-            have hr_path : r.IsPath := ⟨by simpa [SimpleGraph.Walk.support_cons] using htail⟩
-            rw [SimpleGraph.Walk.edges_cons, List.nodup_cons]
-            refine ⟨?_, hr_path.isTrail.edges_nodup⟩
-            intro hmem
-            -- If s(a.1, w₁) ∈ r.edges, since r ends at a.1 and r is a path, r must be just a single edge w₁-a.1, contradicting hlen3
-            have hr_len : 2 ≤ r.length := by simp at hlen3; omega
-            rcases SimpleGraph.Walk.mem_edges_iff_exists_takeUntil.mp hmem with ⟨_, _⟩
-            sorry
-        exact htr.edges_nodup
+        rw [hqedges]
+        refine List.Nodup.map_on ?_ hcyc.edges_nodup
+        intro e₁ he₁ e₂ he₂ hEq
+        rcases e₁ with ⟨u₁, v₁⟩
+        rcases e₂ with ⟨u₂, v₂⟩
+        have hu₁ : u₁ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges p he₁)
+        have hv₁ : v₁ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges p he₁)
+        have hu₂ : u₂ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges p he₂)
+        have hv₂ : v₂ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges p he₂)
+        simp only [Sym2.map_pair_eq, Sym2.eq_iff] at hEq
+        rcases hEq with ⟨h1, h2⟩ | ⟨h1, h2⟩
+        · rw [hprojU_inj u₁ u₂ hu₁ hu₂ h1, hprojU_inj v₁ v₂ hv₁ hv₂ h2]
+        · rw [hprojU_inj u₁ v₂ hu₁ hv₂ h1, hprojU_inj v₁ u₂ hv₁ hu₂ h2, Sym2.eq_swap]
       exact ⟨⟨hedges⟩, hne, htail⟩
   have hA'₀_noc : MatrixIsNOC A'₀ hA'₀.isSymm := by
     intro z₀ c hc hodd
     let top : Unit ⊕ U := Sum.inl ()
     by_cases htop : top ∈ c.support
-    · -- Rotate c to start at top
-      let c₀ := c.rotate htop
+    · let c₀ := c.rotate htop
       have hc₀ : c₀.IsCycle := hc.rotate htop
       have hlen₀ : c₀.length = c.length := SimpleGraph.Walk.length_rotate c htop
       have hodd₀ : Odd c₀.length := hlen₀.symm ▸ hodd
@@ -1000,7 +992,6 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           signedCycleType (matrixSignedGraph A'₀ hA'₀.isSymm).sign c₀ := by
         simp [signedCycleType, hlen₀, hsign_rot]
       rw [htype_eq]
-      -- Decompose c₀ = cons h₁ q, and q.reverse = cons h₂ p_rev
       cases hc₀_eq : c₀ with
       | nil => exact absurd hc₀_eq hc₀.ne_nil
       | @cons _ a₁ _ h₁ q =>
@@ -1064,8 +1055,6 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             have hw : w₁ = w₂ := Subtype.ext hEq
             have h3 : 3 ≤ c₀.length := hc₀.three_le_length
             have hplen : 1 ≤ p.length := by omega
-            have hstart : Sum.inr w₁ ∈ p.support := SimpleGraph.Walk.start_mem_support p
-            -- If w₁ = w₂ and p.length ≥ 1, p.support has duplicate Sum.inr w₁
             cases hp : p with
             | nil => simp [hp] at hplen
             | @cons _ z _ hadjp r =>
@@ -1079,8 +1068,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               (SimpleGraph.Walk.cons ha (P.append (SimpleGraph.Walk.cons hb SimpleGraph.Walk.nil))).IsCycle := by
             intro u₀ hu₀ ha hb
             refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
-            · -- edges nodup
-              rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_append,
+            · rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_append,
                 SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.nodup_cons]
               refine ⟨?_, ?_⟩
               · intro hm
