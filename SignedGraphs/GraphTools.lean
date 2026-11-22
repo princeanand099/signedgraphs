@@ -1074,16 +1074,16 @@ theorem two_disjoint_paths_between_sets :
               have hm := List.mem_toFinset.mp hx1
               dsimp only [rw_path] at hm
               rw [SimpleGraph.Walk.mem_support_append_iff] at hm
-              simpa [SimpleGraph.Walk.support_map] using hm
+              simpa [φA, φB, SimpleGraph.Walk.support_map] using hm
             have h2 : x ∈ pu.support ∨ x ∈ qv.support := by
               have hm := List.mem_toFinset.mp hx2
               dsimp only [ruv_path] at hm
               rw [SimpleGraph.Walk.mem_support_append_iff, SimpleGraph.Walk.support_cons,
                 List.mem_cons] at hm
               rcases hm with h | rfl | h
-              · left; simpa [SimpleGraph.Walk.support_map] using h
+              · left; simpa [φA, SimpleGraph.Walk.support_map] using h
               · left; exact SimpleGraph.Walk.end_mem_support pu
-              · right; simpa [SimpleGraph.Walk.support_map] using h
+              · right; simpa [φB, SimpleGraph.Walk.support_map] using h
             rcases h1 with hpw' | hqw' <;> rcases h2 with hpu' | hqv'
             · exact Finset.disjoint_left.mp hdisj_pwu (List.mem_toFinset.mpr hpw') (List.mem_toFinset.mpr hpu')
             · have hxCA := hpw_in x hpw'
@@ -1110,16 +1110,16 @@ theorem two_disjoint_paths_between_sets :
               (List.mem_toFinset.mpr (hr₂_sub x (List.mem_toFinset.mp hx2)))
           have ha12' : a₁' ≠ a₂' := by
             intro h
-            have h1 : a₁' ∈ r₁.support := SimpleGraph.Walk.start_mem_support r₁
-            have h2 : a₂' ∈ r₂.support := SimpleGraph.Walk.start_mem_support r₂
-            rw [← h] at h2
-            exact Finset.disjoint_left.mp hdisj_final (List.mem_toFinset.mpr h1) (List.mem_toFinset.mpr h2)
+            subst h
+            exact Finset.disjoint_left.mp hdisj_final
+              (List.mem_toFinset.mpr (SimpleGraph.Walk.start_mem_support r₁))
+              (List.mem_toFinset.mpr (SimpleGraph.Walk.start_mem_support r₂))
           have hb12' : b₁' ≠ b₂' := by
             intro h
-            have h1 : b₁' ∈ r₁.support := SimpleGraph.Walk.end_mem_support r₁
-            have h2 : b₂' ∈ r₂.support := SimpleGraph.Walk.end_mem_support r₂
-            rw [← h] at h2
-            exact Finset.disjoint_left.mp hdisj_final (List.mem_toFinset.mpr h1) (List.mem_toFinset.mpr h2)
+            subst h
+            exact Finset.disjoint_left.mp hdisj_final
+              (List.mem_toFinset.mpr (SimpleGraph.Walk.end_mem_support r₁))
+              (List.mem_toFinset.mpr (SimpleGraph.Walk.end_mem_support r₂))
           exact ⟨a₁', a₂', b₁', b₂', r₁, r₂, ha₁', ha₂', hb₁', hb₂', ha12', hb12',
             hr₁_path, hr₂_path, hdisj_final, hr₁_int, hr₂_int⟩
 
