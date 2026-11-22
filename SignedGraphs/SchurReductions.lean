@@ -1223,7 +1223,6 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           · intro h; exact absurd (Finset.mem_univ _) h
       rw [hquad]
       nlinarith [sq_nonneg (z (Sum.inl 0)), sq_nonneg (z (Sum.inl 1))]
-    -- Prove A' is NOC
     let embV : Fin 2 ⊕ U → V := fun z => eFull (Sum.inr z)
     have hembV_inj : Function.Injective embV := fun a b h =>
       Sum.inr.inj (eFull.injective h)
@@ -1294,8 +1293,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have hAdj := SimpleGraph.Walk.adj_of_mem_edges c hedge
           simpa [matrixSignedGraph, matrixGraph, A', x', y'] using hAdj.2
         rcases lt_or_gt_of_ne hA'_xy_ne with hneg | hpos
-        · -- B x y + μ < 0 ⇒ B x y < 0 (same sign!), direct embedding lift
-          have hBxy_neg : B (embV x') (embV y') < 0 := by
+        · have hBxy_neg : B (embV x') (embV y') < 0 := by
             rw [← hG₂_eq_B]; linarith
           let embG : (matrixSignedGraph A' hA'_H.isSymm).graph ↪g
               (matrixSignedGraph B hB.isSymm).graph :=
@@ -1346,8 +1344,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have hnoc' := hB_noc (embV w₀) c' hc' (hlen'.symm ▸ hodd)
           rw [signedCycleType, ← hlen', ← hsign' c]
           exact hnoc'
-        · -- B x y + μ > 0: replace positive edge x'y' by 7-edge negative path 0-5-8-3-4-9-6-1
-          have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
+        · have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
           let c₀ := c.rotate x' hx'_mem
           have hc₀ : c₀.IsCycle := hc.rotate hx'_mem
           have hlen₀ : c₀.length = c.length := SimpleGraph.Walk.length_rotate c x' hx'_mem
@@ -1494,7 +1491,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               hcyc_supp_nd⟩
           have hcyc_len : cyc.length = c.length + 6 := by
             have hc1p : c₁.length = p.length + 1 := by rw [hc₁_eq, SimpleGraph.Walk.length_cons]
-            have hcl : cyc.length = P.length + 7 := by simp [cyc, P']
+            have hcl : cyc.length = P.length + 7 := rfl
             omega
           have hcyc_odd : Odd cyc.length := by rcases hodd with ⟨k, hk⟩; exact ⟨k + 3, by omega⟩
           have hsign_neg : ∀ i j : Fin 10, ¬((i = 0 ∧ j = 1) ∨ (i = 1 ∧ j = 0)) →
@@ -1544,8 +1541,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         exact hnoc_q
     have hA'_le := ih (Fin 2 ⊕ U) hcard_W A' hA'_H hA'_diag hA'_noc
     exact le_trans hWeyl hA'_le
-  · -- Case 2: det(B) = 0 → G₂.submatrix Sum.inr Sum.inr is B|_U (NOC, card |V| - 10 ≤ |V| - 8)
-    have hU_le : Fintype.card U ≤ Fintype.card V - 8 := by omega
+  · have hU_le : Fintype.card U ≤ Fintype.card V - 8 := by omega
     have hU_diag : ∀ u : U, (G₂.submatrix Sum.inr Sum.inr) u u = 0 := fun u => hB_diag u.1
     have hU_noc : MatrixIsNOC (G₂.submatrix Sum.inr Sum.inr)
         (isHermitian_submatrix G₂ hG₂ Sum.inr).isSymm := by
