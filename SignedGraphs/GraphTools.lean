@@ -241,8 +241,6 @@ lemma even_closed_walk_of_no_odd_cycle {G : SimpleGraph V}
       | nil => simp at h0
       | @cons _ u _ hadj p =>
         simp only [SimpleGraph.Walk.support_cons, List.tail_cons] at hnd
-        -- p : G.Walk u v is not a path; find first repeated vertex along p via p.bypass?
-        -- Actually, since ¬ p.support.Nodup, decompose p into a subwalk with a repeated vertex!
         have hex_dup : ∃ (x : V) (p₁ : G.Walk u x) (c : G.Walk x x) (p₂ : G.Walk x v),
             p = p₁.append (c.append p₂) ∧ 0 < c.length := by
           clear hno ih hw h0 h1 h2 hge3 hadj
@@ -584,52 +582,50 @@ theorem two_disjoint_paths_between_sets :
                 rcases hx with hx1 | hx2
                 · rcases hxab with rfl | rfl
                   · exact ha_n1 (SimpleGraph.Walk.support_takeUntil_subset p₁ hz1' hx1)
-                  · -- b ∈ (p₁.takeUntil z hz1').support; since b = b₁ and p₁ is a path, b = z!
+                  · -- x (= b) ∈ (p₁.takeUntil z hz1').support; since b = b₁ and p₁ is a path, x = z!
                     have hspec := SimpleGraph.Walk.take_spec p₁ hz1'
                     have hnd := hp₁.support_nodup
                     rw [← hspec, SimpleGraph.Walk.support_append] at hnd
-                    have hdrop_ne : (p₁.dropUntil z hz1').support ≠ [] :=
-                      SimpleGraph.Walk.support_ne_nil _
-                    have hb_in_drop : b ∈ (p₁.dropUntil z hz1').support := by
+                    have hb_in_drop : x ∈ (p₁.dropUntil z hz1').support := by
                       rw [← hb₁_eq]; exact SimpleGraph.Walk.end_mem_support _
-                    have hb_eq_z : b = z := by
+                    have hb_eq_z : x = z := by
                       by_contra hbz
                       have hne_take : (p₁.takeUntil z hz1').support ≠ [] :=
                         SimpleGraph.Walk.support_ne_nil _
                       have hlast : (p₁.takeUntil z hz1').support.getLast hne_take = z :=
                         SimpleGraph.Walk.getLast_support _
-                      have hb_dropLast : b ∈ (p₁.takeUntil z hz1').support.dropLast := by
+                      have hb_dropLast : x ∈ (p₁.takeUntil z hz1').support.dropLast := by
                         have hsplit := List.dropLast_append_getLast hne_take
                         rw [hlast] at hsplit
-                        have hx1' : b ∈ (p₁.takeUntil z hz1').support.dropLast ++ [z] := by
+                        have hx1' : x ∈ (p₁.takeUntil z hz1').support.dropLast ++ [z] := by
                           rwa [hsplit]
                         rw [List.mem_append, List.mem_singleton] at hx1'
                         exact hx1'.resolve_right hbz
                       rw [List.nodup_append] at hnd
-                      exact hnd.2.2 b hb_dropLast b hb_in_drop rfl
+                      exact hnd.2.2 x hb_dropLast x hb_in_drop rfl
                     exact hzb hb_eq_z.symm
                 · rcases hxab with rfl | rfl
-                  · -- a ∈ (p₂.dropUntil z hz2').support; since a = a₂ and p₂ is a path, a = z!
+                  · -- x (= a) ∈ (p₂.dropUntil z hz2').support; since a = a₂ and p₂ is a path, x = z!
                     have hspec := SimpleGraph.Walk.take_spec p₂ hz2'
                     have hnd := hp₂.support_nodup
                     rw [← hspec, SimpleGraph.Walk.support_append] at hnd
-                    have ha_eq_z : a = z := by
+                    have ha_eq_z : x = z := by
                       by_contra haz
                       have hne_take : (p₂.takeUntil z hz2').support ≠ [] :=
                         SimpleGraph.Walk.support_ne_nil _
                       have hlast : (p₂.takeUntil z hz2').support.getLast hne_take = z :=
                         SimpleGraph.Walk.getLast_support _
-                      have ha_in_take : a ∈ (p₂.takeUntil z hz2').support := by
+                      have ha_in_take : x ∈ (p₂.takeUntil z hz2').support := by
                         rw [← ha₂_eq]; exact SimpleGraph.Walk.start_mem_support _
-                      have ha_dropLast : a ∈ (p₂.takeUntil z hz2').support.dropLast := by
+                      have ha_dropLast : x ∈ (p₂.takeUntil z hz2').support.dropLast := by
                         have hsplit := List.dropLast_append_getLast hne_take
                         rw [hlast] at hsplit
-                        have ha' : a ∈ (p₂.takeUntil z hz2').support.dropLast ++ [z] := by
+                        have ha' : x ∈ (p₂.takeUntil z hz2').support.dropLast ++ [z] := by
                           rwa [hsplit]
                         rw [List.mem_append, List.mem_singleton] at ha'
                         exact ha'.resolve_right haz
                       rw [List.nodup_append] at hnd
-                      exact hnd.2.2 a ha_dropLast a hx2 rfl
+                      exact hnd.2.2 x ha_dropLast x hx2 rfl
                     exact hza ha_eq_z.symm
                   · exact hb_n2 (SimpleGraph.Walk.support_dropUntil_subset p₂ hz2' hx2)
               obtain ⟨a', b', q', ha', hb', hq'_path, hq'_ab, hq'_int⟩ :=
@@ -690,9 +686,9 @@ theorem two_disjoint_paths_between_sets :
                 rw [heq]; simp [heG]
               simp only [Finset.mem_filter, Finset.mem_univ, true_and, G',
                 SimpleGraph.edgeSet_deleteEdges, Set.mem_diff, Set.mem_singleton_iff] at hmem
-              exact hmem.2 rfl
+              exact hmem.2 trivial
           obtain ⟨a₁, a₂, b₁, b₂, p₁, p₂, ha₁, ha₂, hb₁, hb₂, ha12, hb12, hp₁, hp₂, hdisj, hi₁, hi₂⟩ :=
-            ih _ hlt G' A B rfl hA hB hno_cut'
+            ih _ hlt G' A B (by congr 1; ext e; simp) hA hB hno_cut'
           let φ : G' →g G := SimpleGraph.Hom.ofLE (SimpleGraph.deleteEdges_le {e})
           refine ⟨a₁, a₂, b₁, b₂, p₁.map φ, p₂.map φ, ha₁, ha₂, hb₁, hb₂, ha12, hb12,
             hp₁.map (fun _ _ h => h), hp₂.map (fun _ _ h => h), ?_, ?_, ?_⟩
@@ -707,7 +703,7 @@ theorem two_disjoint_paths_between_sets :
           have hex_e : ∃ u v : V, G.Adj u v := by
             cases p0 with
             | nil => exact False.elim (Finset.disjoint_left.mp hAB_disj ha' hb')
-            | @cons u v _ hadj _ => exact ⟨u, v, hadj⟩
+            | cons hadj _ => exact ⟨_, _, hadj⟩
           rcases hex_e with ⟨u, v, huv⟩
           have huv_mem : s(u, v) ∈ G.edgeSet := huv
           rcases hred s(u, v) huv_mem with ⟨w, hw_cut⟩
@@ -719,9 +715,12 @@ theorem two_disjoint_paths_between_sets :
               intro e he heq
               rw [heq] at he
               exact hwp (SimpleGraph.Walk.fst_mem_support_of_mem_edges p he)
-            let q : G'.Walk a b := p.transfer G' (fun e he =>
-              ⟨p.edges_subset_edgeSet he, fun h => hp' e he (Set.mem_singleton_iff.mp h)⟩)
-            exact hw_cut a ha b hb q (by simpa [q] using hwp)
+            let q : G'.Walk a b := p.transfer G' (fun e he => by
+              rw [SimpleGraph.edgeSet_deleteEdges]
+              exact ⟨p.edges_subset_edgeSet he, fun h => hp' e he (Set.mem_singleton_iff.mp h)⟩)
+            have hmem := hw_cut a ha b hb q
+            rw [SimpleGraph.Walk.support_transfer] at hmem
+            exact hwp hmem
           have hwv : w ≠ v := by
             rintro rfl
             rcases hno_cut w with ⟨a, ha, b, hb, p, hwp⟩
@@ -729,9 +728,12 @@ theorem two_disjoint_paths_between_sets :
               intro e he heq
               rw [heq] at he
               exact hwp (SimpleGraph.Walk.snd_mem_support_of_mem_edges p he)
-            let q : G'.Walk a b := p.transfer G' (fun e he =>
-              ⟨p.edges_subset_edgeSet he, fun h => hp' e he (Set.mem_singleton_iff.mp h)⟩)
-            exact hw_cut a ha b hb q (by simpa [q] using hwp)
+            let q : G'.Walk a b := p.transfer G' (fun e he => by
+              rw [SimpleGraph.edgeSet_deleteEdges]
+              exact ⟨p.edges_subset_edgeSet he, fun h => hp' e he (Set.mem_singleton_iff.mp h)⟩)
+            have hmem := hw_cut a ha b hb q
+            rw [SimpleGraph.Walk.support_transfer] at hmem
+            exact hwp hmem
           -- Define C_A: all vertices reachable from A \ {w} in G' - w
           let C_A : Finset V := Finset.univ.filter fun z =>
             ∃ hz : z ∈ ({w}ᶜ : Set V), ∃ a ∈ A, ∃ ha : a ∈ ({w}ᶜ : Set V),
@@ -753,7 +755,7 @@ theorem two_disjoint_paths_between_sets :
               rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
               rcases hm with ⟨x, _, hxw⟩
               exact x.2 (Set.mem_singleton_iff.mpr hxw)
-            exact hw_cut a ha b hb (p'.map f) hwn
+            exact hwn (hw_cut a ha b hb (p'.map f))
           have hCA_closed : ∀ x ∈ C_A, ∀ y : V, G'.Adj x y → y ≠ w → y ∈ C_A := by
             intro x hx y hadj hyw
             simp only [C_A, Finset.mem_filter, Finset.mem_univ, true_and] at hx ⊢
