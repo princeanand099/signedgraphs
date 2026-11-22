@@ -182,6 +182,7 @@ connected vertex set such that `G - D` contains an even cycle. Then there exists
 1. `G - V(C)` is connected;
 2. Every chord of `C` joins two vertices at even distance along `C`;
 3. Either `C` has length 4 and induces `K₄`, or `C` has at most one chord. -/
+set_option maxHeartbeats 800000 in
 theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     (h3 : ∀ A : Finset V, A.card ≤ 2 → (G.induce (Aᶜ : Set V)).Preconnected)
     (D : Finset V) (d₀ : V) (hd₀ : d₀ ∈ D)
@@ -389,7 +390,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     let fL : (G.induce (L : Set V)) →g G := (SimpleGraph.Embedding.induce (L : Set V)).toHom
     let r₃G : G.Walk x₃ x₁ := r₃.map fL
     have hr₃_L : ∀ z ∈ r₃G.support, z ∈ L := by
-      intro z hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz; rcases hz with ⟨z', _, rfl⟩; exact z'.2
+      intro z hz; dsimp only [r₃G] at hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz; rcases hz with ⟨z', _, rfl⟩; exact z'.2
     obtain ⟨z, hzQ₁₂_fin, R, hR, hR_sub, hR_int⟩ :=
       walk_first_hit_pc Q₁₂.support.toFinset r₃G ⟨x₁, List.mem_toFinset.mpr hx₁_Q₁₂, SimpleGraph.Walk.end_mem_support r₃G⟩
     have hzQ₁₂ : z ∈ Q₁₂.support := List.mem_toFinset.mp hzQ₁₂_fin
@@ -412,8 +413,8 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       intro x hxA hxE
       rw [SimpleGraph.Walk.support_reverse, List.mem_reverse, SimpleGraph.Walk.support_cons, List.mem_cons] at hxE
       have hxQ : x ∈ Q₁₂.support := SimpleGraph.Walk.support_takeUntil_subset Q₁₂ hzQ₁₂ hxA
-      rcases hxE with rfl | hxR
-      · exact False.elim (hu₃nL (hQ₁₂_L u₃ hxQ hu31 hu32))
+      rcases hxE with hxu3 | hxR
+      · rw [hxu3] at hxQ; exact False.elim (hu₃nL (hQ₁₂_L u₃ hxQ hu31 hu32))
       · by_contra hxz
         exact hR_int x hxR hxz (List.mem_toFinset.mpr hxQ)
     have hQ₂₃ : Q₂₃.IsPath := by
@@ -422,8 +423,8 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       rw [SimpleGraph.Walk.support_reverse, List.mem_reverse] at hxB hxE
       rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hxE
       have hxQ : x ∈ Q₁₂.support := SimpleGraph.Walk.support_dropUntil_subset Q₁₂ hzQ₁₂ hxB
-      rcases hxE with rfl | hxR
-      · exact False.elim (hu₃nL (hQ₁₂_L u₃ hxQ hu31 hu32))
+      rcases hxE with hxu3 | hxR
+      · rw [hxu3] at hxQ; exact False.elim (hu₃nL (hQ₁₂_L u₃ hxQ hu31 hu32))
       · by_contra hxz
         exact hR_int x hxR hxz (List.mem_toFinset.mpr hxQ)
     have hQ₁₃_L : ∀ x ∈ Q₁₃.support, x ≠ u₁ → x ≠ u₃ → x ∈ L := by
@@ -432,7 +433,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       rcases hx with hxA | hxE
       · have hxQ := SimpleGraph.Walk.support_takeUntil_subset Q₁₂ hzQ₁₂ hxA
         have hx2 : x ≠ u₂ := by
-          intro h; subst h
+          intro h; rw [h] at hxA
           have hspec := SimpleGraph.Walk.take_spec Q₁₂ hzQ₁₂
           have hnd := hQ₁₂.support_nodup
           rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
@@ -450,7 +451,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       · rw [SimpleGraph.Walk.support_reverse, List.mem_reverse] at hxB
         have hxQ := SimpleGraph.Walk.support_dropUntil_subset Q₁₂ hzQ₁₂ hxB
         have hx1 : x ≠ u₁ := by
-          intro h; subst h
+          intro h; rw [h] at hxB
           have hspec := SimpleGraph.Walk.take_spec Q₁₂ hzQ₁₂
           have hnd := hQ₁₂.support_nodup
           rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
@@ -571,6 +572,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       rw [Finset.card_insert_of_notMem hw_not_K] at hle
       omega
     have hle_K := hmax_K c' hc'_cyc hc'_even hc'_disj_D
+    change (compD c.support.toFinset).card < (compD c'.support.toFinset).card at hlt_K
     omega
   -- PART 2: Every chord of C has even distance along C (hence joins vertices of the same color)
   have hchord_even : ∀ u₁ u₂, u₁ ∈ c.support → u₂ ∈ c.support → u₁ ≠ u₂ → G.Adj u₁ u₂ →
@@ -666,15 +668,15 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
           intro w hw h1 h2
           simp only [q_zv, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
             List.not_mem_nil, or_false] at hw
-          rcases hw with rfl | rfl | rfl
-          · exact absurd rfl h1
-          · intro hu_in
+          rcases hw with hw1 | hw2 | hw3
+          · exact absurd hw1 h1
+          · rw [hw2]; intro hu_in
             have hnd := hAu.support_nodup
             rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
             have hdrop_cons : P_zv.support = z :: P_zv.support.tail := by cases P_zv <;> simp
             rw [hdrop_cons, List.mem_cons] at hu_in
             exact hnd.2.2 u (SimpleGraph.Walk.start_mem_support P_uz) u (hu_in.resolve_left hzu.symm) rfl
-          · exact absurd rfl h2
+          · exact absurd hw3 h2
         have hc'_ev : Even (q_zv.append P_zv.reverse).length := by
           rcases hPzv_ev with ⟨k, hk⟩
           exact ⟨k + 1, by simp [q_zv, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega⟩
@@ -693,12 +695,12 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
         omega
       -- Helper for non-crossing disjoint chords on the same arc A_u : a → b
       have hnoncross : ∀ (p q : V) (A_u A_o : G.Walk a b),
-          p ∈ A_u.support → q ∈ A_u.support → p ≠ a → p ≠ b → q ≠ a → q ≠ b → p ≠ q →
+          p ∈ A_u.support → (hqA : q ∈ A_u.support) → p ≠ a → p ≠ b → q ≠ a → q ≠ b → p ≠ q →
           G.Adj p q → s(p, q) ∉ c.edges →
           A_u.IsPath → A_o.IsPath → A_u.length + A_o.length = c.length →
           2 ≤ A_o.length → Even A_u.length →
           (∀ w ∈ A_u.support, w ∈ c.support) → (∀ e ∈ A_u.edges, e ∈ c.edges) →
-          p ∈ (A_u.takeUntil q (by assumption)).support → False := by
+          p ∈ (A_u.takeUntil q hqA).support → False := by
         intro p q A_u A_o hpA hqA hpa hpb hqa hqb hpq hpq_adj hpq_ch hAu hAo hlen hAo2 hAu_ev hAuC hAu_e hp_before
         let P_aq := A_u.takeUntil q hqA
         let P_qb := A_u.dropUntil q hqA
@@ -711,6 +713,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
         have hPpq_e : ∀ e ∈ P_pq.edges, e ∈ c.edges := fun e he => by
           apply hAu_e e
           rw [← hspec1, SimpleGraph.Walk.edges_append, List.mem_append]; left
+          change e ∈ P_aq.edges
           rw [← hspec2, SimpleGraph.Walk.edges_append, List.mem_append]; right; exact he
         have hPpq_ge2 : 2 ≤ P_pq.length := path_len_ge_two_of_not_mem_edges c P_pq hpq hPpq_e hpq_ch
         have hPap_pos : 1 ≤ P_ap.length := by cases P_ap with | nil => exact absurd rfl hpa.symm | cons _ _ => simp
