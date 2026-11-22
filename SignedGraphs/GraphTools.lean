@@ -123,7 +123,6 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
     exact hdisj_tails x hxp₁_tail x hxq₂_tail rfl
   · intro σ
     have h1 : walkModFourWeight σ (p₁.append q₂) = walkModFourWeight σ c' := by rw [hspec]
-    rw [SimpleGraph.Walk.edges_append] at *
     have hadd : walkModFourWeight σ (p₁.append q₂) =
         walkModFourWeight σ p₁ + walkModFourWeight σ q₂ := by
       simp [walkModFourWeight, SimpleGraph.Walk.edges_append]
@@ -224,6 +223,8 @@ lemma even_closed_walk_of_no_odd_cycle {G : SimpleGraph V}
       | nil => simp at h0
       | @cons _ u _ hadj p =>
         simp only [SimpleGraph.Walk.support_cons, List.tail_cons] at hnd
+        -- p : G.Walk u v is not a path; find first repeated vertex along p via p.bypass?
+        -- Actually, since ¬ p.support.Nodup, decompose p into a subwalk with a repeated vertex!
         have hex_dup : ∃ (x : V) (p₁ : G.Walk u x) (c : G.Walk x x) (p₂ : G.Walk x v),
             p = p₁.append (c.append p₂) ∧ 0 < c.length := by
           clear hno ih hw h0 h1 h2 hge3 hadj
