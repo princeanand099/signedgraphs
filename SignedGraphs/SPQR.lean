@@ -239,88 +239,69 @@ private lemma twoSep_y_mem_VH {G : SimpleGraph V} (d : TwoSep G) : d.y ∈ d.VH 
   have : d.y ∈ d.VH ∩ d.VG₂ := by rw [d.hinter]; simp
   exact (Finset.mem_inter.mp this).1
 
-private noncomputable def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
+private def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
     (hconn : G.Preconnected)
     (h2conn : ∀ v : V, (G.induce ({v}ᶜ : Set V)).Preconnected)
     (hdeg : ∀ v : V, 3 ≤ G.degree v)
     (B : Finset V) (d : TwoSep G) (hdB : d.VH ⊆ B)
     (hmin : ∀ d' : TwoSep G, d'.VH ⊆ B → d.VH.card ≤ d'.VH.card) :
-    RLeafDecomp G := by
-  classical
-  refine {
-    VH := d.VH
-    VG₂ := d.VG₂
-    x := d.x
-    y := d.y
-    hxy := d.hxy
-    hunion := d.hunion
-    hinter := d.hinter
-    hcardH := d.hcardH
-    hcardG₂ := by have := d.hcardG₂; omega
-    hno_cross := d.hno_cross
-    hT_3conn := ?_
-  }
-  intro A hA
-  set T : SimpleGraph d.VH :=
-    (G.induce (d.VH : Set V)) ⊔ SimpleGraph.fromRel (fun a b : d.VH =>
-      (a.1 = d.x ∧ b.1 = d.y) ∨ (a.1 = d.y ∧ b.1 = d.x))
-  by_contra hdisc
-  have hnot_pre : ∃ u₀ v₀ : (Aᶜ : Set d.VH), ¬ (T.induce (Aᶜ : Set d.VH)).Reachable u₀ v₀ := by
-    by_contra hall
-    push Not at hall
-    exact hdisc hall
-  rcases hnot_pre with ⟨u₀, v₀, huv₀⟩
-  let C₁ : Finset d.VH := Finset.univ.filter fun w =>
-    ∃ hw : w ∈ (Aᶜ : Set d.VH), (T.induce (Aᶜ : Set d.VH)).Reachable u₀ ⟨w, hw⟩
-  let C₂ : Finset d.VH := (Finset.univ \ A) \ C₁
-  have hu₀_C₁ : u₀.1 ∈ C₁ := by
-    simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and]
-    exact ⟨u₀.2, SimpleGraph.Reachable.refl u₀⟩
-  have hv₀_C₂ : v₀.1 ∈ C₂ := by
-    simp only [C₂, Finset.mem_sdiff, Finset.mem_univ, true_and]
-    refine ⟨v₀.2, ?_⟩
-    simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and, not_exists]
-    intro hv' hr; exact huv₀ hr
-  have hC₁_no_C₂ : ∀ a ∈ C₁, ∀ b ∈ C₂, ¬ T.Adj a b := by
-    intro a ha b hb hadj
-    simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at ha
-    simp only [C₂, Finset.mem_sdiff, Finset.mem_univ, true_and] at hb
-    rcases ha with ⟨ha', hra⟩
-    have hbC₁ : b ∈ C₁ := by
+    RLeafDecomp G where
+  VH := d.VH
+  VG₂ := d.VG₂
+  x := d.x
+  y := d.y
+  hxy := d.hxy
+  hunion := d.hunion
+  hinter := d.hinter
+  hcardH := d.hcardH
+  hcardG₂ := by have := d.hcardG₂; omega
+  hno_cross := d.hno_cross
+  hT_3conn := by
+    classical
+    intro A hA
+    set T : SimpleGraph d.VH :=
+      (G.induce (d.VH : Set V)) ⊔ SimpleGraph.fromRel (fun a b : d.VH =>
+        (a.1 = d.x ∧ b.1 = d.y) ∨ (a.1 = d.y ∧ b.1 = d.x))
+    by_contra hdisc
+    have hnot_pre : ∃ u₀ v₀ : (Aᶜ : Set d.VH), ¬ (T.induce (Aᶜ : Set d.VH)).Reachable u₀ v₀ := by
+      by_contra hall
+      push Not at hall
+      exact hdisc hall
+    rcases hnot_pre with ⟨u₀, v₀, huv₀⟩
+    let C₁ : Finset d.VH := Finset.univ.filter fun w =>
+      ∃ hw : w ∈ (Aᶜ : Set d.VH), (T.induce (Aᶜ : Set d.VH)).Reachable u₀ ⟨w, hw⟩
+    let C₂ : Finset d.VH := (Finset.univ \ A) \ C₁
+    have hu₀_C₁ : u₀.1 ∈ C₁ := by
       simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and]
-      exact ⟨hb.1, hra.trans (SimpleGraph.Adj.reachable (show (T.induce (Aᶜ : Set d.VH)).Adj ⟨a, ha'⟩ ⟨b, hb.1⟩ from hadj))⟩
-    exact hb.2 hbC₁
-  let x_sub : d.VH := ⟨d.x, twoSep_x_mem_VH d⟩
-  let y_sub : d.VH := ⟨d.y, twoSep_y_mem_VH d⟩
-  have hT_xy : T.Adj x_sub y_sub := by
-    refine Or.inr ⟨?_, Or.inl (Or.inl ⟨rfl, rfl⟩)⟩
-    intro h; exact d.hxy (congrArg Subtype.val h)
-  -- Since T.Adj x_sub y_sub, one of C₁, C₂ avoids both x_sub and y_sub
-  have hex_C : ∃ (C_sub C_other : Finset d.VH),
-      C_sub.Nonempty ∧ C_other.Nonempty ∧
-      Disjoint C_sub A ∧ Disjoint C_other A ∧ Disjoint C_sub C_other ∧
-      C_sub ∪ C_other = Finset.univ \ A ∧
-      x_sub ∉ C_sub ∧ y_sub ∉ C_sub ∧
-      (∀ a ∈ C_sub, ∀ b ∈ C_other, ¬ T.Adj a b) := by
-    by_cases hx1 : x_sub ∈ C₁
-    · have hy2 : y_sub ∉ C₂ := fun hy2 => hC₁_no_C₂ x_sub hx1 y_sub hy2 hT_xy
-      have hx2 : x_sub ∉ C₂ := fun hx2 => (Finset.mem_sdiff.mp hx2).2 hx1
-      refine ⟨C₂, C₁, ⟨v₀.1, hv₀_C₂⟩, ⟨u₀.1, hu₀_C₁⟩, ?_, ?_, ?_, ?_, hx2, hy2,
-        fun a ha b hb h => hC₁_no_C₂ b hb a ha h.symm⟩
-      · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp (Finset.mem_sdiff.mp hz).1).2
-      · rw [Finset.disjoint_left]; intro z hz
-        simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hz
-        exact hz.1
-      · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp hz).2
-      · ext z; simp only [C₂, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
-        by_cases hzA : z ∈ A
-        · simp [hzA]; intro hC1
-          simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hC1
-          exact hC1.1 hzA
-        · tauto
-    · by_cases hy1 : y_sub ∈ C₁
-      · have hx2 : x_sub ∉ C₂ := fun hx2 => hC₁_no_C₂ y_sub hy1 x_sub hx2 hT_xy.symm
-        have hy2 : y_sub ∉ C₂ := fun hy2 => (Finset.mem_sdiff.mp hy2).2 hy1
+      exact ⟨u₀.2, SimpleGraph.Reachable.refl u₀⟩
+    have hv₀_C₂ : v₀.1 ∈ C₂ := by
+      simp only [C₂, Finset.mem_sdiff, Finset.mem_univ, true_and]
+      refine ⟨v₀.2, ?_⟩
+      simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and, not_exists]
+      intro hv' hr; exact huv₀ hr
+    have hC₁_no_C₂ : ∀ a ∈ C₁, ∀ b ∈ C₂, ¬ T.Adj a b := by
+      intro a ha b hb hadj
+      simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at ha
+      simp only [C₂, Finset.mem_sdiff, Finset.mem_univ, true_and] at hb
+      rcases ha with ⟨ha', hra⟩
+      have hbC₁ : b ∈ C₁ := by
+        simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and]
+        exact ⟨hb.1, hra.trans (SimpleGraph.Adj.reachable (show (T.induce (Aᶜ : Set d.VH)).Adj ⟨a, ha'⟩ ⟨b, hb.1⟩ from hadj))⟩
+      exact hb.2 hbC₁
+    let x_sub : d.VH := ⟨d.x, twoSep_x_mem_VH d⟩
+    let y_sub : d.VH := ⟨d.y, twoSep_y_mem_VH d⟩
+    have hT_xy : T.Adj x_sub y_sub := by
+      refine Or.inr ⟨?_, Or.inl (Or.inl ⟨rfl, rfl⟩)⟩
+      intro h; exact d.hxy (congrArg Subtype.val h)
+    have hex_C : ∃ (C_sub C_other : Finset d.VH),
+        C_sub.Nonempty ∧ C_other.Nonempty ∧
+        Disjoint C_sub A ∧ Disjoint C_other A ∧ Disjoint C_sub C_other ∧
+        C_sub ∪ C_other = Finset.univ \ A ∧
+        x_sub ∉ C_sub ∧ y_sub ∉ C_sub ∧
+        (∀ a ∈ C_sub, ∀ b ∈ C_other, ¬ T.Adj a b) := by
+      by_cases hx1 : x_sub ∈ C₁
+      · have hy2 : y_sub ∉ C₂ := fun hy2 => hC₁_no_C₂ x_sub hx1 y_sub hy2 hT_xy
+        have hx2 : x_sub ∉ C₂ := fun hx2 => (Finset.mem_sdiff.mp hx2).2 hx1
         refine ⟨C₂, C₁, ⟨v₀.1, hv₀_C₂⟩, ⟨u₀.1, hu₀_C₁⟩, ?_, ?_, ?_, ?_, hx2, hy2,
           fun a ha b hb h => hC₁_no_C₂ b hb a ha h.symm⟩
         · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp (Finset.mem_sdiff.mp hz).1).2
@@ -334,182 +315,196 @@ private noncomputable def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [Decidable
             simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hC1
             exact hC1.1 hzA
           · tauto
-      · refine ⟨C₁, C₂, ⟨u₀.1, hu₀_C₁⟩, ⟨v₀.1, hv₀_C₂⟩, ?_, ?_, ?_, ?_, hx1, hy1, hC₁_no_C₂⟩
-        · rw [Finset.disjoint_left]; intro z hz
-          simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hz
-          exact hz.1
-        · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp (Finset.mem_sdiff.mp hz).1).2
-        · rw [Finset.disjoint_right]; intro z hz; exact (Finset.mem_sdiff.mp hz).2
-        · ext z; simp only [C₂, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
-          by_cases hzA : z ∈ A
-          · simp [hzA]; intro hC1
-            simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hC1
-            exact hC1.1 hzA
-          · tauto
-  rcases hex_C with ⟨C_sub, C_other, hC_ne, hO_ne, hCA_disj, hOA_disj, hCO_disj, hCO_union,
-    hx_nC, hy_nC, hCO_no_edge⟩
-  let emb : d.VH ↪ V := ⟨Subtype.val, Subtype.val_injective⟩
-  let C : Finset V := C_sub.map emb
-  let S : Finset V := A.map emb
-  let O : Finset V := C_other.map emb
-  have hS_card : S.card ≤ 2 := by simpa [S] using hA
-  have hC_disj_S : Disjoint C S := by
-    rw [Finset.disjoint_left]
-    intro z hz1 hz2
-    rcases Finset.mem_map.mp hz1 with ⟨a, ha, rfl⟩
-    rcases Finset.mem_map.mp hz2 with ⟨b, hb, hba⟩
-    exact Finset.disjoint_left.mp hCA_disj ha (Subtype.ext hba ▸ hb)
-  have hC_closed : ∀ u ∈ C, ∀ w : V, G.Adj u w → w ∈ C ∪ S := by
-    intro u hu w hadj
-    rcases Finset.mem_map.mp hu with ⟨u_sub, hu_sub, rfl⟩
-    have hux : u_sub.1 ≠ d.x := fun h => hx_nC (by convert hu_sub; exact Subtype.ext h.symm)
-    have huy : u_sub.1 ≠ d.y := fun h => hy_nC (by convert hu_sub; exact Subtype.ext h.symm)
-    have hw_VH : w ∈ d.VH := by
-      by_contra hnw
-      have hw_G₂ : w ∈ d.VG₂ := by
-        have : w ∈ d.VH ∪ d.VG₂ := by rw [d.hunion]; exact Finset.mem_univ w
-        exact (Finset.mem_union.mp this).resolve_left hnw
-      have hwx : w ≠ d.x := fun h => hnw (h ▸ twoSep_x_mem_VH d)
-      have hwy : w ≠ d.y := fun h => hnw (h ▸ twoSep_y_mem_VH d)
-      exact d.hno_cross u_sub.1 u_sub.2 w hw_G₂ hux huy hwx hwy hadj
-    let w_sub : d.VH := ⟨w, hw_VH⟩
-    by_cases hwA : w_sub ∈ A
-    · exact Finset.mem_union_right _ (Finset.mem_map.mpr ⟨w_sub, hwA, rfl⟩)
-    · refine Finset.mem_union_left _ (Finset.mem_map.mpr ⟨w_sub, ?_, rfl⟩)
-      have hmem : w_sub ∈ C_sub ∪ C_other := by
-        rw [hCO_union]; simp [hwA]
-      rcases Finset.mem_union.mp hmem with h1 | h2
-      · exact h1
-      · exact absurd (Or.inl hadj) (hCO_no_edge u_sub hu_sub w_sub h2)
-  -- Show S.card = 2 using hconn and h2conn
-  have hO_sub : ∀ z ∈ O, z ∉ C ∧ z ∉ S := by
-    intro z hz
-    rcases Finset.mem_map.mp hz with ⟨z_sub, hz_sub, rfl⟩
-    constructor
-    · intro hC
-      rcases Finset.mem_map.mp hC with ⟨a, ha, haeq⟩
-      have : a = z_sub := Subtype.ext haeq
-      subst this
-      exact Finset.disjoint_left.mp hCO_disj ha hz_sub
-    · intro hS
-      rcases Finset.mem_map.mp hS with ⟨a, ha, haeq⟩
-      have : a = z_sub := Subtype.ext haeq
-      subst this
-      exact Finset.disjoint_left.mp hOA_disj hz_sub ha
-  rcases hC_ne with ⟨c₀, hc₀⟩
-  rcases hO_ne with ⟨o₀, ho₀⟩
-  have hc₀_C : c₀.1 ∈ C := Finset.mem_map.mpr ⟨c₀, hc₀, rfl⟩
-  have ho₀_O : o₀.1 ∈ O := Finset.mem_map.mpr ⟨o₀, ho₀, rfl⟩
-  have hS_ne0 : S.card ≠ 0 := by
-    intro h0
-    have hS_emp : S = ∅ := Finset.card_eq_zero.mp h0
-    obtain ⟨p⟩ := hconn c₀.1 o₀.1
-    obtain ⟨a, ha, b, hb, hadj, _⟩ := walk_exits_set C p hc₀_C (hO_sub o₀.1 ho₀_O).1
-    have hmem := hC_closed a ha b hadj
-    rw [hS_emp, Finset.union_empty] at hmem
-    exact hb hmem
-  have hS_ne1 : S.card ≠ 1 := by
-    intro h1
-    rcases Finset.card_eq_one.mp h1 with ⟨s, hSs⟩
-    have hc₀_ns : c₀.1 ∈ ({s}ᶜ : Set V) := fun h => by
-      have : c₀.1 ∈ S := by rw [hSs, Finset.mem_singleton]; exact h
-      exact Finset.disjoint_left.mp hC_disj_S hc₀_C this
-    have ho₀_ns : o₀.1 ∈ ({s}ᶜ : Set V) := fun h => (hO_sub o₀.1 ho₀_O).2 (by rw [hSs, Finset.mem_singleton]; exact h)
-    obtain ⟨p⟩ := h2conn s ⟨c₀.1, hc₀_ns⟩ ⟨o₀.1, ho₀_ns⟩
-    let f := (SimpleGraph.Embedding.induce ({s}ᶜ : Set V)).toHom
-    obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set C (p.map f) hc₀_C (hO_sub o₀.1 ho₀_O).1
-    have hmem := hC_closed a ha b hadj
-    rw [hSs, Finset.mem_union, Finset.mem_singleton] at hmem
-    rcases hmem with hbC | rfl
-    · exact hb hbC
-    · rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
-      rcases hb_supp with ⟨b', _, hb'eq⟩
-      exact b'.2 hb'eq.symm
-  have hS_eq2 : S.card = 2 := by omega
-  rcases Finset.card_eq_two.mp hS_eq2 with ⟨a, b, hab, hSab⟩
-  have hC_ge2 : 2 ≤ C.card :=
-    component_card_ge_two G hdeg S C hS_card ⟨c₀.1, hc₀_C⟩ hC_disj_S hC_closed
-  -- Show (Finset.univ \ C) has card ≥ 4 since (d.VG₂ \ {d.x, d.y}) ∪ S ⊆ Finset.univ \ C
-  have hG₂_int_disj_VH : Disjoint (d.VG₂ \ {d.x, d.y}) d.VH := by
-    rw [Finset.disjoint_left]
-    intro z hz hVH
-    have hinter : z ∈ d.VH ∩ d.VG₂ := Finset.mem_inter.mpr ⟨hVH, (Finset.mem_sdiff.mp hz).1⟩
-    rw [d.hinter] at hinter
-    exact (Finset.mem_sdiff.mp hz).2 hinter
-  have hG₂_int_card : 2 ≤ (d.VG₂ \ {d.x, d.y}).card := by
-    have hsub : ({d.x, d.y} : Finset V) ⊆ d.VG₂ := by
+      · by_cases hy1 : y_sub ∈ C₁
+        · have hx2 : x_sub ∉ C₂ := fun hx2 => hC₁_no_C₂ y_sub hy1 x_sub hx2 hT_xy.symm
+          have hy2 : y_sub ∉ C₂ := fun hy2 => (Finset.mem_sdiff.mp hy2).2 hy1
+          refine ⟨C₂, C₁, ⟨v₀.1, hv₀_C₂⟩, ⟨u₀.1, hu₀_C₁⟩, ?_, ?_, ?_, ?_, hx2, hy2,
+            fun a ha b hb h => hC₁_no_C₂ b hb a ha h.symm⟩
+          · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp (Finset.mem_sdiff.mp hz).1).2
+          · rw [Finset.disjoint_left]; intro z hz
+            simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hz
+            exact hz.1
+          · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp hz).2
+          · ext z; simp only [C₂, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
+            by_cases hzA : z ∈ A
+            · simp [hzA]; intro hC1
+              simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hC1
+              exact hC1.1 hzA
+            · tauto
+        · refine ⟨C₁, C₂, ⟨u₀.1, hu₀_C₁⟩, ⟨v₀.1, hv₀_C₂⟩, ?_, ?_, ?_, ?_, hx1, hy1, hC₁_no_C₂⟩
+          · rw [Finset.disjoint_left]; intro z hz
+            simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hz
+            exact hz.1
+          · rw [Finset.disjoint_left]; intro z hz; exact (Finset.mem_sdiff.mp (Finset.mem_sdiff.mp hz).1).2
+          · rw [Finset.disjoint_right]; intro z hz; exact (Finset.mem_sdiff.mp hz).2
+          · ext z; simp only [C₂, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
+            by_cases hzA : z ∈ A
+            · simp [hzA]; intro hC1
+              simp only [C₁, Finset.mem_filter, Finset.mem_univ, true_and] at hC1
+              exact hC1.1 hzA
+            · tauto
+    rcases hex_C with ⟨C_sub, C_other, hC_ne, hO_ne, hCA_disj, hOA_disj, hCO_disj, hCO_union,
+      hx_nC, hy_nC, hCO_no_edge⟩
+    let emb : d.VH ↪ V := ⟨Subtype.val, Subtype.val_injective⟩
+    let C : Finset V := C_sub.map emb
+    let S : Finset V := A.map emb
+    let O : Finset V := C_other.map emb
+    have hS_card : S.card ≤ 2 := by simpa [S] using hA
+    have hC_disj_S : Disjoint C S := by
+      rw [Finset.disjoint_left]
+      intro z hz1 hz2
+      rcases Finset.mem_map.mp hz1 with ⟨a, ha, rfl⟩
+      rcases Finset.mem_map.mp hz2 with ⟨b, hb, hba⟩
+      exact Finset.disjoint_left.mp hCA_disj ha (Subtype.ext hba ▸ hb)
+    have hC_closed : ∀ u ∈ C, ∀ w : V, G.Adj u w → w ∈ C ∪ S := by
+      intro u hu w hadj
+      rcases Finset.mem_map.mp hu with ⟨u_sub, hu_sub, rfl⟩
+      have hux : u_sub.1 ≠ d.x := fun h => hx_nC (by convert hu_sub; exact Subtype.ext h.symm)
+      have huy : u_sub.1 ≠ d.y := fun h => hy_nC (by convert hu_sub; exact Subtype.ext h.symm)
+      have hw_VH : w ∈ d.VH := by
+        by_contra hnw
+        have hw_G₂ : w ∈ d.VG₂ := by
+          have : w ∈ d.VH ∪ d.VG₂ := by rw [d.hunion]; exact Finset.mem_univ w
+          exact (Finset.mem_union.mp this).resolve_left hnw
+        have hwx : w ≠ d.x := fun h => hnw (h ▸ twoSep_x_mem_VH d)
+        have hwy : w ≠ d.y := fun h => hnw (h ▸ twoSep_y_mem_VH d)
+        exact d.hno_cross u_sub.1 u_sub.2 w hw_G₂ hux huy hwx hwy hadj
+      let w_sub : d.VH := ⟨w, hw_VH⟩
+      by_cases hwA : w_sub ∈ A
+      · exact Finset.mem_union_right _ (Finset.mem_map.mpr ⟨w_sub, hwA, rfl⟩)
+      · refine Finset.mem_union_left _ (Finset.mem_map.mpr ⟨w_sub, ?_, rfl⟩)
+        have hmem : w_sub ∈ C_sub ∪ C_other := by
+          rw [hCO_union]; simp [hwA]
+        rcases Finset.mem_union.mp hmem with h1 | h2
+        · exact h1
+        · exact absurd (Or.inl hadj) (hCO_no_edge u_sub hu_sub w_sub h2)
+    have hO_sub : ∀ z ∈ O, z ∉ C ∧ z ∉ S := by
       intro z hz
-      have : z ∈ d.VH ∩ d.VG₂ := by rw [d.hinter]; exact hz
-      exact (Finset.mem_inter.mp this).2
-    rw [Finset.card_sdiff, Finset.inter_eq_left.mpr hsub, Finset.card_pair d.hxy]
-    have := d.hcardG₂; omega
-  have hS_sub_VH : S ⊆ d.VH := by
-    intro z hz
-    rcases Finset.mem_map.mp hz with ⟨z_sub, _, rfl⟩
-    exact z_sub.2
-  have hC_sub_VH : C ⊆ d.VH := by
-    intro z hz
-    rcases Finset.mem_map.mp hz with ⟨z_sub, _, rfl⟩
-    exact z_sub.2
-  have hrem_card : 4 ≤ (Finset.univ \ C).card := by
-    have hsub : (d.VG₂ \ {d.x, d.y}) ∪ S ⊆ Finset.univ \ C := by
-      intro z hz
-      rw [Finset.mem_sdiff]
-      refine ⟨Finset.mem_univ z, fun hzC => ?_⟩
-      rcases Finset.mem_union.mp hz with h1 | h2
-      · exact Finset.disjoint_left.mp hG₂_int_disj_VH h1 (hC_sub_VH hzC)
-      · exact Finset.disjoint_left.mp hC_disj_S hzC h2
-    have hdisj_GS : Disjoint (d.VG₂ \ {d.x, d.y}) S :=
-      hG₂_int_disj_VH.mono_right hS_sub_VH
-    have hcard := Finset.card_le_card hsub
-    rw [Finset.card_union_of_disjoint hdisj_GS, hS_eq2] at hcard
-    omega
-  let d' : TwoSep G := {
-    VH := C ∪ S
-    VG₂ := (Finset.univ \ C)
-    x := a
-    y := b
-    hxy := hab
-    hunion := by
-      ext z; simp only [Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and, iff_true]
-      tauto
-    hinter := by
-      ext z
-      rw [← hSab]
-      simp only [Finset.mem_inter, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
+      rcases Finset.mem_map.mp hz with ⟨z_sub, hz_sub, rfl⟩
       constructor
-      · rintro ⟨hC | hS, hnC⟩
-        · exact absurd hC hnC
-        · exact hS
+      · intro hC
+        rcases Finset.mem_map.mp hC with ⟨a, ha, haeq⟩
+        have : a = z_sub := Subtype.ext haeq
+        subst this
+        exact Finset.disjoint_left.mp hCO_disj ha hz_sub
       · intro hS
-        exact ⟨Or.inr hS, Finset.disjoint_right.mp hC_disj_S hS⟩
-    hcardH := by
-      rw [Finset.card_union_of_disjoint hC_disj_S, hS_eq2]; omega
-    hcardG₂ := hrem_card
-    hno_cross := by
-      intro u hu w hw hua hub hwa hwb hadj
-      have huC : u ∈ C := by
-        rcases Finset.mem_union.mp hu with h | h
-        · exact h
-        · rw [hSab] at h; simp [hua, hub] at h
-      have hw_nC : w ∉ C := (Finset.mem_sdiff.mp hw).2
-      have hmem := hC_closed u huC w hadj
-      rw [Finset.mem_union, hSab] at hmem
-      rcases hmem with h1 | h2
-      · exact hw_nC h1
-      · simp [hwa, hwb] at h2
-  }
-  have hd'_sub : d'.VH ⊆ d.VH := Finset.union_subset hC_sub_VH hS_sub_VH
-  have hd'_lt : d'.VH.card < d.VH.card := by
-    apply Finset.card_lt_card
-    rw [Finset.ssubset_iff_subset_ne]
-    refine ⟨hd'_sub, fun heq => ?_⟩
-    have ho_in : o₀.1 ∈ d'.VH := by rw [heq]; exact o₀.2
-    rcases Finset.mem_union.mp ho_in with h1 | h2
-    · exact (hO_sub o₀.1 ho₀_O).1 h1
-    · exact (hO_sub o₀.1 ho₀_O).2 h2
-  have hle := hmin d' (hd'_sub.trans hdB)
-  omega
+        rcases Finset.mem_map.mp hS with ⟨a, ha, haeq⟩
+        have : a = z_sub := Subtype.ext haeq
+        subst this
+        exact Finset.disjoint_left.mp hOA_disj hz_sub ha
+    rcases hC_ne with ⟨c₀, hc₀⟩
+    rcases hO_ne with ⟨o₀, ho₀⟩
+    have hc₀_C : c₀.1 ∈ C := Finset.mem_map.mpr ⟨c₀, hc₀, rfl⟩
+    have ho₀_O : o₀.1 ∈ O := Finset.mem_map.mpr ⟨o₀, ho₀, rfl⟩
+    have hS_ne0 : S.card ≠ 0 := by
+      intro h0
+      have hS_emp : S = ∅ := Finset.card_eq_zero.mp h0
+      obtain ⟨p⟩ := hconn c₀.1 o₀.1
+      obtain ⟨a, ha, b, hb, hadj, _⟩ := walk_exits_set C p hc₀_C (hO_sub o₀.1 ho₀_O).1
+      have hmem := hC_closed a ha b hadj
+      rw [hS_emp, Finset.union_empty] at hmem
+      exact hb hmem
+    have hS_ne1 : S.card ≠ 1 := by
+      intro h1
+      rcases Finset.card_eq_one.mp h1 with ⟨s, hSs⟩
+      have hc₀_ns : c₀.1 ∈ ({s}ᶜ : Set V) := fun h => by
+        have : c₀.1 ∈ S := by rw [hSs, Finset.mem_singleton]; exact h
+        exact Finset.disjoint_left.mp hC_disj_S hc₀_C this
+      have ho₀_ns : o₀.1 ∈ ({s}ᶜ : Set V) := fun h => (hO_sub o₀.1 ho₀_O).2 (by rw [hSs, Finset.mem_singleton]; exact h)
+      obtain ⟨p⟩ := h2conn s ⟨c₀.1, hc₀_ns⟩ ⟨o₀.1, ho₀_ns⟩
+      let f : (G.induce ({s}ᶜ : Set V)) →g G := (SimpleGraph.Embedding.induce ({s}ᶜ : Set V)).toHom
+      obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set C (p.map f) hc₀_C (hO_sub o₀.1 ho₀_O).1
+      have hmem := hC_closed a ha b hadj
+      rw [hSs, Finset.mem_union, Finset.mem_singleton] at hmem
+      rcases hmem with hbC | rfl
+      · exact hb hbC
+      · rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
+        rcases hb_supp with ⟨b', _, hb'eq⟩
+        exact b'.2 hb'eq.symm
+    have hS_eq2 : S.card = 2 := by omega
+    rcases Finset.card_eq_two.mp hS_eq2 with ⟨a, b, hab, hSab⟩
+    have hC_ge2 : 2 ≤ C.card :=
+      component_card_ge_two G hdeg S C hS_card ⟨c₀.1, hc₀_C⟩ hC_disj_S hC_closed
+    have hG₂_int_disj_VH : Disjoint (d.VG₂ \ {d.x, d.y}) d.VH := by
+      rw [Finset.disjoint_left]
+      intro z hz hVH
+      have hinter : z ∈ d.VH ∩ d.VG₂ := Finset.mem_inter.mpr ⟨hVH, (Finset.mem_sdiff.mp hz).1⟩
+      rw [d.hinter] at hinter
+      exact (Finset.mem_sdiff.mp hz).2 hinter
+    have hG₂_int_card : 2 ≤ (d.VG₂ \ {d.x, d.y}).card := by
+      have hsub : ({d.x, d.y} : Finset V) ⊆ d.VG₂ := by
+        intro z hz
+        have : z ∈ d.VH ∩ d.VG₂ := by rw [d.hinter]; exact hz
+        exact (Finset.mem_inter.mp this).2
+      rw [Finset.card_sdiff, Finset.inter_eq_left.mpr hsub, Finset.card_pair d.hxy]
+      have := d.hcardG₂; omega
+    have hS_sub_VH : S ⊆ d.VH := by
+      intro z hz
+      rcases Finset.mem_map.mp hz with ⟨z_sub, _, rfl⟩
+      exact z_sub.2
+    have hC_sub_VH : C ⊆ d.VH := by
+      intro z hz
+      rcases Finset.mem_map.mp hz with ⟨z_sub, _, rfl⟩
+      exact z_sub.2
+    have hrem_card : 4 ≤ (Finset.univ \ C).card := by
+      have hsub : (d.VG₂ \ {d.x, d.y}) ∪ S ⊆ Finset.univ \ C := by
+        intro z hz
+        rw [Finset.mem_sdiff]
+        refine ⟨Finset.mem_univ z, fun hzC => ?_⟩
+        rcases Finset.mem_union.mp hz with h1 | h2
+        · exact Finset.disjoint_left.mp hG₂_int_disj_VH h1 (hC_sub_VH hzC)
+        · exact Finset.disjoint_left.mp hC_disj_S hzC h2
+      have hdisj_GS : Disjoint (d.VG₂ \ {d.x, d.y}) S :=
+        hG₂_int_disj_VH.mono_right hS_sub_VH
+      have hcard := Finset.card_le_card hsub
+      rw [Finset.card_union_of_disjoint hdisj_GS, hS_eq2] at hcard
+      omega
+    let d' : TwoSep G := {
+      VH := C ∪ S
+      VG₂ := (Finset.univ \ C)
+      x := a
+      y := b
+      hxy := hab
+      hunion := by
+        ext z; simp only [Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and, iff_true]
+        tauto
+      hinter := by
+        ext z
+        rw [← hSab]
+        simp only [Finset.mem_inter, Finset.mem_union, Finset.mem_sdiff, Finset.mem_univ, true_and]
+        constructor
+        · rintro ⟨hC | hS, hnC⟩
+          · exact absurd hC hnC
+          · exact hS
+        · intro hS
+          exact ⟨Or.inr hS, Finset.disjoint_right.mp hC_disj_S hS⟩
+      hcardH := by
+        rw [Finset.card_union_of_disjoint hC_disj_S, hS_eq2]; omega
+      hcardG₂ := hrem_card
+      hno_cross := by
+        intro u hu w hw hua hub hwa hwb hadj
+        have huC : u ∈ C := by
+          rcases Finset.mem_union.mp hu with h | h
+          · exact h
+          · rw [hSab] at h; simp [hua, hub] at h
+        have hw_nC : w ∉ C := (Finset.mem_sdiff.mp hw).2
+        have hmem := hC_closed u huC w hadj
+        rw [Finset.mem_union, hSab] at hmem
+        rcases hmem with h1 | h2
+        · exact hw_nC h1
+        · simp [hwa, hwb] at h2
+    }
+    have hd'_sub : d'.VH ⊆ d.VH := Finset.union_subset hC_sub_VH hS_sub_VH
+    have hd'_lt : d'.VH.card < d.VH.card := by
+      apply Finset.card_lt_card
+      rw [Finset.ssubset_iff_subset_ne]
+      refine ⟨hd'_sub, fun heq => ?_⟩
+      have ho_in : o₀.1 ∈ d'.VH := by rw [heq]; exact o₀.2
+      rcases Finset.mem_union.mp ho_in with h1 | h2
+      · exact (hO_sub o₀.1 ho₀_O).1 h1
+      · exact (hO_sub o₀.1 ho₀_O).2 h2
+    have hle := hmin d' (hd'_sub.trans hdB)
+    omega
 
 private lemma twoSep_disjoint_complement (G : SimpleGraph V)
     (h2conn : ∀ v : V, (G.induce ({v}ᶜ : Set V)).Preconnected)
@@ -517,8 +512,7 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
     d₁.VH ⊆ d₂.VG₂ := by
   intro u hu
   by_cases hxy : u = d₁.x ∨ u = d₁.y
-  · -- Suppose u ∈ {d₁.x, d₁.y}. Show u has a neighbor in d₁.VH \ {d₁.x, d₁.y}.
-    have hex_nbr : ∃ p ∈ d₁.VH, p ≠ d₁.x ∧ p ≠ d₁.y ∧ G.Adj u p := by
+  · have hex_nbr : ∃ p ∈ d₁.VH, p ≠ d₁.x ∧ p ≠ d₁.y ∧ G.Adj u p := by
       have hH_int : (d₁.VH \ {d₁.x, d₁.y}).Nonempty := by
         have hsub : ({d₁.x, d₁.y} : Finset V) ⊆ d₁.VH := by
           intro z hz; exact (Finset.mem_inter.mp (by rw [d₁.hinter]; exact hz)).1
@@ -553,7 +547,7 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
         · exact hns.2
         · exact hns.1
       obtain ⟨p⟩ := h2conn other ⟨w₁, hw₁_ne⟩ ⟨w₂, hw₂_ne⟩
-      let f := (SimpleGraph.Embedding.induce ({other}ᶜ : Set V)).toHom
+      let f : (G.induce ({other}ᶜ : Set V)) →g G := (SimpleGraph.Embedding.induce ({other}ᶜ : Set V)).toHom
       have hw₂_nH : w₂ ∉ d₁.VH \ {d₁.x, d₁.y} := by
         intro hmem
         have hinter : w₂ ∈ d₁.VH ∩ d₁.VG₂ :=
@@ -634,7 +628,6 @@ theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [Decidab
   classical
   have _ := hcard
   obtain ⟨d0⟩ := exists_twoSep_of_not_three_conn G hconn h2conn hdeg hnot3
-  -- Step 1: Choose a TwoSep d₁ minimizing VH.card
   have hex1 : ∃ k : ℕ, ∃ d : TwoSep G, d.VH.card = k := ⟨d0.VH.card, d0, rfl⟩
   let k₁ := Nat.find hex1
   obtain ⟨d₁, hd₁_card⟩ := Nat.find_spec hex1
@@ -644,7 +637,6 @@ theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [Decidab
     exact Nat.find_min' hex1 ⟨d', rfl⟩
   let r₁ : RLeafDecomp G :=
     twoSep_minimal_is_rLeaf G hconn h2conn hdeg Finset.univ d₁ (Finset.subset_univ _) hd₁_min
-  -- Step 2: Choose a TwoSep d₂ with d₂.VH ⊆ d₁.VG₂ minimizing VH.card
   let d₁_flip := twoSep_flip d₁
   have hex2 : ∃ k : ℕ, ∃ d : TwoSep G, d.VH ⊆ d₁.VG₂ ∧ d.VH.card = k :=
     ⟨d₁_flip.VH.card, d₁_flip, Finset.Subset.refl d₁.VG₂, rfl⟩
