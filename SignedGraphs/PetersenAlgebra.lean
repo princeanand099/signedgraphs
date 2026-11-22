@@ -118,7 +118,7 @@ lemma petersenAint_mul_AintInv (w : Fin 14 → ℝ) (hdet : petersenDetB w ≠ 0
           rw [h2, Matrix.one_mul]
       _ = 0 := neg_add_cancel _
   simp only [petersenAint, petersenAintInv, Matrix.fromBlocks_multiply,
-    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h21, Matrix.fromBlocks_one]
+    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h2, h21, Matrix.fromBlocks_one]
 
 /-- Helper: any block matrix `[[0, M], [Mᵀ, 0]]` has signature `0`. -/
 lemma signature_offdiag_block_zero {m n : ℕ} (M : Matrix (Fin m) (Fin n) ℝ)
@@ -235,41 +235,46 @@ lemma petersenMH_signs (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) (hdet
   have hB : 0 < w 1 * w 3 * w 4 + w 11 * w 2 * w 9 := by positivity
   have hC : 0 < w 0 * w 4 * w 5 + w 10 * w 11 * w 7 := by positivity
   have hD : 0 < w 0 * w 2 * w 8 + w 1 * w 10 * w 13 := by positivity
-  have hV00_neg : V 0 0 < 0 := by rw [hv00]; nlinarith [hw 11, hA]
-  have hV10_pos : 0 < V 1 0 := by rw [hv10]; nlinarith [hw 1, hA]
-  have hV20_neg : V 2 0 < 0 := by rw [hv20]; nlinarith [hw 8, hB]
-  have hV30_pos : 0 < V 3 0 := by rw [hv30]; nlinarith [hw 5, hB]
-  have hV01_pos : 0 < V 0 1 := by rw [hv01]; nlinarith [hw 13, hC]
-  have hV11_neg : V 1 1 < 0 := by rw [hv11]; nlinarith [hw 7, hD]
-  have hV21_pos : 0 < V 2 1 := by rw [hv21]; nlinarith [hw 4, hD]
-  have hV31_neg : V 3 1 < 0 := by rw [hv31]; nlinarith [hw 2, hC]
+  have hV00_neg : V 0 0 < 0 := by rw [hv00]; exact mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw11) hA
+  have hV10_pos : 0 < V 1 0 := by rw [hv10]; exact mul_pos hw1 hA
+  have hV20_neg : V 2 0 < 0 := by rw [hv20]; exact mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw8) hB
+  have hV30_pos : 0 < V 3 0 := by rw [hv30]; exact mul_pos hw5 hB
+  have hV01_pos : 0 < V 0 1 := by rw [hv01]; exact mul_pos hw13 hC
+  have hV11_neg : V 1 1 < 0 := by rw [hv11]; exact mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw7) hD
+  have hV21_pos : 0 < V 2 1 := by rw [hv21]; exact mul_pos hw4 hD
+  have hV31_neg : V 3 1 < 0 := by rw [hv31]; exact mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw2) hC
   have hinv_pos : 0 < ((petersenDetB w) ^ 2)⁻¹ := inv_pos.mpr (sq_pos_of_ne_zero hdet)
   have hquad : ∀ i j : Fin 2, (Vᵀ * petersenC w * V) i j =
       -w 12 * (V 0 i * V 2 j + V 2 i * V 0 j) - w 6 * (V 1 i * V 3 j + V 3 i * V 1 j) := by
     intro i j
     simp [petersenC, Matrix.mul_apply, Matrix.transpose_apply, Fin.sum_univ_four]
     ring
+  have hw6 := hw 6; have hw12 := hw 12
   refine ⟨?_, ?_, ?_, hsym⟩
   · rw [hMH_eq 0 0, hquad 0 0]
     have h1 : 0 < V 0 0 * V 2 0 := mul_pos_of_neg_of_neg hV00_neg hV20_neg
     have h2 : 0 < V 1 0 * V 3 0 := mul_pos hV10_pos hV30_pos
-    have hneg : -w 12 * (V 0 0 * V 2 0 + V 2 0 * V 0 0) - w 6 * (V 1 0 * V 3 0 + V 3 0 * V 1 0) < 0 := by
-      nlinarith [hw 12, hw 6]
-    nlinarith
+    have h1b : 0 < V 0 0 * V 2 0 + V 2 0 * V 0 0 := by linarith [mul_comm (V 0 0) (V 2 0)]
+    have h2b : 0 < V 1 0 * V 3 0 + V 3 0 * V 1 0 := by linarith [mul_comm (V 1 0) (V 3 0)]
+    have ht1 : -w 12 * (V 0 0 * V 2 0 + V 2 0 * V 0 0) < 0 := mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw12) h1b
+    have ht2 : 0 < w 6 * (V 1 0 * V 3 0 + V 3 0 * V 1 0) := mul_pos hw6 h2b
+    exact mul_neg_of_pos_of_neg hinv_pos (by linarith)
   · rw [hMH_eq 1 1, hquad 1 1]
     have h1 : 0 < V 0 1 * V 2 1 := mul_pos hV01_pos hV21_pos
     have h2 : 0 < V 1 1 * V 3 1 := mul_pos_of_neg_of_neg hV11_neg hV31_neg
-    have hneg : -w 12 * (V 0 1 * V 2 1 + V 2 1 * V 0 1) - w 6 * (V 1 1 * V 3 1 + V 3 1 * V 1 1) < 0 := by
-      nlinarith [hw 12, hw 6]
-    nlinarith
+    have h1b : 0 < V 0 1 * V 2 1 + V 2 1 * V 0 1 := by linarith [mul_comm (V 0 1) (V 2 1)]
+    have h2b : 0 < V 1 1 * V 3 1 + V 3 1 * V 1 1 := by linarith [mul_comm (V 1 1) (V 3 1)]
+    have ht1 : -w 12 * (V 0 1 * V 2 1 + V 2 1 * V 0 1) < 0 := mul_neg_of_neg_of_pos (neg_lt_zero.mpr hw12) h1b
+    have ht2 : 0 < w 6 * (V 1 1 * V 3 1 + V 3 1 * V 1 1) := mul_pos hw6 h2b
+    exact mul_neg_of_pos_of_neg hinv_pos (by linarith)
   · rw [hMH_eq 0 1, hquad 0 1]
     have h1 : V 0 0 * V 2 1 < 0 := mul_neg_of_neg_of_pos hV00_neg hV21_pos
     have h2 : V 2 0 * V 0 1 < 0 := mul_neg_of_neg_of_pos hV20_neg hV01_pos
     have h3 : V 1 0 * V 3 1 < 0 := mul_neg_of_pos_of_neg hV10_pos hV31_neg
     have h4 : V 3 0 * V 1 1 < 0 := mul_neg_of_pos_of_neg hV30_pos hV11_neg
-    have hpos : 0 < -w 12 * (V 0 0 * V 2 1 + V 2 0 * V 0 1) - w 6 * (V 1 0 * V 3 1 + V 3 0 * V 1 1) := by
-      nlinarith [hw 12, hw 6]
-    exact mul_pos hinv_pos hpos
+    have ht1 : 0 < -w 12 * (V 0 0 * V 2 1 + V 2 0 * V 0 1) := mul_pos_of_neg_of_neg (neg_lt_zero.mpr hw12) (by linarith)
+    have ht2 : w 6 * (V 1 0 * V 3 1 + V 3 0 * V 1 1) < 0 := mul_neg_of_pos_of_neg hw6 (by linarith)
+    exact mul_pos hinv_pos (by linarith)
 
 /-! ### Case 2 (`det(B) = 0`): Explicit Basis Reduction and 7×7 Interior Signature `-1` -/
 
@@ -460,7 +465,7 @@ lemma petersenK_mul_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) :
           rw [h2, Matrix.one_mul]
       _ = 0 := neg_add_cancel _
   simp only [petersenK, petersenKinv, Matrix.fromBlocks_multiply,
-    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h21, Matrix.fromBlocks_one]
+    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h2, h21, Matrix.fromBlocks_one]
 
 lemma signature_petersenK_eq_zero (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) :
     signature (petersenK w) (isHermitian_petersenK w) = 0 := by
@@ -538,7 +543,7 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
     have hpos0 : posInertia (petersenQcqMat w) hQcq_H = 0 := by
       rw [posInertia_eq_sSup]
       apply le_antisymm
-      · refine csSup_le ⟨0, ⟨⊥, finrank_bot ℝ _, by intro v hv hv0; exact hv0 (by simpa using hv)⟩⟩ ?_
+      · refine csSup_le ⟨0, ⟨⊥, finrank_bot ℝ _, by intro v hv hv0; exact absurd (by simpa using hv) hv0⟩⟩ ?_
         rintro n ⟨W, rfl, hW⟩
         by_contra hpos
         have hWne : W ≠ ⊥ := by
@@ -656,8 +661,7 @@ theorem petersen_block_signature_nonpos
   let Rfull : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ :=
     Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0
   by_cases hdet : petersenDetB w ≠ 0
-  · -- Case 1: det(B) ≠ 0
-    let S : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ := petersenAintInv w * Rfull
+  · let S : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ := petersenAintInv w * Rfull
     let P : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
       Matrix.fromBlocks 1 (-S) 0 1
     let Q : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
@@ -708,8 +712,7 @@ theorem petersen_block_signature_nonpos
       signature_fromBlocks _ (isHermitian_petersenAint w) _ hMschur_H,
       signature_petersenAint_eq_zero w hdet, zero_add]
     exact hcase1 hdet
-  · -- Case 2: det(B) = 0
-    push Not at hdet
+  · push Not at hdet
     let P_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
       Matrix.fromBlocks (petersenPU w) 0 0 (petersenPW w)
     let Q_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
@@ -812,7 +815,7 @@ theorem petersen_block_signature_nonpos
       simp only [P_int, P_ext, Rfull, Matrix.fromBlocks_transpose, Matrix.transpose_zero,
         Matrix.mul_apply, Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂,
         Matrix.fromBlocks_apply₂₁, Matrix.fromBlocks_apply₂₂, Fintype.sum_sum_type,
-        Matrix.of_apply, mul_zero, zero_mul, Finset.sum_const_zero, add_zero]
+        Matrix.of_apply, Matrix.zero_apply, mul_zero, zero_mul, Finset.sum_const_zero, add_zero]
     have hB₃_00 : B₃ (Sum.inl 0) (Sum.inl 0) = 0 := by
       simp [B₃, e, hB₂_blk, hAint_tr]
     have hB₃_01 : B₃ (Sum.inl 0) (Sum.inl 1) = α := by
