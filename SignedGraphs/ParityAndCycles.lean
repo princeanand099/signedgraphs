@@ -50,9 +50,10 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
       let f : S.graph.induce (({z} : Finset V)ᶜ : Set V) →g S.graph :=
         (SimpleGraph.Embedding.induce (({z} : Finset V)ᶜ : Set V)).toHom
       refine ⟨a, ha, b, hb, p.map f, fun hz => ?_⟩
-      rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-      rcases hz with ⟨x, _, hxz⟩
-      exact x.2 (by simp [hxz])
+      have hz' : z ∈ (p.map f).support := hz
+      rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+      rcases hz' with ⟨x, _, hxz⟩
+      exact x.2 (by simpa [f] using hxz)
     obtain ⟨u₁, u₂, w₁, w₂, P₁, P₂, hu₁, hu₂, hw₁, hw₂, hu12, hw12, hP₁, hP₂, hPdisj, hP₁_int, hP₂_int⟩ :=
       two_disjoint_paths_between_sets _ S.graph c.support.toFinset c₂.support.toFinset rfl
         (by omega) (by omega) hno_cut
@@ -69,7 +70,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
         fun hm => (hP₂_int x hx h1 h2).2 (List.mem_toFinset.mpr hm)⟩)
       p₁ p₂ hp₁ hp₂ (by omega) hp_supp hw_eq hnoc
   · -- Case B: C has at most one chord (of even distance)
-    obtain ⟨col, hcol2, hcol_walk⟩ := even_cycle_bipartition c hc hev
+    obtain ⟨col, hcol2, _, hcol_walk⟩ := even_cycle_bipartition c hc hev
     let X : Finset V := c.support.toFinset.filter fun u => col u = 0
     let Y : Finset V := c.support.toFinset.filter fun u => col u = 1
     have ⟨hX_ge2, hY_ge2⟩ := even_cycle_part_card_ge_two c hc hev col hcol2 hcol_walk
@@ -833,7 +834,7 @@ theorem cycle_pair_obstructions_one_vertex_even_odd (S : SignedGraph V)
     | nil => exact False.elim (Finset.disjoint_left.mp hdisj_c hu₂C hd₀)
     | @cons _ w₁ _ hu₂w₁ q' =>
       have hw₁C : w₁ ∉ c.support.toFinset := by
-        have hnd : q.support.Nodup := hq_path.reverse.support_nodup
+        have hnd := hq_path.reverse.support_nodup
         rw [hq_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
         have hw1_ne : w₁ ≠ u₂ := fun h => hnd.1 (h ▸ SimpleGraph.Walk.start_mem_support q')
         have hw1_qrev : w₁ ∈ qrev.support := by
@@ -848,7 +849,7 @@ theorem cycle_pair_obstructions_one_vertex_even_odd (S : SignedGraph V)
         huC (List.mem_toFinset.mp hu₂C) hu₂u.symm huC₂ hbC₂ hbu P hP hP_int
         p₁ p₂ hp₁ hp₂ (by omega) hp_supp hw_eq hnoc
   · -- Case B: C has at most one chord (of even distance)
-    obtain ⟨col, hcol2, hcol_walk⟩ := even_cycle_bipartition c hc hev
+    obtain ⟨col, hcol2, _, hcol_walk⟩ := even_cycle_bipartition c hc hev
     let X : Finset V := c.support.toFinset.filter fun z => col z = 0
     let Y : Finset V := c.support.toFinset.filter fun z => col z = 1
     have ⟨hX_ge2, hY_ge2⟩ := even_cycle_part_card_ge_two c hc hev col hcol2 hcol_walk
@@ -1043,16 +1044,5 @@ theorem cycle_pair_obstructions_one_vertex_even_odd (S : SignedGraph V)
         rw [harc_w S.sign, hw2, (two_mul_nat_mod_four arc2.length).1 harc2_ev, add_zero]
       exact even_odd_cycle_linkage_one_vertex S c c₂ hc hc₂ hev hodd hinter_c
         huC hzC hzu.symm huC₂ hbC₂ hbu P hP hP_int arc1 arc2 harc1 harc2 harc_len harc_supp hw_eq hnoc
-
-theorem cycle_pair_obstructions_two_disjoint_odd (S : SignedGraph V)
-    (hconn : S.graph.Preconnected) (h3 : ∀ A : Finset V, A.card ≤ 2 →
-      (S.graph.induce (Aᶜ : Set V)).Preconnected)
-    (hnoc : IsNOC S)
-    {v₁ v₂ : V} (c₁ : S.graph.Walk v₁ v₁) (c₂ : S.graph.Walk v₂ v₂)
-    (hc₁ : c₁.IsCycle) (hc₂ : c₂.IsCycle)
-    (hodd₁ : Odd c₁.length) (hodd₂ : Odd c₂.length)
-    (hdisj : Disjoint c₁.support.toFinset c₂.support.toFinset) :
-    SwitchingIso S petersenSignedGraph := by
-  sorry
 
 end SignedGraphs
