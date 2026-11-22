@@ -26,8 +26,9 @@ private lemma shortest_path_in_set {G : SimpleGraph V} (L : Finset V)
   have hrG_path : rG.IsPath := rp.2.map (fun _ _ h => Subtype.ext h)
   have hrG_L : ∀ z ∈ rG.support, z ∈ L := by
     intro z hz
-    rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-    rcases hz with ⟨z', _, rfl⟩
+    have hz' : z ∈ (rp.1.map f).support := hz
+    rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+    rcases hz' with ⟨z', _, rfl⟩
     exact z'.2
   have h1' : (SimpleGraph.Walk.cons h1 rG).IsPath :=
     SimpleGraph.Walk.IsPath.cons hrG_path (fun hm => hu₁ (hrG_L u₁ hm))
@@ -36,9 +37,10 @@ private lemma shortest_path_in_set {G : SimpleGraph V} (L : Finset V)
     intro z hz1 hz2
     simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
       List.not_mem_nil, or_false] at hz2
-    rcases hz2 with rfl | rfl
-    · rfl
-    · simp only [SimpleGraph.Walk.support_cons, List.mem_cons] at hz1
+    rcases hz2 with hzx2 | hzu2
+    · exact hzx2
+    · rw [hzu2] at hz1
+      simp only [SimpleGraph.Walk.support_cons, List.mem_cons] at hz1
       rcases hz1 with h | h
       · exact False.elim (hne h.symm)
       · exact False.elim (hu₂ (hrG_L u₂ h))
@@ -102,7 +104,7 @@ private lemma path_len_ge_two_of_not_mem_edges {G : SimpleGraph V} {v u₁ u₂ 
   | nil => exact absurd rfl hne
   | @cons _ w _ hadj q =>
     cases q with
-    | nil => exfalso; exact hchord (hp_e s(u₁, w) (by simp))
+    | nil => exfalso; exact hchord (hp_e s(u₁, u₂) (by simp))
     | cons _ _ => simp
 
 omit [Fintype V] [DecidableEq V] in
@@ -142,7 +144,7 @@ private lemma mem_support_of_edges_subset {G : SimpleGraph V} {v a b : V}
       rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hx
       rcases hx with rfl | hr
       · exact ⟨w, by simp⟩
-      · clear hp_pos hp_e
+      · clear hp_pos hp_e hadj
         induction r with
         | nil => simp at hr; subst hr; exact ⟨a, by simp [Sym2.eq_swap]⟩
         | @cons u₁ u₂ u₃ h' r' ih =>
@@ -176,13 +178,13 @@ private lemma mem_takeUntil_or_symm {G : SimpleGraph V} :
         · left; simp [SimpleGraph.Walk.takeUntil, hay, h1]
         · right; simp [SimpleGraph.Walk.takeUntil, hax, h2]
 
+set_option maxHeartbeats 800000 in
 /-- **Lemma 3.2 (Gao–Li–Ma–Xie)**: Let `G` be a 3-connected simple graph and `D` a nonempty
 connected vertex set such that `G - D` contains an even cycle. Then there exists an even cycle
 `C` disjoint from `D` such that:
 1. `G - V(C)` is connected;
 2. Every chord of `C` joins two vertices at even distance along `C`;
 3. Either `C` has length 4 and induces `K₄`, or `C` has at most one chord. -/
-set_option maxHeartbeats 800000 in
 theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     (h3 : ∀ A : Finset V, A.card ≤ 2 → (G.induce (Aᶜ : Set V)).Preconnected)
     (D : Finset V) (d₀ : V) (hd₀ : d₀ ∈ D)
@@ -206,7 +208,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     intro S₁ S₂ hsub hdisj1 u hu
     simp only [compD, Finset.mem_filter, Finset.mem_univ, true_and] at hu ⊢
     rcases hu with ⟨hu1, hd1, ⟨r⟩⟩
-    have hinc : ∀ x : ((S₁ : Set V)ᶜ), x.1 ∈ ((S₂ : Set V)ᶜ) := fun x h => x.2 (hsub h)
+    have hinc : ∀ x : ↥((S₁ : Set V)ᶜ), x.1 ∈ ((S₂ : Set V)ᶜ) := fun x h => x.2 (hsub h)
     let φ : G.induce ((S₁ : Set V)ᶜ) →g G.induce ((S₂ : Set V)ᶜ) :=
       { toFun := fun x => ⟨x.1, hinc x⟩
         map_rel' := fun h => h }
@@ -390,7 +392,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     let fL : (G.induce (L : Set V)) →g G := (SimpleGraph.Embedding.induce (L : Set V)).toHom
     let r₃G : G.Walk x₃ x₁ := r₃.map fL
     have hr₃_L : ∀ z ∈ r₃G.support, z ∈ L := by
-      intro z hz; dsimp only [r₃G] at hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz; rcases hz with ⟨z', _, rfl⟩; exact z'.2
+      intro z hz; have hz' : z ∈ (r₃.map fL).support := hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'; rcases hz' with ⟨z', _, rfl⟩; exact z'.2
     obtain ⟨z, hzQ₁₂_fin, R, hR, hR_sub, hR_int⟩ :=
       walk_first_hit_pc Q₁₂.support.toFinset r₃G ⟨x₁, List.mem_toFinset.mpr hx₁_Q₁₂, SimpleGraph.Walk.end_mem_support r₃G⟩
     have hzQ₁₂ : z ∈ Q₁₂.support := List.mem_toFinset.mp hzQ₁₂_fin

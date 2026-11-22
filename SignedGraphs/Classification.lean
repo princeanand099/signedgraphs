@@ -120,8 +120,8 @@ private lemma tree_two_leaves {G : SimpleGraph V} (T : Finset V) (hcard : 2 ≤ 
     let f : G.induce (T : Set V) →g G := (SimpleGraph.Embedding.induce (T : Set V)).toHom
     let p : G.Walk x y := rp.1.map f
     refine ⟨x, y, p, rp.2.map (fun _ _ h => Subtype.ext h), ?_, ?_⟩
-    · intro z hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-      rcases hz with ⟨z', _, rfl⟩; exact z'.2
+    · intro z hz; have hz' : z ∈ (rp.1.map f).support := hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+      rcases hz' with ⟨z', _, rfl⟩; exact z'.2
     · cases hp : p with
       | nil => exact absurd rfl hyx.symm
       | cons _ _ => simp
@@ -273,9 +273,9 @@ private lemma cycle_len_eq_three_vertices {G : SimpleGraph V} {v : V} (c : G.Wal
           intro x; simp [or_comm, or_left_comm, or_assoc]
         | cons _ _ => simp at h3
 
+set_option maxHeartbeats 800000 in
 /-- **Theorem 3.1**: Every 3-connected, non-bipartite NOC signed graph is switching-isomorphic
 to either `(K₄, +1)` or `(Petersen, -1)`. -/
-set_option maxHeartbeats 800000 in
 theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
     (hcard : 4 ≤ Fintype.card V)
     (hconn : S.graph.Preconnected)
@@ -625,8 +625,8 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         let P : G.Walk u₁ u₂ := rp.1.map fT
         have hP : P.IsPath := rp.2.map (fun _ _ h => Subtype.ext h)
         have hP_T : ∀ z ∈ P.support, z ∈ T := by
-          intro z hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-          rcases hz with ⟨z', _, rfl⟩; exact z'.2
+          intro z hz; have hz' : z ∈ (rp.1.map fT).support := hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+          rcases hz' with ⟨z', _, rfl⟩; exact z'.2
         have hP_pos : 1 ≤ P.length := by cases P with | nil => exact absurd rfl hu12 | cons _ _ => simp
         have hP_nC : ∀ z ∈ P.support, z ∉ c.support.toFinset := fun z hz =>
           Finset.disjoint_left.mp hT_disj (hP_T z hz)
@@ -961,8 +961,8 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         let P_w : G.Walk u₁ w := rwp.1.map fT
         have hPw : P_w.IsPath := rwp.2.map (fun _ _ h => Subtype.ext h)
         have hPw_T : ∀ z ∈ P_w.support, z ∈ T := by
-          intro z hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-          rcases hz with ⟨z', _, rfl⟩; exact z'.2
+          intro z hz; have hz' : z ∈ (rwp.1.map fT).support := hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+          rcases hz' with ⟨z', _, rfl⟩; exact z'.2
         have hPw_nC : ∀ z ∈ P_w.support, z ∉ c.support := fun z hz hm =>
           Finset.disjoint_left.mp hT_disj (hPw_T z hz) (List.mem_toFinset.mpr hm)
         let R : G.Walk u₁ v₃ := P_w.append (SimpleGraph.Walk.cons hwv3 .nil)
@@ -1144,8 +1144,8 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
       let P : G.Walk u₁ u₂ := rp.1.map fT
       have hP : P.IsPath := rp.2.map (fun _ _ h => Subtype.ext h)
       have hP_T : ∀ z ∈ P.support, z ∈ T := by
-        intro z hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz
-        rcases hz with ⟨z', _, rfl⟩; exact z'.2
+        intro z hz; have hz' : z ∈ (rp.1.map fT).support := hz; rw [SimpleGraph.Walk.support_map, List.mem_map] at hz'
+        rcases hz' with ⟨z', _, rfl⟩; exact z'.2
       have hP_nC : ∀ z ∈ P.support, z ∉ c.support.toFinset := fun z hz =>
         Finset.disjoint_left.mp hT_disj (hP_T z hz)
       have hP_pos : 1 ≤ P.length := by cases P with | nil => exact absurd rfl hu12 | cons _ _ => simp
