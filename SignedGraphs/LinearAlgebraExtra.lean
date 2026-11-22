@@ -56,6 +56,7 @@ theorem signature_reindex {V W : Type*} [Fintype V] [DecidableEq V]
       rintro y hy hy0
       rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
       have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+      change 0 < dotProduct (φ x) (A *ᵥ φ x)
       rw [hquad x]
       exact hU x hx hx0
     · rintro ⟨U, rfl, hU⟩
@@ -63,7 +64,10 @@ theorem signature_reindex {V W : Type*} [Fintype V] [DecidableEq V]
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
-      rw [← hquad (φ.symm y), LinearEquiv.apply_symm_apply]
+      change 0 < dotProduct (φ.symm y) ((A.submatrix e e) *ᵥ φ.symm y)
+      rw [← hquad (φ.symm y)]
+      change 0 < dotProduct (φ (φ.symm y)) (A *ᵥ φ (φ.symm y))
+      rw [LinearEquiv.apply_symm_apply]
       exact hU y hy hy0
   have hneg : negInertia (A.submatrix e e) (isHermitian_submatrix A hA e) = negInertia A hA := by
     rw [negInertia_eq_sSup, negInertia_eq_sSup]
@@ -73,6 +77,7 @@ theorem signature_reindex {V W : Type*} [Fintype V] [DecidableEq V]
       rintro y hy hy0
       rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
       have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+      change dotProduct (φ x) (A *ᵥ φ x) < 0
       rw [hquad x]
       exact hU x hx hx0
     · rintro ⟨U, rfl, hU⟩
@@ -80,7 +85,10 @@ theorem signature_reindex {V W : Type*} [Fintype V] [DecidableEq V]
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
-      rw [← hquad (φ.symm y), LinearEquiv.apply_symm_apply]
+      change dotProduct (φ.symm y) ((A.submatrix e e) *ᵥ φ.symm y) < 0
+      rw [← hquad (φ.symm y)]
+      change dotProduct (φ (φ.symm y)) (A *ᵥ φ (φ.symm y)) < 0
+      rw [LinearEquiv.apply_symm_apply]
       exact hU y hy hy0
   simp only [signature, hpos, hneg]
 
@@ -159,21 +167,22 @@ private lemma posInertia_diagonal {V : Type*} [Fintype V] [DecidableEq V]
     linarith
   have hsum := Submodule.finrank_sup_add_finrank_inf_eq W Wnonpos
   rw [hdisj, finrank_bot, add_zero] at hsum
-  have hle_card : Module.finrank ℝ (W ⊔ Wnonpos) ≤ Fintype.card V := by
-    simpa [Module.finrank_fintype_fun_eq_card] using Submodule.finrank_le (W ⊔ Wnonpos)
+  have hle_card := Submodule.finrank_le (W ⊔ Wnonpos)
+  rw [Module.finrank_fintype_fun_eq_card] at hle_card
   have hnonpos_card : Module.finrank ℝ Wnonpos = (Finset.univ.filter fun i : V => ¬ (0 < d i)).card :=
     finrank_coordSub (fun i => ¬ (0 < d i))
   have hpart : (Finset.univ.filter fun i : V => 0 < d i).card +
       (Finset.univ.filter fun i : V => ¬ (0 < d i)).card = Fintype.card V := by
-    rw [Finset.card_filter_add_card_filter_not]
+    rw [Finset.card_filter_add_card_filter_not, Finset.card_univ]
   omega
 
 private lemma negInertia_diagonal {V : Type*} [Fintype V] [DecidableEq V]
     (d : V → ℝ) (hD : (Matrix.diagonal d).IsHermitian) :
     negInertia (Matrix.diagonal d) hD = (Finset.univ.filter fun i : V => d i < 0).card := by
   have hnegD : (Matrix.diagonal (-d)).IsHermitian := by
-    rw [← Matrix.diagonal_neg]
-    exact isHermitian_neg _ hD
+    ext i j
+    simp only [Matrix.conjTranspose_apply, Matrix.diagonal_apply]
+    split_ifs <;> simp
   have hpos_neg : posInertia (Matrix.diagonal (-d)) hnegD =
       (Finset.univ.filter fun i : V => 0 < -d i).card := posInertia_diagonal (-d) hnegD
   have hcard : (Finset.univ.filter fun i : V => 0 < -d i).card =
@@ -185,7 +194,8 @@ private lemma negInertia_diagonal {V : Type*} [Fintype V] [DecidableEq V]
       dotProduct x (Matrix.diagonal (-d) *ᵥ x) = - dotProduct x (Matrix.diagonal d *ᵥ x) := by
     intro x
     simp only [dotProduct, Matrix.mulVec_diagonal, Pi.neg_apply, neg_mul, Finset.sum_neg_distrib]
-    ring_nf
+    congr 1
+    refine Finset.sum_congr rfl fun i _ => by ring
   congr 1; ext n; constructor
   · rintro ⟨W, rfl, hW⟩
     refine ⟨W, rfl, fun x hx hx0 => ?_⟩
@@ -300,10 +310,10 @@ theorem signature_fromBlocks {U W : Type*} [Fintype U] [DecidableEq U]
       (Finset.univ.filter fun i : U => 0 < hA.eigenvalues i).card +
       (Finset.univ.filter fun j : W => 0 < hB.eigenvalues j).card := by
     have h1 : (Finset.univ.filter fun i : U => 0 < hA.eigenvalues i).card =
-        ((Finset.univ.filter fun i : U => 0 < hA.eigenvalues i).image Sum.inl).card :=
+        ((Finset.univ.filter fun i : U => 0 < hA.eigenvalues i).image (@Sum.inl U W)).card :=
       (Finset.card_image_of_injective _ Sum.inl_injective).symm
     have h2 : (Finset.univ.filter fun j : W => 0 < hB.eigenvalues j).card =
-        ((Finset.univ.filter fun j : W => 0 < hB.eigenvalues j).image Sum.inr).card :=
+        ((Finset.univ.filter fun j : W => 0 < hB.eigenvalues j).image (@Sum.inr U W)).card :=
       (Finset.card_image_of_injective _ Sum.inr_injective).symm
     rw [h1, h2, ← Finset.card_union_of_disjoint]
     · congr 1; ext k; rcases k with i | j <;> simp [d]
@@ -316,10 +326,10 @@ theorem signature_fromBlocks {U W : Type*} [Fintype U] [DecidableEq U]
       (Finset.univ.filter fun i : U => hA.eigenvalues i < 0).card +
       (Finset.univ.filter fun j : W => hB.eigenvalues j < 0).card := by
     have h1 : (Finset.univ.filter fun i : U => hA.eigenvalues i < 0).card =
-        ((Finset.univ.filter fun i : U => hA.eigenvalues i < 0).image Sum.inl).card :=
+        ((Finset.univ.filter fun i : U => hA.eigenvalues i < 0).image (@Sum.inl U W)).card :=
       (Finset.card_image_of_injective _ Sum.inl_injective).symm
     have h2 : (Finset.univ.filter fun j : W => hB.eigenvalues j < 0).card =
-        ((Finset.univ.filter fun j : W => hB.eigenvalues j < 0).image Sum.inr).card :=
+        ((Finset.univ.filter fun j : W => hB.eigenvalues j < 0).image (@Sum.inr U W)).card :=
       (Finset.card_image_of_injective _ Sum.inr_injective).symm
     rw [h1, h2, ← Finset.card_union_of_disjoint]
     · congr 1; ext k; rcases k with i | j <;> simp [d]
@@ -332,9 +342,9 @@ theorem signature_fromBlocks {U W : Type*} [Fintype U] [DecidableEq U]
   omega
 
 lemma signature_one_by_one_le_one (c : ℝ)
-    (hM : (fun _ _ : Unit => c : Matrix Unit Unit ℝ).IsHermitian) :
-    signature (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM ≤ 1 := by
-  have hpos : posInertia (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM ≤ 1 := by
+    (hM : (Matrix.of (fun _ _ : Unit => c)).IsHermitian) :
+    signature (Matrix.of (fun _ _ : Unit => c)) hM ≤ 1 := by
+  have hpos : posInertia (Matrix.of (fun _ _ : Unit => c)) hM ≤ 1 := by
     rw [posInertia_eq_sSup]
     refine csSup_le ⟨0, ⊥, finrank_bot ℝ (Unit → ℝ), fun x hx hx0 => absurd (Submodule.mem_bot.mp hx) hx0⟩ ?_
     rintro n ⟨W, rfl, _⟩
@@ -343,9 +353,9 @@ lemma signature_one_by_one_le_one (c : ℝ)
   omega
 
 lemma signature_one_by_one_nonpos (c : ℝ) (hc : c ≤ 0)
-    (hM : (fun _ _ : Unit => c : Matrix Unit Unit ℝ).IsHermitian) :
-    signature (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM ≤ 0 := by
-  have hpos : posInertia (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM = 0 := by
+    (hM : (Matrix.of (fun _ _ : Unit => c)).IsHermitian) :
+    signature (Matrix.of (fun _ _ : Unit => c)) hM ≤ 0 := by
+  have hpos : posInertia (Matrix.of (fun _ _ : Unit => c)) hM = 0 := by
     rw [posInertia_eq_sSup]
     refine le_antisymm (csSup_le ⟨0, ⊥, finrank_bot ℝ (Unit → ℝ), fun x hx hx0 =>
         absurd (Submodule.mem_bot.mp hx) hx0⟩ ?_) (Nat.zero_le _)
@@ -360,27 +370,27 @@ lemma signature_one_by_one_nonpos (c : ℝ) (hc : c ≤ 0)
         intro x hx
         exact Submodule.mem_bot.mpr (hnone x hx)
       have hgt := hW x hxW hx0
-      have hle : dotProduct x ((fun _ _ : Unit => c : Matrix Unit Unit ℝ) *ᵥ x) ≤ 0 := by
-        simp only [dotProduct, Matrix.mulVec, Finset.univ_unique, Finset.sum_singleton]
+      have hle : dotProduct x (Matrix.of (fun _ _ : Unit => c) *ᵥ x) ≤ 0 := by
+        simp only [dotProduct, Matrix.mulVec, Matrix.of_apply, Finset.univ_unique, Finset.sum_singleton]
         nlinarith [sq_nonneg (x ())]
       linarith
   simp only [signature, hpos]
   omega
 
 lemma signature_one_by_one_le_zero_iff (c : ℝ)
-    (hM : (fun _ _ : Unit => c : Matrix Unit Unit ℝ).IsHermitian) :
-    signature (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM ≤ 0 → c ≤ 0 := by
+    (hM : (Matrix.of (fun _ _ : Unit => c)).IsHermitian) :
+    signature (Matrix.of (fun _ _ : Unit => c)) hM ≤ 0 → c ≤ 0 := by
   intro hs
   by_contra hc
   push Not at hc
-  have hpos : 1 ≤ posInertia (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM := by
+  have hpos : 1 ≤ posInertia (Matrix.of (fun _ _ : Unit => c)) hM := by
     rw [posInertia_eq_sSup]
     refine le_csSup ⟨1, by rintro n ⟨W, rfl, _⟩; simpa [Module.finrank_fintype_fun_eq_card] using Submodule.finrank_le W⟩ ?_
     refine ⟨⊤, by simp [Module.finrank_fintype_fun_eq_card], fun x _ hx0 => ?_⟩
     have hx : x () ≠ 0 := fun h => hx0 (by ext ⟨⟩; exact h)
-    simp only [dotProduct, Matrix.mulVec, Finset.univ_unique, Finset.sum_singleton]
+    simp only [dotProduct, Matrix.mulVec, Matrix.of_apply, Finset.univ_unique, Finset.sum_singleton]
     nlinarith [sq_pos_of_ne_zero hx]
-  have hneg : negInertia (fun _ _ : Unit => c : Matrix Unit Unit ℝ) hM = 0 := by
+  have hneg : negInertia (Matrix.of (fun _ _ : Unit => c)) hM = 0 := by
     rw [negInertia_eq_sSup]
     refine le_antisymm (csSup_le ⟨0, ⊥, finrank_bot ℝ (Unit → ℝ), fun x hx hx0 =>
         absurd (Submodule.mem_bot.mp hx) hx0⟩ ?_) (Nat.zero_le _)
@@ -391,8 +401,8 @@ lemma signature_one_by_one_le_zero_iff (c : ℝ)
         by_contra hnone; push Not at hnone; apply hbot
         rw [eq_bot_iff]; intro x hx; exact Submodule.mem_bot.mpr (hnone x hx)
       have hlt := hW x hxW hx0
-      have hge : 0 ≤ dotProduct x ((fun _ _ : Unit => c : Matrix Unit Unit ℝ) *ᵥ x) := by
-        simp only [dotProduct, Matrix.mulVec, Finset.univ_unique, Finset.sum_singleton]
+      have hge : 0 ≤ dotProduct x (Matrix.of (fun _ _ : Unit => c) *ᵥ x) := by
+        simp only [dotProduct, Matrix.mulVec, Matrix.of_apply, Finset.univ_unique, Finset.sum_singleton]
         nlinarith [sq_nonneg (x ())]
       linarith
   simp only [signature, hneg] at hs
@@ -438,7 +448,9 @@ lemma matrixIsNOC_submatrix_injective {V W : Type*} [Fintype V] [DecidableEq V]
         simp [matrixGraph, hf.ne_iff] }
   let c' : (matrixGraph A hA).Walk (f w) (f w) := c.map emb.toHom
   have hc' : c'.IsCycle := hc.map emb.injective
-  have hodd' : Odd c'.length := by simpa [c'] using hodd
+  have hodd' : Odd c'.length := by
+    rw [SimpleGraph.Walk.length_map]
+    exact hodd
   have hsign : ∀ {a b : W} (p : (matrixGraph (A.submatrix f f) hAf).Walk a b),
       walkSignProd (matrixSignedGraph A hA).sign (p.map emb.toHom) =
         walkSignProd (matrixSignedGraph (A.submatrix f f) hAf).sign p := by
@@ -448,14 +460,15 @@ lemma matrixIsNOC_submatrix_injective {V W : Type*} [Fintype V] [DecidableEq V]
     | @cons u x v h p ih =>
       simp only [SimpleGraph.Walk.map_cons, walkSignProd, SimpleGraph.Walk.edges_cons,
         List.map_cons, List.prod_cons]
-      have h1 : (matrixSignedGraph A hA).sign s(emb u, emb x) =
+      have h1 : (matrixSignedGraph A hA).sign s(emb.toHom u, emb.toHom x) =
           (matrixSignedGraph (A.submatrix f f) hAf).sign s(u, x) := by
         simp [matrixSignedGraph, emb]
       rw [h1]
       congr 1
       exact ih
   have hnoc' := hnoc (f w) c' hc' hodd'
-  simpa [signedCycleType, c', hsign c] using hnoc'
+  rw [signedCycleType, ← hsign c, ← SimpleGraph.Walk.length_map emb.toHom c]
+  exact hnoc'
 
 private lemma sign_ite_mul (a b : ℝ) (ha : a ≠ 0) (hb : b ≠ 0) :
     (if 0 < a * b then (1 : ℤ) else -1) =
@@ -478,11 +491,13 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
       map_rel_iff' := by
         intro a b
         simp [matrixGraph, B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd a, hd b] }
-  let S : Set V := {u : V | d u < 0}
+  let S : Finset V := Finset.univ.filter fun u : V => d u < 0
   intro v c hc hodd
   let c' : (matrixGraph A hA).Walk v v := c.map emb.toHom
   have hc' : c'.IsCycle := hc.map emb.injective
-  have hodd' : Odd c'.length := by simpa [c'] using hodd
+  have hodd' : Odd c'.length := by
+    rw [SimpleGraph.Walk.length_map]
+    exact hodd
   have hsign : ∀ {a b : V} (p : (matrixGraph B hB).Walk a b),
       walkSignProd (matrixSignedGraph B hB).sign p =
         walkSignProd (switchSign S (matrixSignedGraph A hA).sign) (p.map emb.toHom) := by
@@ -496,27 +511,32 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
         have hb := h.2
         simpa [B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd u, hd x] using hb
       have h1 : (matrixSignedGraph B hB).sign s(u, x) =
-          switchSign S (matrixSignedGraph A hA).sign s(emb u, emb x) := by
+          switchSign S (matrixSignedGraph A hA).sign s(emb.toHom u, emb.toHom x) := by
         have hBu : B u x = d u * A u x * d x := by
           simp [B, Matrix.diagonal_mul, Matrix.mul_diagonal]
         simp only [emb, RelEmbedding.coe_mk, Function.Embedding.coeFn_mk, id_eq,
-          switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
+          SimpleGraph.Embedding.coe_toHom, switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
         rw [sign_ite_mul (d u * A u x) (d x) (mul_ne_zero (hd u) hux) (hd x),
             sign_ite_mul (d u) (A u x) (hd u) hux]
         have hsu : (if 0 < d u then (1 : ℤ) else -1) = if u ∈ S then -1 else 1 := by
           rcases lt_or_gt_of_ne (hd u) with hu | hu
-          · have : u ∈ S := hu; simp [this, not_lt.mpr hu.le]
-          · have : u ∉ S := not_lt.mpr hu.le; simp [this, hu]
+          · have : u ∈ S := Finset.mem_filter.mpr ⟨Finset.mem_univ _, hu⟩
+            simp [this, not_lt.mpr hu.le]
+          · have : u ∉ S := by simp [S, not_lt.mpr hu.le]
+            simp [this, hu]
         have hsx : (if 0 < d x then (1 : ℤ) else -1) = if x ∈ S then -1 else 1 := by
           rcases lt_or_gt_of_ne (hd x) with hx | hx
-          · have : x ∈ S := hx; simp [this, not_lt.mpr hx.le]
-          · have : x ∉ S := not_lt.mpr hx.le; simp [this, hx]
+          · have : x ∈ S := Finset.mem_filter.mpr ⟨Finset.mem_univ _, hx⟩
+            simp [this, not_lt.mpr hx.le]
+          · have : x ∉ S := by simp [S, not_lt.mpr hx.le]
+            simp [this, hx]
         rw [hsu, hsx]
         ring
       rw [h1, ih]
   change (-1 : ℤ) ^ (c.length / 2) * walkSignProd (matrixSignedGraph B hB).sign c = -1
   rw [hsign c, walkSignProd_switch]
-  simpa [signedCycleType, c'] using hnoc v c' hc' hodd'
+  have hnoc' := hnoc v c' hc' hodd'
+  simpa [signedCycleType, c', SimpleGraph.Walk.length_map] using hnoc'
 
 end MatrixHelpers
 
