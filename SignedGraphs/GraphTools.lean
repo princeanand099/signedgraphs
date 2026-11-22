@@ -1044,7 +1044,7 @@ theorem two_disjoint_paths_between_sets :
           let rw_path : G.Walk aw bw := (pw.map φA).append (qw.map φB)
           let ruv_path : G.Walk au bv := (pu.map φA).append (SimpleGraph.Walk.cons huv' (qv.map φB))
           have hrw_isPath : rw_path.IsPath := by
-            apply isPath_append_of_disjoint _ _ (hpw.map fun _ _ h => h) (hqw.map fun _ _ h => h)
+            apply isPath_append_of_disjoint (pw.map φA) (qw.map φB) (hpw.map (f := φA) fun _ _ h => h) (hqw.map (f := φB) fun _ _ h => h)
             intro x hxp hxq
             simp only [SimpleGraph.Walk.support_map, List.map_id'] at hxp hxq
             have h1 := hpw_in x hxp
@@ -1056,11 +1056,11 @@ theorem two_disjoint_paths_between_sets :
             · exact Finset.mem_singleton.mp hxw
           have hruv_isPath : ruv_path.IsPath := by
             have hqv_ext : (SimpleGraph.Walk.cons huv' (qv.map φB)).IsPath := by
-              refine SimpleGraph.Walk.IsPath.cons (hqv.map fun _ _ h => h) ?_
+              refine SimpleGraph.Walk.IsPath.cons (hqv.map (f := φB) fun _ _ h => h) ?_
               intro hm
               simp only [SimpleGraph.Walk.support_map, List.map_id'] at hm
               exact Finset.disjoint_left.mp hCA_CB_disj hu'CA (hqv_in u' hm)
-            apply isPath_append_of_disjoint _ _ (hpu.map fun _ _ h => h) hqv_ext
+            apply isPath_append_of_disjoint (pu.map φA) (SimpleGraph.Walk.cons huv' (qv.map φB)) (hpu.map (f := φA) fun _ _ h => h) hqv_ext
             intro x hxp hxq
             simp only [SimpleGraph.Walk.support_map, List.map_id',
               SimpleGraph.Walk.support_cons, List.mem_cons] at hxp hxq
