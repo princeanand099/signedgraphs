@@ -5,8 +5,7 @@ import SignedGraphs.LinearAlgebraExtra
 
 Contains the explicit finite-dimensional matrix factorizations, inverses, and sign
 computations for the 8×8 Petersen interior `A_int = [[0, B], [Bᵀ, C]]` in both
-Case 1 (`det B ≠ 0`) and Case 2 (`det B = 0`), together with the unified block-matrix
-reduction theorem `petersen_block_signature_nonpos`.
+Case 1 (`det B ≠ 0`) and Case 2 (`det B = 0`).
 -/
 
 open Matrix
@@ -577,8 +576,7 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
     have hEq : signature (Pᵀ * petersenAintS w * P) (isHermitian_congr _ P (isHermitian_petersenAintS w)) =
         signature (Matrix.fromBlocks (petersenK w) 0 0 (petersenQcqMat w))
           (isHermitian_fromBlocks _ (isHermitian_petersenK w) _ hQcq_H) := by congr 1
-    rw [hEq, signature_fromBlocks (petersenK w) (isHermitian_petersenK w) (petersenQcqMat w) hQcq_H,
-      signature_petersenK_eq_zero w hw, hQcq_sig]
+    rw [hEq, signature_fromBlocks (petersenK w) (isHermitian_petersenK w) (petersenQcqMat w) hQcq_H, signature_petersenK_eq_zero w hw, hQcq_sig]
     omega
   · let qVal := ((petersenPW w)ᵀ * petersenC w * petersenPW w) 0 0
     have hq_ne : qVal ≠ 0 := ne_of_lt hQcq_neg
@@ -602,6 +600,7 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
           rw [hcongr, Matrix.mul_assoc Qᵀ]
       _ = Qᵀ * Pᵀ := by rw [hD_mul, Matrix.mul_one]
       _ = 1 := hQT_PT
+
 
 /-- Any 2×2 real symmetric matrix with a strictly negative `(0, 0)` entry has `signature ≤ 0`. -/
 lemma signature_two_by_two_neg_diag (M : Matrix (Fin 2) (Fin 2) ℝ) (hM : M.IsHermitian)
@@ -661,7 +660,8 @@ theorem petersen_block_signature_nonpos
   let Rfull : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ :=
     Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0
   by_cases hdet : petersenDetB w ≠ 0
-  · let S : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ := petersenAintInv w * Rfull
+  · -- Case 1: det(B) ≠ 0
+    let S : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ := petersenAintInv w * Rfull
     let P : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
       Matrix.fromBlocks 1 (-S) 0 1
     let Q : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
@@ -712,7 +712,8 @@ theorem petersen_block_signature_nonpos
       signature_fromBlocks _ (isHermitian_petersenAint w) _ hMschur_H,
       signature_petersenAint_eq_zero w hdet, zero_add]
     exact hcase1 hdet
-  · push Not at hdet
+  · -- Case 2: det(B) = 0
+    push Not at hdet
     let P_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
       Matrix.fromBlocks (petersenPU w) 0 0 (petersenPW w)
     let Q_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
@@ -760,6 +761,12 @@ theorem petersen_block_signature_nonpos
     have hB₂_sym : ∀ p q, B₂ p q = B₂ q p := fun p q => by
       simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB₂.eq p) q).symm
     have hPU_B_PW := petersen_PU_B_PW w hw hdet
+    -- Reindex to Fin 2 ⊕ (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U))
+    -- Fin 2: 0 ↦ p̃ = inl (inl 0), 1 ↦ z₁ = inr (inl 0)
+    -- S = (Fin 3 ⊕ Fin 3) ⊕ Unit:
+    --   inl (inl i) ↦ inl (inl i.succ), inl (inr j) ↦ inl (inr j.succ), inr () ↦ inl (inr 0)
+    -- Rem = Unit ⊕ U:
+    --   inl () ↦ inr (inl 1), inr u ↦ inr (inr u)
     let e : Fin 2 ⊕ (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ≃ (Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U) :=
       { toFun := fun
           | Sum.inl 0 => Sum.inl (Sum.inl 0)
@@ -801,6 +808,7 @@ theorem petersen_block_signature_nonpos
     have hB₃ : B₃.IsHermitian := isHermitian_submatrix B₂ hB₂ e
     rw [← signature_reindex e B₂ hB₂]
     change signature B₃ hB₃ ≤ 0
+    -- Compute key entries of B₂ for row p̃ = Sum.inl (Sum.inl 0)
     have hRfull_tr : ∀ (a : Fin 4) (j : Fin 2),
         (P_intᵀ * Rfull * P_ext) (Sum.inl a) (Sum.inl j) =
           (((petersenPU w)ᵀ * petersenRU w) * Z) a j := by
@@ -846,6 +854,7 @@ theorem petersen_block_signature_nonpos
       · simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
           Matrix.fromBlocks_apply₁₂]
         exact hRfull_tr_U (Sum.inl 0) u
+    -- Step 4: Decouple the top-left 2×2 block H = !![0, α; α, 0]
     let H₂ : Matrix (Fin 2) (Fin 2) ℝ := !![0, α; α, 0]
     let R_H : Matrix (Fin 2) (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ := B₃.toBlocks₁₂
     let B_tail : Matrix (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U))
@@ -864,8 +873,10 @@ theorem petersen_block_signature_nonpos
       Matrix.of fun i q => match i with
         | 0 => R_H 1 q / α
         | 1 => 0
-    let P_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) (-S_H) 0 1
-    let Q_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) S_H 0 1
+    let P_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) (-S_H) 0
+      (1 : Matrix (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ)
+    let Q_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) S_H 0
+      (1 : Matrix (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ)
     have hPQ_H : P_H * Q_H = 1 := by simp [P_H, Q_H, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
     have hP_H_det : IsUnit P_H.det :=
       isUnit_iff_exists_inv.mpr ⟨Q_H.det, by rw [← Matrix.det_mul, hPQ_H, Matrix.det_one]⟩
@@ -901,6 +912,7 @@ theorem petersen_block_signature_nonpos
         (isHermitian_fromBlocks H₂ hH₂_H B_tail hB_tail_H) hcongr_H,
       signature_fromBlocks H₂ hH₂_H B_tail hB_tail_H,
       signature_two_by_two_offdiag α 0 hα_ne hH₂_H, zero_add]
+    -- Step 5: Decouple S = (Fin 3 ⊕ Fin 3) ⊕ Unit with block petersenAintS w
     have hB_tail_11 : B_tail.toBlocks₁₁ = petersenAintS w := by
       ext s₁ s₂
       rcases s₁ with (i | j) | ⟨⟩ <;> rcases s₂ with (i' | j') | ⟨⟩
@@ -961,8 +973,10 @@ theorem petersen_block_signature_nonpos
       · simp [R_S, Matrix.toBlocks₁₂, B_tail, Matrix.toBlocks₂₂, hB₃_sym]
       · rfl
     let S_S := Minv * R_S
-    let P_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) (-S_S) 0 1
-    let Q_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) S_S 0 1
+    let P_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) (-S_S) 0
+      (1 : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ)
+    let Q_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) S_S 0
+      (1 : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ)
     have hPQ_S : P_S * Q_S = 1 := by simp [P_S, Q_S, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
     have hP_S_det : IsUnit P_S.det :=
       isUnit_iff_exists_inv.mpr ⟨Q_S.det, by rw [← Matrix.det_mul, hPQ_S, Matrix.det_one]⟩
@@ -994,6 +1008,7 @@ theorem petersen_block_signature_nonpos
       signature_congr_eq_pa (isHermitian_congr B_tail P_S hB_tail_H)
         (isHermitian_fromBlocks _ (isHermitian_petersenAintS w) _ hM_final_H) hcongr_S,
       signature_fromBlocks _ (isHermitian_petersenAintS w) _ hM_final_H, hsigS]
+    -- Step 6: Delete Sum.inl () from M_final via Cauchy interlacing
     have hinter := signature_interlacing_delete_vertex M_final hM_final_H (Sum.inl ())
     let eU : U ≃ {z : Unit ⊕ U // z ≠ Sum.inl ()} :=
       { toFun := fun u => ⟨Sum.inr u, by simp⟩
