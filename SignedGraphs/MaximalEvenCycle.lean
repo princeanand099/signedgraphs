@@ -636,6 +636,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
       have ⟨hA₁_ev, hA₂_ev⟩ := hchord_even a b haC hbC hab hab_adj hab_ch A₁ A₂ hA₁ hA₂ hA_len hA₁_e hA₂_e
       have hcol_ab : col a = col b := hchord_col a b haC hbC hab_adj hab_ch
       have hcol_xy : col x = col y := hchord_col x y hxC hyC hxy_adj hxy_ch
+      -- Helper for shared-endpoint case: given u ∈ {a, b}, other v ∈ {a, b}, z ∈ C \ {a, b} with chord u-z
       have hshared : ∀ (u v z : V) (A_u A_o : G.Walk u v),
           u ∈ c.support → v ∈ c.support → z ∈ c.support → u ≠ v → z ≠ u → z ≠ v →
           G.Adj u v → G.Adj u z → s(u, z) ∉ c.edges →
@@ -690,6 +691,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
         simp only [q_zv, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse,
           SimpleGraph.Walk.length_cons, SimpleGraph.Walk.length_nil] at hle
         omega
+      -- Helper for non-crossing disjoint chords on the same arc A_u : a → b
       have hnoncross : ∀ (p q : V) (A_u A_o : G.Walk a b),
           p ∈ A_u.support → q ∈ A_u.support → p ≠ a → p ≠ b → q ≠ a → q ≠ b → p ≠ q →
           G.Adj p q → s(p, q) ∉ c.edges →
@@ -738,8 +740,8 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
             have hnd := hAu.support_nodup
             rw [← hspec1, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
             by_cases hwq : w = q
-            · subst hwq
-              have hnd2 := (hAu.takeUntil hqA).support_nodup
+            · rw [hwq] at hw1
+              have hnd2 : P_aq.support.Nodup := (hAu.takeUntil hqA).support_nodup
               rw [← hspec2, SimpleGraph.Walk.support_append, List.nodup_append] at hnd2
               have hdrop2 : P_pq.support = p :: P_pq.support.tail := by cases P_pq <;> simp
               have hq_pq : q ∈ P_pq.support := SimpleGraph.Walk.end_mem_support P_pq
@@ -766,15 +768,16 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
           rcases hw' with hR | he
           · dsimp only [R_ab] at hR
             rw [SimpleGraph.Walk.mem_support_append_iff, SimpleGraph.Walk.support_cons, List.mem_cons] at hR
-            rcases hR with h1 | rfl | h2
+            rcases hR with h1 | hw_eq | h2
             · exact List.mem_toFinset.mpr (hAuC w (SimpleGraph.Walk.support_takeUntil_subset A_u hqA (SimpleGraph.Walk.support_takeUntil_subset P_aq hp_before h1)))
-            · exact List.mem_toFinset.mpr (hAuC p hpA)
+            · rw [hw_eq]; exact List.mem_toFinset.mpr (hAuC p hpA)
             · exact List.mem_toFinset.mpr (hAuC w (SimpleGraph.Walk.support_dropUntil_subset A_u hqA h2))
           · simp [edge_ab] at he; rcases he with rfl | rfl <;> exact List.mem_toFinset.mpr (by assumption)
         have hle := hmin_len_sub _ hc'_cyc hc'_ev hc'_sub
         simp only [R_ab, edge_ab, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse,
           SimpleGraph.Walk.length_cons, SimpleGraph.Walk.length_nil] at hle
         omega
+      -- Dispatch cases: shared endpoint vs disjoint
       by_cases hxa : x = a
       · subst hxa
         have hyb : y ≠ b := fun h => hne_e (by rw [h])
@@ -798,7 +801,9 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
               rcases (hA_supp x).mpr hxC with hx1 | hx2
               · exact hshared y a x A₁.reverse A₂.reverse hbC haC hxC hab.symm hxy hxa hab_adj.symm hxy_adj.symm (by rwa [Sym2.eq_swap]) hA₁.reverse hA₂.reverse (by simp [hA_len]) (by simp [hA₂_ge2]) (by simpa using hA₁_ev) (by simpa [SimpleGraph.Walk.support_reverse] using hx1) (fun w hw => (hA_supp w).mp (Or.inl (by simpa [SimpleGraph.Walk.support_reverse] using hw))) (fun e he => hA₁_e e (by simpa [SimpleGraph.Walk.edges_reverse] using he))
               · exact hshared y a x A₂.reverse A₁.reverse hbC haC hxC hab.symm hxy hxa hab_adj.symm hxy_adj.symm (by rwa [Sym2.eq_swap]) hA₂.reverse hA₁.reverse (by simp; omega) (by simp [hA₁_ge2]) (by simpa using hA₂_ev) (by simpa [SimpleGraph.Walk.support_reverse] using hx2) (fun w hw => (hA_supp w).mp (Or.inr (by simpa [SimpleGraph.Walk.support_reverse] using hw))) (fun e he => hA₂_e e (by simpa [SimpleGraph.Walk.edges_reverse] using he))
-            · have hcross : ∀ (p q : V) (A_u A_o : G.Walk a b),
+            · -- {a, b} and {x, y} are disjoint!
+              -- Helper for crossing chords: p ∈ A_u.support, q ∈ A_o.support
+              have hcross : ∀ (p q : V) (A_u A_o : G.Walk a b),
                   p ∈ A_u.support → q ∈ A_o.support → p ≠ a → p ≠ b → q ≠ a → q ≠ b → p ≠ q →
                   G.Adj p q →
                   A_u.IsPath → A_o.IsPath → A_u.length + A_o.length = c.length →
@@ -833,6 +838,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                 have hpar4 := hcol_walk P_qb hPqb_e
                 let edge_ab : G.Walk a b := SimpleGraph.Walk.cons hab_adj .nil
                 have hedge_ab : edge_ab.IsPath := SimpleGraph.Walk.IsPath.mk' (by simp [edge_ab, hab])
+                -- Build C₁' = P_ap ++ (p - q) ++ P_qb ++ (b - a), length = P_ap + P_qb + 2
                 have hstep1 : (SimpleGraph.Walk.cons hpq_adj P_qb).IsPath :=
                   SimpleGraph.Walk.IsPath.cons (hAo.dropUntil hqA)
                     (fun hm => hdisj_ao p hpA hpa hpb (SimpleGraph.Walk.support_dropUntil_subset A_o hqA hm))
@@ -847,14 +853,14 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                     have hw_u := SimpleGraph.Walk.support_takeUntil_subset A_u hpA hw1
                     have hw_o := SimpleGraph.Walk.support_dropUntil_subset A_o hqA hw_qb
                     by_cases hwa : w = a
-                    · subst hwa
+                    · rw [hwa] at hw_qb
                       have hnd := hAo.support_nodup
                       rw [← hspec_o, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                       have hdrop_cons : P_qb.support = q :: P_qb.support.tail := by cases P_qb <;> simp
                       rw [hdrop_cons, List.mem_cons] at hw_qb
                       exact hnd.2.2 a (SimpleGraph.Walk.start_mem_support P_aq) a (hw_qb.resolve_left hqa.symm) rfl
                     · by_cases hwb : w = b
-                      · subst hwb
+                      · rw [hwb] at hw1
                         have hnd := hAu.support_nodup
                         rw [← hspec_u, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                         have hdrop_cons : P_pb.support = p :: P_pb.support.tail := by cases P_pb <;> simp
@@ -876,14 +882,15 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                   rcases hw' with hR | he
                   · dsimp only [R1] at hR
                     rw [SimpleGraph.Walk.mem_support_append_iff, SimpleGraph.Walk.support_cons, List.mem_cons] at hR
-                    rcases hR with h1 | rfl | h2
+                    rcases hR with h1 | hw_eq | h2
                     · exact List.mem_toFinset.mpr ((hsupp w).mp (Or.inl (SimpleGraph.Walk.support_takeUntil_subset A_u hpA h1)))
-                    · exact List.mem_toFinset.mpr ((hsupp p).mp (Or.inl hpA))
+                    · rw [hw_eq]; exact List.mem_toFinset.mpr ((hsupp p).mp (Or.inl hpA))
                     · exact List.mem_toFinset.mpr ((hsupp w).mp (Or.inr (SimpleGraph.Walk.support_dropUntil_subset A_o hqA h2)))
                   · simp [edge_ab] at he; rcases he with rfl | rfl <;> exact List.mem_toFinset.mpr (by assumption)
                 have hle1 := hmin_len_sub _ hC1_cyc hC1_ev hC1_sub
                 simp only [R1, edge_ab, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse,
                   SimpleGraph.Walk.length_cons, SimpleGraph.Walk.length_nil] at hle1
+                -- Build C₂' = P_aq ++ (q - p) ++ P_pb ++ (b - a), length = P_aq + P_pb + 2
                 have hstep2 : (SimpleGraph.Walk.cons hpq_adj.symm P_pb).IsPath :=
                   SimpleGraph.Walk.IsPath.cons (hAu.dropUntil hpA)
                     (fun hm => hdisj_ao q (SimpleGraph.Walk.support_dropUntil_subset A_u hpA hm) hqa hqb hqA)
@@ -898,14 +905,14 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                     have hw_o := SimpleGraph.Walk.support_takeUntil_subset A_o hqA hw1
                     have hw_u := SimpleGraph.Walk.support_dropUntil_subset A_u hpA hw_pb
                     by_cases hwa : w = a
-                    · subst hwa
+                    · rw [hwa] at hw_pb
                       have hnd := hAu.support_nodup
                       rw [← hspec_u, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                       have hdrop_cons : P_pb.support = p :: P_pb.support.tail := by cases P_pb <;> simp
                       rw [hdrop_cons, List.mem_cons] at hw_pb
                       exact hnd.2.2 a (SimpleGraph.Walk.start_mem_support P_ap) a (hw_pb.resolve_left hpa.symm) rfl
                     · by_cases hwb : w = b
-                      · subst hwb
+                      · rw [hwb] at hw1
                         have hnd := hAo.support_nodup
                         rw [← hspec_o, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                         have hdrop_cons : P_qb.support = q :: P_qb.support.tail := by cases P_qb <;> simp
@@ -927,14 +934,15 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                   rcases hw' with hR | he
                   · dsimp only [R2] at hR
                     rw [SimpleGraph.Walk.mem_support_append_iff, SimpleGraph.Walk.support_cons, List.mem_cons] at hR
-                    rcases hR with h1 | rfl | h2
+                    rcases hR with h1 | hw_eq | h2
                     · exact List.mem_toFinset.mpr ((hsupp w).mp (Or.inr (SimpleGraph.Walk.support_takeUntil_subset A_o hqA h1)))
-                    · exact List.mem_toFinset.mpr ((hsupp q).mp (Or.inr hqA))
+                    · rw [hw_eq]; exact List.mem_toFinset.mpr ((hsupp q).mp (Or.inr hqA))
                     · exact List.mem_toFinset.mpr ((hsupp w).mp (Or.inl (SimpleGraph.Walk.support_dropUntil_subset A_u hpA h2)))
                   · simp [edge_ab] at he; rcases he with rfl | rfl <;> exact List.mem_toFinset.mpr (by assumption)
                 have hle2 := hmin_len_sub _ hC2_cyc hC2_ev hC2_sub
                 simp only [R2, edge_ab, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse,
                   SimpleGraph.Walk.length_cons, SimpleGraph.Walk.length_nil] at hle2
+                -- Now P_ap = P_pb = P_aq = P_qb = 1, so c.length = 4 and G[V(C)] ≅ K₄!
                 have h1_ap : P_ap.length = 1 := by omega
                 have h1_pb : P_pb.length = 1 := by omega
                 have h1_aq : P_aq.length = 1 := by omega
@@ -944,41 +952,33 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
                 have h_pb : G.Adj p b := path_len_eq_one_adj P_pb h1_pb
                 have h_aq : G.Adj a q := path_len_eq_one_adj P_aq h1_aq
                 have h_qb : G.Adj q b := path_len_eq_one_adj P_qb h1_qb
+                have hmem_len1 : ∀ {u v : V} (r : G.Walk u v), r.length = 1 → ∀ w ∈ r.support, w = u ∨ w = v := by
+                  intro u v r hr w hw
+                  cases r with
+                  | nil => simp at hr
+                  | cons _ r' => cases r' with
+                    | nil => simp at hw; exact hw
+                    | cons _ _ => simp at hr
                 have hV_eq : ∀ w ∈ c.support, w = a ∨ w = b ∨ w = p ∨ w = q := by
                   intro w hw
                   rcases (hsupp w).mpr hw with hwu | hwo
                   · rw [← hspec_u, SimpleGraph.Walk.mem_support_append_iff] at hwu
                     rcases hwu with h1 | h2
-                    · cases P_ap with
-                      | nil => simp at h1_ap
-                      | cons _ r => cases r with
-                        | nil => simp at h1; rcases h1 with rfl | rfl <;> tauto
-                        | cons _ _ => simp at h1_ap
-                    · cases P_pb with
-                      | nil => simp at h1_pb
-                      | cons _ r => cases r with
-                        | nil => simp at h2; rcases h2 with rfl | rfl <;> tauto
-                        | cons _ _ => simp at h1_pb
+                    · rcases hmem_len1 P_ap h1_ap w h1 with rfl | rfl <;> tauto
+                    · rcases hmem_len1 P_pb h1_pb w h2 with rfl | rfl <;> tauto
                   · rw [← hspec_o, SimpleGraph.Walk.mem_support_append_iff] at hwo
                     rcases hwo with h1 | h2
-                    · cases P_aq with
-                      | nil => simp at h1_aq
-                      | cons _ r => cases r with
-                        | nil => simp at h1; rcases h1 with rfl | rfl <;> tauto
-                        | cons _ _ => simp at h1_aq
-                    · cases P_qb with
-                      | nil => simp at h1_qb
-                      | cons _ r => cases r with
-                        | nil => simp at h2; rcases h2 with rfl | rfl <;> tauto
-                        | cons _ _ => simp at h1_qb
+                    · rcases hmem_len1 P_aq h1_aq w h1 with rfl | rfl <;> tauto
+                    · rcases hmem_len1 P_qb h1_qb w h2 with rfl | rfl <;> tauto
                 apply hK4
                 refine ⟨hc4, fun w₁ hw₁ w₂ hw₂ hne => ?_⟩
                 rcases hV_eq w₁ hw₁ with rfl | rfl | rfl | rfl <;>
-                rcases hV_eq w₂ hw₂ with rfl | rfl | rfl | rfl
-                all_goals first | exact absurd rfl hne | exact hab_adj | exact hab_adj.symm |
-                  exact h_ap | exact h_ap.symm | exact h_aq | exact h_aq.symm |
-                  exact h_pb | exact h_pb.symm | exact h_qb | exact h_qb.symm |
-                  exact hpq_adj | exact hpq_adj.symm
+                rcases hV_eq w₂ hw₂ with rfl | rfl | rfl | rfl <;>
+                first
+                  | exact absurd rfl hne | exact hab_adj | exact hab_adj.symm
+                  | exact h_ap | exact h_ap.symm | exact h_aq | exact h_aq.symm
+                  | exact h_pb | exact h_pb.symm | exact h_qb | exact h_qb.symm
+                  | exact hpq_adj | exact hpq_adj.symm
               rcases (hA_supp x).mpr hxC with hx1 | hx2 <;> rcases (hA_supp y).mpr hyC with hy1 | hy2
               · rcases mem_takeUntil_or_symm A₁ hx1 hy1 with hord | hord
                 · exact hnoncross x y A₁ A₂ hx1 hy1 hxa hxb hya hyb hxy hxy_adj hxy_ch hA₁ hA₂ hA_len hA₂_ge2 hA₁_ev (fun w hw => (hA_supp w).mp (Or.inl hw)) hA₁_e hord
