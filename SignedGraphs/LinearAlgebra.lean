@@ -105,6 +105,11 @@ lemma isHermitian_submatrix {W : Type*} (A : Matrix V V ℝ) (hA : A.IsHermitian
   change (A.submatrix f f)ᴴ = A.submatrix f f
   rw [Matrix.conjTranspose_submatrix, hA.eq]
 
+private lemma dotProduct_transpose_mul (M N : Matrix V V ℝ) (x : V → ℝ) :
+    dotProduct x ((Mᵀ * N * M) *ᵥ x) = dotProduct (M *ᵥ x) (N *ᵥ (M *ᵥ x)) := by
+  rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
+    Matrix.vecMul_transpose, ← Matrix.mulVec_mulVec]
+
 private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     ∃ e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ),
       ∀ x : V → ℝ, dotProduct x (A *ᵥ x) = ∑ i : V, hA.eigenvalues i * (e x i) ^ 2 := by
@@ -128,9 +133,9 @@ private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     have h := hA.spectral_theorem
     change A = U * Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues) * star U at h
     simpa [hstar] using h
-  conv_lhs => rw [hspec]
-  rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
-    Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
+  have hspec' : A = (Uᵀ)ᵀ * Matrix.diagonal hA.eigenvalues * Uᵀ := by
+    simpa [Matrix.transpose_transpose] using hspec
+  rw [hspec', dotProduct_transpose_mul Uᵀ (Matrix.diagonal hA.eigenvalues) x]
   simp only [e, LinearEquiv.coe_mk, LinearMap.coe_mk, AddHom.coe_mk,
     Matrix.mulVec_diagonal, dotProduct]
   refine Finset.sum_congr rfl fun i _ => ?_
@@ -297,11 +302,8 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       map_smul' := fun c x => Matrix.mulVec_smul P c x
       left_inv := fun x => by simp [Matrix.mulVec_mulVec, Matrix.nonsing_inv_mul P hP]
       right_inv := fun x => by simp [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv P hP] }
-  have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) := by
-    intro x
-    change dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (P *ᵥ x) (A *ᵥ (P *ᵥ x))
-    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
-      Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
+  have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) :=
+    fun x => dotProduct_transpose_mul P A x
   have hpos : posInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
     congr 1; ext n; constructor
@@ -455,6 +457,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     congr 1
     rw [hsumV _ (by simp)]
     refine Finset.sum_congr rfl fun z _ => ?_
+    dsimp only [ι]
     simp only [z.2, ↓reduceDIte]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
   have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
@@ -503,7 +506,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
       exact ⟨hyU, by simpa [f] using hyker⟩
     have hker_le : Module.finrank ℝ ↥(LinearMap.ker f) ≤ Module.finrank ℝ ↥(U ⊓ LinearMap.ker proj) := by
       have hinj : Function.Injective U.subtype := Subtype.val_injective
-      rw [← (Submodule.equivMapOfInjective U.subtype hinj (LinearMap.ker f)).finrank_eq]
+      rw [(Submodule.equivMapOfInjective U.subtype hinj (LinearMap.ker f)).finrank_eq]
       exact Submodule.finrank_mono hker_map
     omega
   have hpos_ge : posInertia A hA ≤ posInertia A' hA' + 1 := by
