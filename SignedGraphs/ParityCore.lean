@@ -365,7 +365,9 @@ lemma sep_card_ge_three_of_three_conn {G : SimpleGraph V}
   · exact hyK h1
   · rw [SimpleGraph.Walk.support_map, List.mem_map] at hyp
     rcases hyp with ⟨y', _, hy'eq⟩
-    exact y'.2 (hy'eq.symm ▸ h2)
+    change y'.1 = y at hy'eq
+    subst hy'eq
+    exact y'.2 h2
 
 omit [Fintype V] in
 private lemma path_takeUntil_adj_length {G : SimpleGraph V} :
@@ -380,14 +382,11 @@ private lemma path_takeUntil_adj_length {G : SimpleGraph V} :
     have hq_path : q.IsPath := SimpleGraph.Walk.IsPath.mk' hnd.2
     have ha_nq : a ∉ q.support := hnd.1
     rw [SimpleGraph.Walk.edges_cons, List.mem_cons] at he
+    have hba : b ≠ a := (G.ne_of_adj hadj).symm
     rcases he with heq | hq_e
     · rcases Sym2.eq_iff.mp heq with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
-      · left
-        have hba : b ≠ a := (G.ne_of_adj hadj).symm
-        simp [SimpleGraph.Walk.takeUntil_cons, hba]
-      · right
-        have hba : b ≠ a := (G.ne_of_adj hadj).symm
-        simp [SimpleGraph.Walk.takeUntil_cons, hba]
+      · left; simp [SimpleGraph.Walk.takeUntil, hba.symm]
+      · right; simp [SimpleGraph.Walk.takeUntil, hba.symm]
     · have hxq : x ∈ q.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges q hq_e
       have hyq : y ∈ q.support := SimpleGraph.Walk.snd_mem_support_of_mem_edges q hq_e
       have hxa : x ≠ a := fun h => ha_nq (h ▸ hxq)
@@ -395,10 +394,10 @@ private lemma path_takeUntil_adj_length {G : SimpleGraph V} :
       have ih := path_takeUntil_adj_length q hq_path hxq hyq hq_e
       have hxlen : ((SimpleGraph.Walk.cons hadj q).takeUntil x hx).length =
           (q.takeUntil x hxq).length + 1 := by
-        simp [SimpleGraph.Walk.takeUntil_cons, hxa.symm]
+        simp [SimpleGraph.Walk.takeUntil, hxa.symm]
       have hylen : ((SimpleGraph.Walk.cons hadj q).takeUntil y hy).length =
           (q.takeUntil y hyq).length + 1 := by
-        simp [SimpleGraph.Walk.takeUntil_cons, hya.symm]
+        simp [SimpleGraph.Walk.takeUntil, hya.symm]
       rw [hxlen, hylen]
       omega
 
@@ -602,7 +601,7 @@ lemma even_odd_cycle_linkage_disjoint (S : SignedGraph V)
       apply isPath_append_of_disjoint_pc P₁ q hP₁ hq
       intro x hx1 hxq
       by_contra hxw₁
-      have hxu₁ : x ≠ u₁ := fun h => hdisjC u₁ hu₁ (hqC₂ x (h ▸ hxq))
+      have hxu₁ : x ≠ u₁ := fun h => by subst h; exact hdisjC x hu₁ (hqC₂ x hxq)
       exact (hP₁_int x hx1 hxu₁ hxw₁).2 (hqC₂ x hxq)
     have h2 : ((P₁.append q).append P₂.reverse).IsPath := by
       apply isPath_append_of_disjoint_pc (P₁.append q) P₂.reverse h1 hP₂.reverse
@@ -612,7 +611,7 @@ lemma even_odd_cycle_linkage_disjoint (S : SignedGraph V)
       rcases hx1 with hxP₁ | hxq
       · exact False.elim (hP_disj x hxP₁ hx2)
       · by_contra hxw₂
-        have hxu₂ : x ≠ u₂ := fun h => hdisjC u₂ hu₂ (hqC₂ x (h ▸ hxq))
+        have hxu₂ : x ≠ u₂ := fun h => by subst h; exact hdisjC x hu₂ (hqC₂ x hxq)
         exact (hP₂_int x hx2 hxu₂ hxw₂).2 (hqC₂ x hxq)
     refine ⟨(P₁.append q).append P₂.reverse, h2, ?_, ?_⟩
     · simp [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]
@@ -670,9 +669,9 @@ lemma even_odd_cycle_linkage_one_vertex (S : SignedGraph V)
       apply isPath_append_of_disjoint_pc P q hP hq
       intro x hxP hxq
       by_contra hxw
-      have hxu₂ : x ≠ u₂ := fun h => hu (hinter u₂ hu₂ (hqC₂ x (h ▸ hxq))).symm
+      have hxu₂ : x ≠ u₂ := fun h => by subst h; exact hu (hinter x hu₂ (hqC₂ x hxq)).symm
       exact (hP_int x hxP hxu₂ hxw).2 (hqC₂ x hxq)
-    refine ⟨(P.append q).reverse, h1.reverse, by simp [SimpleGraph.Walk.length_append], ?_⟩
+    refine ⟨(P.append q).reverse, h1.reverse, by simp [SimpleGraph.Walk.length_append, add_comm], ?_⟩
     intro x hx hxu hxu₂
     rw [SimpleGraph.Walk.support_reverse, List.mem_reverse, SimpleGraph.Walk.mem_support_append_iff] at hx
     have hxC₁ : x ∉ c₁.support := by
@@ -785,35 +784,13 @@ lemma k4_pair_paths (S : SignedGraph V) (hnoc : IsNOC S)
   let t₁ : S.graph.Walk u₁ u₁ := SimpleGraph.Walk.cons h_u1a (SimpleGraph.Walk.cons h_au2 (SimpleGraph.Walk.cons h_u1u2.symm .nil))
   have ht₁_cyc : t₁.IsCycle := by
     refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
-    · simp only [t₁, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.nodup_cons,
-        List.mem_cons, List.not_mem_nil, or_false, not_or, List.nodup_nil, and_true]
-      refine ⟨⟨fun h => ?_, fun h => ?_⟩, fun h => ?_⟩
-      · rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-        · exact hau₁ h1.symm
-        · exact hu h2
-      · rcases Sym2.eq_iff.mp h with ⟨_, h2⟩ | ⟨h1, _⟩
-        · exact hau₁ h2.symm
-        · exact hau₂ h1.symm
-      · rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-        · exact hau₂ h1
-        · exact hu h2.symm
+    · simp [t₁, Sym2.eq_iff, hau₁, hau₁.symm, hau₂, hau₂.symm, hu, hu.symm]
     · intro h; simp [t₁] at h
     · simp [t₁, hau₂, hau₁, hu.symm]
   let t₂ : S.graph.Walk a a := SimpleGraph.Walk.cons h_ab (SimpleGraph.Walk.cons h_bu2 (SimpleGraph.Walk.cons h_au2.symm .nil))
   have ht₂_cyc : t₂.IsCycle := by
     refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
-    · simp only [t₂, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.nodup_cons,
-        List.mem_cons, List.not_mem_nil, or_false, not_or, List.nodup_nil, and_true]
-      refine ⟨⟨fun h => ?_, fun h => ?_⟩, fun h => ?_⟩
-      · rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-        · exact hab h1
-        · exact hau₂ h2
-      · rcases Sym2.eq_iff.mp h with ⟨_, h2⟩ | ⟨h1, _⟩
-        · exact hab h2.symm
-        · exact hbu₂ h1.symm
-      · rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-        · exact hbu₂ h1
-        · exact hau₂ h2.symm
+    · simp [t₂, Sym2.eq_iff, hab, hab.symm, hau₂, hau₂.symm, hbu₂, hbu₂.symm]
     · intro h; simp [t₂] at h
     · simp [t₂, hbu₂, hab.symm, hau₂.symm]
   have hwt₁ : walkModFourWeight S.sign t₁ = 3 := hmod4 u₁ t₁ ht₁_cyc ⟨1, rfl⟩
@@ -829,7 +806,7 @@ lemma k4_pair_paths (S : SignedGraph V) (hnoc : IsNOC S)
     simp only [p₁, p₂, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
       List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
     have h4 : (4 : ZMod 4) = 0 := rfl
-    linear_combination hwt₁ + hwt₂ - h2au2 - h4
+    linear_combination hwt₁ + hwt₂ - h2au2 + h4
   refine ⟨p₁, p₂, hp₁, hp₂, by simp [p₁, p₂], ?_, ?_⟩
   · intro x
     constructor
@@ -856,7 +833,7 @@ lemma k4_pair_paths (S : SignedGraph V) (hnoc : IsNOC S)
 omit [Fintype V] in
 lemma cycle_induce_preconnected {G : SimpleGraph V} {v : V}
     (c : G.Walk v v) (hc : c.IsCycle) :
-    ∀ x ∈ c.support.toFinset, ∀ y ∈ c.support.toFinset,
+    ∀ (x : V) (hx : x ∈ c.support.toFinset) (y : V) (hy : y ∈ c.support.toFinset),
       (G.induce (c.support.toFinset : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩ := by
   intro x hx y hy
   by_cases hxy : x = y
@@ -884,7 +861,7 @@ lemma cycle_induce_preconnected {G : SimpleGraph V} {v : V}
 omit [Fintype V] in
 lemma cycle_erase_preconnected {G : SimpleGraph V} {v u : V}
     (c : G.Walk v v) (hc : c.IsCycle) (hu : u ∈ c.support) :
-    ∀ x ∈ c.support.toFinset.erase u, ∀ y ∈ c.support.toFinset.erase u,
+    ∀ (x : V) (hx : x ∈ c.support.toFinset.erase u) (y : V) (hy : y ∈ c.support.toFinset.erase u),
       (G.induce ((c.support.toFinset.erase u : Finset V) : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩ := by
   intro x hx y hy
   by_cases hxy : x = y
@@ -954,16 +931,16 @@ lemma deg_in_cycle_le_two_of_no_chord {G : SimpleGraph V} [DecidableRel G.Adj]
         have he : s(x, y) ∈ c'.edges := (hedges_eq s(x, y)).mpr (hnochord y hy.1 hy.2)
         rw [hc'_eq, SimpleGraph.Walk.edges_cons, List.mem_cons] at he
         rcases he with h1 | h2
-        · rcases Sym2.eq_iff.mp h1 with ⟨_, rfl⟩ | ⟨hxy, _⟩
+        · rcases Sym2.eq_iff.mp h1 with ⟨_, rfl⟩ | ⟨_, hyx⟩
           · simp
-          · exact absurd hxy (G.ne_of_adj hy.2)
+          · exact absurd hyx.symm (G.ne_of_adj hy.2)
         · have he_rev : s(x, y) ∈ p.reverse.edges := by
             rw [SimpleGraph.Walk.edges_reverse, List.mem_reverse]; exact h2
           rw [hpr_eq, SimpleGraph.Walk.edges_cons, List.mem_cons] at he_rev
           rcases he_rev with h1 | h3
-          · rcases Sym2.eq_iff.mp h1 with ⟨_, rfl⟩ | ⟨hxy, _⟩
+          · rcases Sym2.eq_iff.mp h1 with ⟨_, rfl⟩ | ⟨_, hyx⟩
             · simp
-            · exact absurd hxy (G.ne_of_adj hy.2)
+            · exact absurd hyx.symm (G.ne_of_adj hy.2)
           · exfalso
             have hx_q : x ∈ q.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges q h3
             have hnd := hp_path.reverse.support_nodup
@@ -1031,18 +1008,20 @@ lemma even_cycle_part_card_ge_two {G : SimpleGraph V} {v : V}
         have hu2_in : u₂ ∈ c.support := by rw [hc_eq]; simp
         have hu3_in : u₃ ∈ c.support := by rw [hc_eq]; simp
         have hv_in : v ∈ c.support := SimpleGraph.Walk.start_mem_support c
-        have hu1_ne_u2 : u₁ ≠ u₂ := by
-          rw [List.nodup_cons] at hnd; intro h; subst h; exact hnd.1 (List.mem_cons_self ..)
-        have hu1_ne_u3 : u₁ ≠ u₃ := by
-          rw [List.nodup_cons] at hnd; intro h; subst h; exact hnd.1 (List.mem_cons_of_mem _ (List.mem_cons_self ..))
-        have hu2_ne_u3 : u₂ ≠ u₃ := by
-          rw [List.nodup_cons, List.nodup_cons] at hnd; intro h; subst h; exact hnd.2.1 (List.mem_cons_self ..)
-        have hu1_ne_v : u₁ ≠ v := by
-          rw [List.nodup_cons] at hnd; intro h; subst h; exact hnd.1 (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hv_end))
-        have hu2_ne_v : u₂ ≠ v := by
-          rw [List.nodup_cons, List.nodup_cons] at hnd; intro h; subst h; exact hnd.2.1 (List.mem_cons_of_mem _ hv_end)
+        have hu3_in_p3 : u₃ ∈ p₃.support := SimpleGraph.Walk.start_mem_support p₃
+        rw [List.nodup_cons, List.nodup_cons] at hnd
+        have hu1_ne_u2 : u₁ ≠ u₂ := fun h => hnd.1 (h ▸ List.mem_cons_self ..)
+        have hu1_ne_u3 : u₁ ≠ u₃ := fun h => hnd.1 (List.mem_cons_of_mem _ (h ▸ hu3_in_p3))
+        have hu2_ne_u3 : u₂ ≠ u₃ := fun h => hnd.2.1 (h ▸ hu3_in_p3)
+        have hu1_ne_v : u₁ ≠ v := fun h => hnd.1 (List.mem_cons_of_mem _ (h ▸ hv_end))
+        have hu2_ne_v : u₂ ≠ v := fun h => hnd.2.1 (h ▸ hv_end)
         have hu3_ne_v : u₃ ≠ v := by
-          rw [List.nodup_cons, List.nodup_cons, List.nodup_cons] at hnd; intro h; subst h; exact hnd.2.2.1 hv_end
+          cases p₃ with
+          | nil => simp [hc_eq] at hge4
+          | cons _ q' =>
+            have hnd3 := hnd.2.2
+            rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd3
+            intro h; subst h; exact hnd3.1 (SimpleGraph.Walk.end_mem_support q')
         have he01 : s(v, u₁) ∈ c.edges := by rw [hc_eq]; simp
         have he12 : s(u₁, u₂) ∈ c.edges := by rw [hc_eq]; simp
         have he23 : s(u₂, u₃) ∈ c.edges := by rw [hc_eq]; simp
