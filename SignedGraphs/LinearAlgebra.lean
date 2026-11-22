@@ -135,7 +135,8 @@ private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     simpa [hstar] using h
   have hspec' : A = (Uᵀ)ᵀ * Matrix.diagonal hA.eigenvalues * Uᵀ := by
     simpa [Matrix.transpose_transpose] using hspec
-  rw [hspec', dotProduct_transpose_mul Uᵀ (Matrix.diagonal hA.eigenvalues) x]
+  rw (occs := .pos [1]) [hspec']
+  rw [dotProduct_transpose_mul Uᵀ (Matrix.diagonal hA.eigenvalues) x]
   simp only [e, LinearEquiv.coe_mk, LinearMap.coe_mk, AddHom.coe_mk,
     Matrix.mulVec_diagonal, dotProduct]
   refine Finset.sum_congr rfl fun i _ => ?_
@@ -457,8 +458,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     congr 1
     rw [hsumV _ (by simp)]
     refine Finset.sum_congr rfl fun z _ => ?_
-    dsimp only [ι]
-    simp only [z.2, ↓reduceDIte]
+    simp [ι, z.2]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
   have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
     intro x hx
