@@ -5,12 +5,15 @@ import SignedGraphs.LinearAlgebraExtra
 
 Contains the explicit finite-dimensional matrix factorizations, inverses, and sign
 computations for the 8×8 Petersen interior `A_int = [[0, B], [Bᵀ, C]]` in both
-Case 1 (`det B ≠ 0`) and Case 2 (`det B = 0`).
+Case 1 (`det B ≠ 0`) and Case 2 (`det B = 0`), together with the unified block-matrix
+reduction theorem `petersen_block_signature_nonpos`.
 -/
 
 open Matrix
 
 namespace SignedGraphs
+
+noncomputable section
 
 /-- The 4×4 bipartite block `B` between `U = (2, 4, 5, 6)` and `W = (3, 7, 8, 9)`
 for edge-weight magnitudes `w : Fin 14 → ℝ`. -/
@@ -106,10 +109,16 @@ lemma petersenAint_mul_AintInv (w : Fin 14 → ℝ) (hdet : petersenDetB w ≠ 0
   have h1 : petersenB w * petersenBinv w = 1 := petersenB_mul_Binv w hdet
   have h2 : (petersenB w)ᵀ * (petersenBinv w)ᵀ = 1 := by
     rw [← Matrix.transpose_mul, petersenBinv_mul_B w hdet, Matrix.transpose_one]
+  have h21 : (petersenB w)ᵀ * (-(petersenBinv w)ᵀ * petersenC w * petersenBinv w) +
+      petersenC w * petersenBinv w = 0 := by
+    calc (petersenB w)ᵀ * (-(petersenBinv w)ᵀ * petersenC w * petersenBinv w) + petersenC w * petersenBinv w
+        = -(((petersenB w)ᵀ * (petersenBinv w)ᵀ) * petersenC w * petersenBinv w) + petersenC w * petersenBinv w := by
+          simp only [Matrix.neg_mul, Matrix.mul_neg, Matrix.mul_assoc]
+      _ = -(petersenC w * petersenBinv w) + petersenC w * petersenBinv w := by
+          rw [h2, Matrix.one_mul]
+      _ = 0 := neg_add_cancel _
   simp only [petersenAint, petersenAintInv, Matrix.fromBlocks_multiply,
-    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, Matrix.mul_neg,
-    Matrix.neg_mul, Matrix.mul_assoc, h1, h2, Matrix.one_mul, neg_add_cancel,
-    Matrix.fromBlocks_one]
+    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h21, Matrix.fromBlocks_one]
 
 /-- Helper: any block matrix `[[0, M], [Mᵀ, 0]]` has signature `0`. -/
 lemma signature_offdiag_block_zero {m n : ℕ} (M : Matrix (Fin m) (Fin n) ℝ)
@@ -126,7 +135,7 @@ lemma signature_offdiag_block_zero {m n : ℕ} (M : Matrix (Fin m) (Fin n) ℝ)
   have hneg_eq : signature (Dᵀ * Matrix.fromBlocks 0 M Mᵀ 0 * D) (isHermitian_congr _ D hH) =
       signature (-Matrix.fromBlocks 0 M Mᵀ 0) (isHermitian_neg _ hH) := by
     congr 1
-  rw [hneg_eq, signature_neg] at hs
+  rw [hneg_eq, signature_neg (Matrix.fromBlocks 0 M Mᵀ 0) hH] at hs
   omega
 
 /-- Case 1 (`det B ≠ 0`): `s(A_int) = 0`. -/
@@ -171,63 +180,22 @@ lemma signature_petersenAint_eq_zero (w : Fin 14 → ℝ) (hdet : petersenDetB w
 /-- In Case 1, `-(Rᵀ A_int⁻¹ R) = M_H`. -/
 lemma petersen_schur_eq_MH (w : Fin 14 → ℝ) :
     -((petersenR w)ᵀ * petersenAintInv w * petersenR w) = petersenMH w := by
-  have hR : petersenR w = Matrix.fromBlocks (petersenRU w) (0 : Matrix (Fin 4) (Fin 0) ℝ)
-      (0 : Matrix (Fin 4) (Fin 2) ℝ) (0 : Matrix (Fin 4) (Fin 0) ℝ) := by
-    ext i j; rcases i with a | b <;> rcases j with j | j
-    · rfl
-    · exact Fin.elim0 j
-    · rfl
-    · exact Fin.elim0 j
-  ext i j
-  simp only [petersenMH, petersenAintInv, petersenR, Matrix.neg_apply, Matrix.mul_apply,
-    Matrix.transpose_apply, Matrix.of_apply, Fintype.sum_sum_type, Matrix.fromBlocks_apply₁₁,
-    Matrix.fromBlocks_apply₁₂, Matrix.fromBlocks_apply₂₁, Matrix.fromBlocks_apply₂₂,
-    mul_zero, zero_mul, Finset.sum_const_zero, add_zero, Matrix.neg_mul, Matrix.mul_neg]
-  simp only [Finset.sum_neg_distrib, neg_neg]
-  have h1 : ∀ k : Fin 4, ∑ x : Fin 4,
-      (∑ x_1 : Fin 4, petersenRU w x_1 i * ∑ x_2 : Fin 4, petersenBinv w x_2 x_1 * petersenC w x_2 x) *
-        petersenBinv w x k * petersenRU w k j =
-      ∑ x : Fin 4, (∑ x_2 : Fin 4,
-        (∑ x_1 : Fin 4, petersenBinv w x_2 x_1 * petersenRU w x_1 i) * petersenC w x_2 x) *
-        (petersenBinv w x k * petersenRU w k j) := by
-    intro k
-    refine Finset.sum_congr rfl fun x _ => ?_
-    have hinner : ∑ x_1 : Fin 4, petersenRU w x_1 i * ∑ x_2 : Fin 4, petersenBinv w x_2 x_1 * petersenC w x_2 x =
-        ∑ x_2 : Fin 4, (∑ x_1 : Fin 4, petersenBinv w x_2 x_1 * petersenRU w x_1 i) * petersenC w x_2 x := by
-      simp_rw [Finset.mul_sum, Finset.sum_mul]
-      rw [Finset.sum_comm]
-      refine Finset.sum_congr rfl fun x_2 _ => Finset.sum_congr rfl fun x_1 _ => by ring
-    rw [hinner]; ring
-  calc ∑ x : Fin 4, (∑ x_1 : Fin 4, petersenRU w x_1 i *
-        ∑ x_2 : Fin 4, (∑ x_3 : Fin 4, petersenBinv w x_3 x_1 * petersenC w x_3 x_2) * petersenBinv w x_2 x) *
-        petersenRU w x j
-      = ∑ x : Fin 4, (∑ x_2 : Fin 4,
-          (∑ x_1 : Fin 4, petersenRU w x_1 i * ∑ x_3 : Fin 4, petersenBinv w x_3 x_1 * petersenC w x_3 x_2) *
-          petersenBinv w x_2 x) * petersenRU w x j := by
-        refine Finset.sum_congr rfl fun x _ => ?_
-        congr 1
-        simp_rw [Finset.mul_sum, Finset.sum_mul]
-        rw [Finset.sum_comm]
-        refine Finset.sum_congr rfl fun x_2 _ => Finset.sum_congr rfl fun x_1 _ => by ring
-    _ = ∑ x : Fin 4, ∑ x_2 : Fin 4,
-          (∑ x_1 : Fin 4, petersenRU w x_1 i * ∑ x_3 : Fin 4, petersenBinv w x_3 x_1 * petersenC w x_3 x_2) *
-          petersenBinv w x_2 x * petersenRU w x j := by
-        refine Finset.sum_congr rfl fun x _ => Finset.sum_mul _ _ _
-    _ = ∑ x : Fin 4, ∑ x_2 : Fin 4,
-          (∑ x_3 : Fin 4, (∑ x_1 : Fin 4, petersenBinv w x_3 x_1 * petersenRU w x_1 i) * petersenC w x_3 x_2) *
-          (petersenBinv w x_2 x * petersenRU w x j) := by
-        refine Finset.sum_congr rfl fun x _ => h1 x
-    _ = ∑ x_2 : Fin 4,
-          (∑ x_3 : Fin 4, (∑ x_1 : Fin 4, petersenBinv w x_3 x_1 * petersenRU w x_1 i) * petersenC w x_3 x_2) *
-          ∑ x : Fin 4, petersenBinv w x_2 x * petersenRU w x j := by
-        rw [Finset.sum_comm]
-        refine Finset.sum_congr rfl fun x_2 _ => (Finset.mul_sum _ _ _).symm
+  have hmid : (petersenR w)ᵀ * petersenAintInv w * petersenR w =
+      (petersenRU w)ᵀ * (-(petersenBinv w)ᵀ * petersenC w * petersenBinv w) * petersenRU w := by
+    ext i j
+    simp only [Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type,
+      petersenR, Matrix.of_apply, mul_zero, zero_mul, Finset.sum_const_zero, add_zero,
+      petersenAintInv, Matrix.fromBlocks_apply₁₁]
+  rw [hmid]
+  simp only [petersenMH, Matrix.neg_mul, Matrix.mul_neg, neg_neg, Matrix.transpose_mul,
+    Matrix.mul_assoc]
 
 lemma isHermitian_petersenMH (w : Fin 14 → ℝ) : (petersenMH w).IsHermitian := by
   change (petersenMH w)ᴴ = petersenMH w
   rw [Matrix.conjTranspose_eq_transpose_of_trivial]
   simp [petersenMH, Matrix.transpose_mul, petersenC_transpose, Matrix.mul_assoc]
 
+set_option maxHeartbeats 600000 in
 /-- Exact sign structure of `M_H` in Case 1: `(M_H)₀₀ < 0`, `(M_H)₁₁ < 0`, `(M_H)₀₁ > 0`. -/
 lemma petersenMH_signs (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) (hdet : petersenDetB w ≠ 0) :
     petersenMH w 0 0 < 0 ∧ petersenMH w 1 1 < 0 ∧ 0 < petersenMH w 0 1 ∧
@@ -260,6 +228,9 @@ lemma petersenMH_signs (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) (hdet
     simp [V, petersenBadj, petersenRU, Matrix.mul_apply, Fin.sum_univ_four]; ring
   have hv31 : V 3 1 = -w 2 * (w 0 * w 4 * w 5 + w 10 * w 11 * w 7) := by
     simp [V, petersenBadj, petersenRU, Matrix.mul_apply, Fin.sum_univ_four]; ring
+  have hw0 := hw 0; have hw1 := hw 1; have hw2 := hw 2; have hw3 := hw 3
+  have hw4 := hw 4; have hw5 := hw 5; have hw7 := hw 7; have hw8 := hw 8
+  have hw9 := hw 9; have hw10 := hw 10; have hw11 := hw 11; have hw13 := hw 13
   have hA : 0 < w 13 * w 5 * w 9 + w 3 * w 7 * w 8 := by positivity
   have hB : 0 < w 1 * w 3 * w 4 + w 11 * w 2 * w 9 := by positivity
   have hC : 0 < w 0 * w 4 * w 5 + w 10 * w 11 * w 7 := by positivity
@@ -480,10 +451,16 @@ lemma petersenK_mul_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) :
   have h1 := petersenB1_mul_inv w hw
   have h2 : (petersenB1 w)ᵀ * (petersenB1inv w)ᵀ = 1 := by
     rw [← Matrix.transpose_mul, petersenB1inv_mul w hw, Matrix.transpose_one]
+  have h21 : (petersenB1 w)ᵀ * (-(petersenB1inv w)ᵀ * petersenC11 w * petersenB1inv w) +
+      petersenC11 w * petersenB1inv w = 0 := by
+    calc (petersenB1 w)ᵀ * (-(petersenB1inv w)ᵀ * petersenC11 w * petersenB1inv w) + petersenC11 w * petersenB1inv w
+        = -(((petersenB1 w)ᵀ * (petersenB1inv w)ᵀ) * petersenC11 w * petersenB1inv w) + petersenC11 w * petersenB1inv w := by
+          simp only [Matrix.neg_mul, Matrix.mul_neg, Matrix.mul_assoc]
+      _ = -(petersenC11 w * petersenB1inv w) + petersenC11 w * petersenB1inv w := by
+          rw [h2, Matrix.one_mul]
+      _ = 0 := neg_add_cancel _
   simp only [petersenK, petersenKinv, Matrix.fromBlocks_multiply,
-    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, Matrix.mul_neg,
-    Matrix.neg_mul, Matrix.mul_assoc, h1, h2, Matrix.one_mul, neg_add_cancel,
-    Matrix.fromBlocks_one]
+    Matrix.zero_mul, Matrix.mul_zero, zero_add, add_zero, h1, h21, Matrix.fromBlocks_one]
 
 lemma signature_petersenK_eq_zero (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k) :
     signature (petersenK w) (isHermitian_petersenK w) = 0 := by
@@ -561,7 +538,7 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
     have hpos0 : posInertia (petersenQcqMat w) hQcq_H = 0 := by
       rw [posInertia_eq_sSup]
       apply le_antisymm
-      · refine csSup_le ⟨0, ⟨⊥, rfl, by intro v hv hv0; exact absurd (Submodule.mem_bot.mp hv) hv0⟩⟩ ?_
+      · refine csSup_le ⟨0, ⟨⊥, finrank_bot ℝ _, by intro v hv hv0; exact hv0 (by simpa using hv)⟩⟩ ?_
         rintro n ⟨W, rfl, hW⟩
         by_contra hpos
         have hWne : W ≠ ⊥ := by
@@ -595,7 +572,8 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
     have hEq : signature (Pᵀ * petersenAintS w * P) (isHermitian_congr _ P (isHermitian_petersenAintS w)) =
         signature (Matrix.fromBlocks (petersenK w) 0 0 (petersenQcqMat w))
           (isHermitian_fromBlocks _ (isHermitian_petersenK w) _ hQcq_H) := by congr 1
-    rw [hEq, signature_fromBlocks, signature_petersenK_eq_zero w hw, hQcq_sig]
+    rw [hEq, signature_fromBlocks (petersenK w) (isHermitian_petersenK w) (petersenQcqMat w) hQcq_H,
+      signature_petersenK_eq_zero w hw, hQcq_sig]
     omega
   · let qVal := ((petersenPW w)ᵀ * petersenC w * petersenPW w) 0 0
     have hq_ne : qVal ≠ 0 := ne_of_lt hQcq_neg
@@ -604,7 +582,9 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
     have hD_mul : Matrix.fromBlocks (petersenK w) 0 0 (petersenQcqMat w) * Dinv = 1 := by
       have hQ1 : petersenQcqMat w * Matrix.of (fun _ _ : Unit => qVal⁻¹) = 1 := by
         ext ⟨⟩ ⟨⟩
-        simp [petersenQcqMat, qVal, Matrix.mul_apply, mul_inv_cancel₀ hq_ne]
+        simp only [petersenQcqMat, Matrix.mul_apply, Matrix.of_apply, Matrix.one_apply_eq,
+          Finset.univ_unique, Finset.sum_singleton]
+        exact mul_inv_cancel₀ hq_ne
       simp [Dinv, Matrix.fromBlocks_multiply, petersenK_mul_inv w hw, hQ1, Matrix.fromBlocks_one]
     have hQT_PT : Qᵀ * Pᵀ = 1 := by
       rw [← Matrix.transpose_mul, show P * Q = 1 from hPQ, Matrix.transpose_one]
@@ -617,5 +597,429 @@ lemma petersenAintS_sig_and_inv (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w
           rw [hcongr, Matrix.mul_assoc Qᵀ]
       _ = Qᵀ * Pᵀ := by rw [hD_mul, Matrix.mul_one]
       _ = 1 := hQT_PT
+
+/-- Any 2×2 real symmetric matrix with a strictly negative `(0, 0)` entry has `signature ≤ 0`. -/
+lemma signature_two_by_two_neg_diag (M : Matrix (Fin 2) (Fin 2) ℝ) (hM : M.IsHermitian)
+    (h00 : M 0 0 < 0) : signature M hM ≤ 0 := by
+  have hneg : 1 ≤ negInertia M hM := by
+    rw [negInertia_eq_sSup]
+    refine le_csSup ⟨2, by rintro n ⟨W, rfl, _⟩; simpa [Module.finrank_fintype_fun_eq_card] using Submodule.finrank_le W⟩ ?_
+    let f : ℝ →ₗ[ℝ] (Fin 2 → ℝ) :=
+      { toFun := fun r i => if i = 0 then r else 0
+        map_add' := fun r₁ r₂ => by ext i; fin_cases i <;> simp
+        map_smul' := fun c r => by ext i; fin_cases i <;> simp }
+    have hf_inj : Function.Injective f := by
+      intro r₁ r₂ h
+      simpa [f] using congrFun h 0
+    refine ⟨LinearMap.range f, ?_, ?_⟩
+    · rw [LinearMap.finrank_range_of_inj hf_inj, Module.finrank_self]
+    · intro v hv hv0
+      rcases hv with ⟨r, rfl⟩
+      have hr : r ≠ 0 := fun h => hv0 (by ext i; simp [f, h])
+      have hq : dotProduct (f r) (M *ᵥ f r) = M 0 0 * r ^ 2 := by
+        simp [f, dotProduct, Matrix.mulVec, Fin.sum_univ_two]
+        ring
+      rw [hq]
+      nlinarith [sq_pos_of_ne_zero hr]
+  have hsum := inertia_sum M hM
+  rw [Fintype.card_fin] at hsum
+  simp only [signature]
+  omega
+
+private lemma signature_congr_eq_pa {W : Type*} [Fintype W] [DecidableEq W]
+    {M₁ M₂ : Matrix W W ℝ} (h₁ : M₁.IsHermitian) (h₂ : M₂.IsHermitian) (h : M₁ = M₂) :
+    signature M₁ h₁ = signature M₂ h₂ := by
+  subst h; rfl
+
+set_option maxHeartbeats 800000 in
+/-- Unified block-matrix signature bound for weighted `(Petersen - xy, -1)` graphs (Lemma 5.2):
+handles both Case 1 (`det B ≠ 0`) and Case 2 (`det B = 0`). -/
+theorem petersen_block_signature_nonpos
+    {U : Type} [Fintype U] [DecidableEq U]
+    (w : Fin 14 → ℝ) (hw : ∀ k : Fin 14, 0 < w k)
+    (G₂ : Matrix (Fin 2 ⊕ U) (Fin 2 ⊕ U) ℝ) (hG₂ : G₂.IsHermitian)
+    (hG₂_00 : G₂ (Sum.inl 0) (Sum.inl 0) = 0)
+    (B : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ)
+    (hB : B.IsHermitian)
+    (hB_eq : B = Matrix.fromBlocks (petersenAint w)
+      (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)
+      (Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0)ᵀ
+      G₂)
+    (hcase1 : petersenDetB w ≠ 0 →
+      signature (G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) U ℝ) 0 0)
+        (hG₂.add (isHermitian_fromBlocks (petersenMH w) (isHermitian_petersenMH w)
+          (0 : Matrix U U ℝ) isHermitian_zero)) ≤ 0)
+    (hcase2 : signature (G₂.submatrix Sum.inr Sum.inr)
+      (isHermitian_submatrix G₂ hG₂ Sum.inr) ≤ 0) :
+    signature B hB ≤ 0 := by
+  classical
+  let Rfull : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ :=
+    Matrix.of fun i z => match z with | Sum.inl j => petersenR w i j | Sum.inr _ => 0
+  by_cases hdet : petersenDetB w ≠ 0
+  · -- Case 1: det(B) ≠ 0
+    let S : Matrix (Fin 4 ⊕ Fin 4) (Fin 2 ⊕ U) ℝ := petersenAintInv w * Rfull
+    let P : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
+      Matrix.fromBlocks 1 (-S) 0 1
+    let Q : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
+      Matrix.fromBlocks 1 S 0 1
+    have hPQ : P * Q = 1 := by simp [P, Q, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
+    have hP_det : IsUnit P.det :=
+      isUnit_iff_exists_inv.mpr ⟨Q.det, by rw [← Matrix.det_mul, hPQ, Matrix.det_one]⟩
+    have hAintS : petersenAint w * S = Rfull := by
+      simp [S, ← Matrix.mul_assoc, petersenAint_mul_AintInv w hdet]
+    have hAintT : (petersenAint w)ᵀ = petersenAint w := by
+      simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using (isHermitian_petersenAint w).eq
+    have hST_Aint : Sᵀ * petersenAint w = Rfullᵀ := by
+      calc Sᵀ * petersenAint w = Sᵀ * (petersenAint w)ᵀ := by rw [hAintT]
+        _ = (petersenAint w * S)ᵀ := (Matrix.transpose_mul _ _).symm
+        _ = Rfullᵀ := by rw [hAintS]
+    have hSR_eq : -(Sᵀ * Rfull) = Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) U ℝ) 0 0 := by
+      rw [← petersen_schur_eq_MH w]
+      have hAintInvT : (petersenAintInv w)ᵀ = petersenAintInv w := by
+        have hC := petersenC_transpose w
+        simp [petersenAintInv, Matrix.fromBlocks_transpose, Matrix.transpose_mul, hC, Matrix.mul_assoc]
+      have hST_R : Sᵀ * Rfull = Rfullᵀ * petersenAintInv w * Rfull := by
+        simp [S, Matrix.transpose_mul, hAintInvT, Matrix.mul_assoc]
+      rw [hST_R]
+      ext a b
+      rcases a with i | u <;> rcases b with j | v
+      · simp [Rfull, Matrix.mul_apply, Matrix.transpose_apply]
+      · simp [Rfull, Matrix.mul_apply, Matrix.transpose_apply]
+      · simp [Rfull, Matrix.mul_apply, Matrix.transpose_apply]
+      · simp [Rfull, Matrix.mul_apply, Matrix.transpose_apply]
+    let Mschur : Matrix (Fin 2 ⊕ U) (Fin 2 ⊕ U) ℝ :=
+      G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) U ℝ) 0 0
+    have hMschur_H : Mschur.IsHermitian :=
+      hG₂.add (isHermitian_fromBlocks (petersenMH w) (isHermitian_petersenMH w)
+        (0 : Matrix U U ℝ) isHermitian_zero)
+    have hcongr : Pᵀ * B * P = Matrix.fromBlocks (petersenAint w) 0 0 Mschur := by
+      rw [hB_eq]
+      change Pᵀ * Matrix.fromBlocks (petersenAint w) Rfull Rfullᵀ G₂ * P = _
+      simp only [P, Mschur, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+        Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+        Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+      congr 1
+      · rw [hAintS, neg_add_cancel]
+      · rw [hST_Aint, neg_add_cancel]
+      · rw [hST_Aint, neg_add_cancel, Matrix.zero_mul, neg_zero, zero_add, ← hSR_eq, add_comm]
+    rw [← signature_congr B P hB hP_det,
+      signature_congr_eq_pa (isHermitian_congr B P hB)
+        (isHermitian_fromBlocks _ (isHermitian_petersenAint w) _ hMschur_H) hcongr,
+      signature_fromBlocks _ (isHermitian_petersenAint w) _ hMschur_H,
+      signature_petersenAint_eq_zero w hdet, zero_add]
+    exact hcase1 hdet
+  · -- Case 2: det(B) = 0
+    push Not at hdet
+    let P_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
+      Matrix.fromBlocks (petersenPU w) 0 0 (petersenPW w)
+    let Q_int : Matrix (Fin 4 ⊕ Fin 4) (Fin 4 ⊕ Fin 4) ℝ :=
+      Matrix.fromBlocks (petersenPUinv w) 0 0 (petersenPWinv w)
+    have hPQ_int : P_int * Q_int = 1 := by
+      simp [P_int, Q_int, Matrix.fromBlocks_multiply, petersenPU_mul_inv, petersenPW_mul_inv,
+        Matrix.fromBlocks_one]
+    let α : ℝ := ((petersenPU w)ᵀ * petersenRU w) 0 0
+    let β : ℝ := ((petersenPU w)ᵀ * petersenRU w) 0 1
+    have hαβ := petersen_alpha_beta w hw
+    have hα_pos : 0 < α := hαβ.1
+    have hα_ne : α ≠ 0 := ne_of_gt hα_pos
+    let Z : Matrix (Fin 2) (Fin 2) ℝ := !![1, -β; 0, α]
+    let Zinv : Matrix (Fin 2) (Fin 2) ℝ := !![1, β / α; 0, 1 / α]
+    have hZZinv : Z * Zinv = 1 := by
+      ext i j; fin_cases i <;> fin_cases j <;>
+        simp [Z, Zinv, Matrix.mul_apply, Fin.sum_univ_two] <;> field_simp [hα_ne] <;> ring
+    let P_ext : Matrix (Fin 2 ⊕ U) (Fin 2 ⊕ U) ℝ := Matrix.fromBlocks Z 0 0 1
+    let Q_ext : Matrix (Fin 2 ⊕ U) (Fin 2 ⊕ U) ℝ := Matrix.fromBlocks Zinv 0 0 1
+    have hPQ_ext : P_ext * Q_ext = 1 := by
+      simp [P_ext, Q_ext, Matrix.fromBlocks_multiply, hZZinv, Matrix.fromBlocks_one]
+    let P₀ : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
+      Matrix.fromBlocks P_int 0 0 P_ext
+    let Q₀ : Matrix ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ((Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U)) ℝ :=
+      Matrix.fromBlocks Q_int 0 0 Q_ext
+    have hPQ₀ : P₀ * Q₀ = 1 := by
+      simp [P₀, Q₀, Matrix.fromBlocks_multiply, hPQ_int, hPQ_ext, Matrix.fromBlocks_one]
+    have hP₀_det : IsUnit P₀.det :=
+      isUnit_iff_exists_inv.mpr ⟨Q₀.det, by rw [← Matrix.det_mul, hPQ₀, Matrix.det_one]⟩
+    let B₂ := P₀ᵀ * B * P₀
+    have hB₂ : B₂.IsHermitian := isHermitian_congr B P₀ hB
+    rw [← signature_congr B P₀ hB hP₀_det]
+    change signature B₂ hB₂ ≤ 0
+    have hB₂_blk : B₂ = Matrix.fromBlocks (P_intᵀ * petersenAint w * P_int)
+        (P_intᵀ * Rfull * P_ext) (P_extᵀ * Rfullᵀ * P_int) (P_extᵀ * G₂ * P_ext) := by
+      dsimp only [B₂]; rw [hB_eq]
+      change P₀ᵀ * Matrix.fromBlocks (petersenAint w) Rfull Rfullᵀ G₂ * P₀ = _
+      simp [P₀, Matrix.fromBlocks_transpose, Matrix.fromBlocks_multiply, Matrix.mul_assoc]
+    have hAint_tr : P_intᵀ * petersenAint w * P_int =
+        Matrix.fromBlocks 0 ((petersenPU w)ᵀ * petersenB w * petersenPW w)
+          ((petersenPW w)ᵀ * (petersenB w)ᵀ * petersenPU w)
+          ((petersenPW w)ᵀ * petersenC w * petersenPW w) := by
+      simp [P_int, petersenAint, Matrix.fromBlocks_transpose, Matrix.fromBlocks_multiply,
+        Matrix.mul_assoc]
+    have hB₂_sym : ∀ p q, B₂ p q = B₂ q p := fun p q => by
+      simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB₂.eq p) q).symm
+    have hPU_B_PW := petersen_PU_B_PW w hw hdet
+    let e : Fin 2 ⊕ (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ≃ (Fin 4 ⊕ Fin 4) ⊕ (Fin 2 ⊕ U) :=
+      { toFun := fun
+          | Sum.inl 0 => Sum.inl (Sum.inl 0)
+          | Sum.inl 1 => Sum.inr (Sum.inl 0)
+          | Sum.inr (Sum.inl (Sum.inl (Sum.inl i))) => Sum.inl (Sum.inl i.succ)
+          | Sum.inr (Sum.inl (Sum.inl (Sum.inr j))) => Sum.inl (Sum.inr j.succ)
+          | Sum.inr (Sum.inl (Sum.inr ())) => Sum.inl (Sum.inr 0)
+          | Sum.inr (Sum.inr (Sum.inl ())) => Sum.inr (Sum.inl 1)
+          | Sum.inr (Sum.inr (Sum.inr u)) => Sum.inr (Sum.inr u)
+        invFun := fun
+          | Sum.inl (Sum.inl i) =>
+            if h : i = 0 then Sum.inl 0
+            else Sum.inr (Sum.inl (Sum.inl (Sum.inl (i.pred h))))
+          | Sum.inl (Sum.inr j) =>
+            if h : j = 0 then Sum.inr (Sum.inl (Sum.inr ()))
+            else Sum.inr (Sum.inl (Sum.inl (Sum.inr (j.pred h))))
+          | Sum.inr (Sum.inl 0) => Sum.inl 1
+          | Sum.inr (Sum.inl 1) => Sum.inr (Sum.inr (Sum.inl ()))
+          | Sum.inr (Sum.inr u) => Sum.inr (Sum.inr (Sum.inr u))
+        left_inv := fun x => by
+          rcases x with i | ((i | j) | ⟨⟩) | (⟨⟩ | u)
+          · fin_cases i <;> rfl
+          · simp [Fin.succ_ne_zero, Fin.pred_succ]
+          · simp [Fin.succ_ne_zero, Fin.pred_succ]
+          · rfl
+          · rfl
+          · rfl
+        right_inv := fun x => by
+          rcases x with (i | j) | (k | u)
+          · by_cases h : i = 0
+            · subst h; rfl
+            · simp [h, Fin.succ_pred]
+          · by_cases h : j = 0
+            · subst h; rfl
+            · simp [h, Fin.succ_pred]
+          · fin_cases k <;> rfl
+          · rfl }
+    let B₃ := B₂.submatrix e e
+    have hB₃ : B₃.IsHermitian := isHermitian_submatrix B₂ hB₂ e
+    rw [← signature_reindex e B₂ hB₂]
+    change signature B₃ hB₃ ≤ 0
+    have hRfull_tr : ∀ (a : Fin 4) (j : Fin 2),
+        (P_intᵀ * Rfull * P_ext) (Sum.inl a) (Sum.inl j) =
+          (((petersenPU w)ᵀ * petersenRU w) * Z) a j := by
+      intro a j
+      simp only [P_int, P_ext, Rfull, Matrix.fromBlocks_transpose, Matrix.transpose_zero,
+        Matrix.mul_apply, Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂,
+        Matrix.fromBlocks_apply₂₁, Matrix.fromBlocks_apply₂₂, Fintype.sum_sum_type,
+        Matrix.of_apply, petersenR, mul_zero, zero_mul, Finset.sum_const_zero, add_zero]
+    have hRfull_tr_U : ∀ (p : Fin 4 ⊕ Fin 4) (u : U),
+        (P_intᵀ * Rfull * P_ext) p (Sum.inr u) = 0 := by
+      intro p u
+      simp only [P_int, P_ext, Rfull, Matrix.fromBlocks_transpose, Matrix.transpose_zero,
+        Matrix.mul_apply, Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂,
+        Matrix.fromBlocks_apply₂₁, Matrix.fromBlocks_apply₂₂, Fintype.sum_sum_type,
+        Matrix.of_apply, mul_zero, zero_mul, Finset.sum_const_zero, add_zero]
+    have hB₃_00 : B₃ (Sum.inl 0) (Sum.inl 0) = 0 := by
+      simp [B₃, e, hB₂_blk, hAint_tr]
+    have hB₃_01 : B₃ (Sum.inl 0) (Sum.inl 1) = α := by
+      simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+        Matrix.fromBlocks_apply₁₂, hRfull_tr]
+      simp [Z, α, β, Matrix.mul_apply, Fin.sum_univ_two]
+    have hB₃_11 : B₃ (Sum.inl 1) (Sum.inl 1) = 0 := by
+      simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+        Matrix.fromBlocks_apply₂₂, P_ext, Matrix.fromBlocks_transpose, Matrix.transpose_zero,
+        Matrix.transpose_one, Matrix.mul_apply, Fintype.sum_sum_type,
+        Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂, Matrix.fromBlocks_apply₂₁,
+        Matrix.fromBlocks_apply₂₂, mul_zero, zero_mul, Finset.sum_const_zero, add_zero]
+      simp [Z, Matrix.transpose_apply, Fin.sum_univ_two, hG₂_00]
+    have hB₃_0_inr : ∀ q : ((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U),
+        B₃ (Sum.inl 0) (Sum.inr q) = 0 := by
+      intro q
+      rcases q with ((i | j) | ⟨⟩) | (⟨⟩ | u)
+      · simp [B₃, e, hB₂_blk, hAint_tr]
+      · simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+          Matrix.fromBlocks_apply₁₁, hAint_tr, Matrix.fromBlocks_apply₁₂]
+        exact hPU_B_PW 0 j.succ
+      · simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+          Matrix.fromBlocks_apply₁₁, hAint_tr, Matrix.fromBlocks_apply₁₂]
+        exact hPU_B_PW 0 0
+      · simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+          Matrix.fromBlocks_apply₁₂, hRfull_tr]
+        simp [Z, α, β, Matrix.mul_apply, Fin.sum_univ_two]; ring
+      · simp only [B₃, Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk,
+          Matrix.fromBlocks_apply₁₂]
+        exact hRfull_tr_U (Sum.inl 0) u
+    let H₂ : Matrix (Fin 2) (Fin 2) ℝ := !![0, α; α, 0]
+    let R_H : Matrix (Fin 2) (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ := B₃.toBlocks₁₂
+    let B_tail : Matrix (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U))
+        (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ := B₃.toBlocks₂₂
+    have hB₃_sym : ∀ p q, B₃ p q = B₃ q p := fun p q => by
+      simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB₃.eq p) q).symm
+    have hB₃_eq : B₃ = Matrix.fromBlocks H₂ R_H R_Hᵀ B_tail := by
+      ext p q
+      rcases p with i | a <;> rcases q with j | b
+      · fin_cases i <;> fin_cases j <;>
+          simp [H₂, hB₃_00, hB₃_01, hB₃_11, hB₃_sym (Sum.inl 1) (Sum.inl 0)]
+      · rfl
+      · simp [R_H, Matrix.toBlocks₁₂, hB₃_sym]
+      · rfl
+    let S_H : Matrix (Fin 2) (((Fin 3 ⊕ Fin 3) ⊕ Unit) ⊕ (Unit ⊕ U)) ℝ :=
+      Matrix.of fun i q => match i with
+        | 0 => R_H 1 q / α
+        | 1 => 0
+    let P_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) (-S_H) 0 1
+    let Q_H := Matrix.fromBlocks (1 : Matrix (Fin 2) (Fin 2) ℝ) S_H 0 1
+    have hPQ_H : P_H * Q_H = 1 := by simp [P_H, Q_H, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
+    have hP_H_det : IsUnit P_H.det :=
+      isUnit_iff_exists_inv.mpr ⟨Q_H.det, by rw [← Matrix.det_mul, hPQ_H, Matrix.det_one]⟩
+    have hH₂_S : H₂ * S_H = R_H := by
+      ext i q
+      fin_cases i
+      · simp [H₂, S_H, R_H, Matrix.toBlocks₁₂, Matrix.mul_apply, Fin.sum_univ_two, hB₃_0_inr q]
+      · simp [H₂, S_H, Matrix.mul_apply, Fin.sum_univ_two, mul_div_cancel₀ _ hα_ne]
+    have hSH_R : S_Hᵀ * R_H = 0 := by
+      ext p q
+      simp [S_H, R_H, Matrix.toBlocks₁₂, Matrix.mul_apply, Matrix.transpose_apply,
+        Fin.sum_univ_two, hB₃_0_inr q]
+    have hH₂_H : H₂.IsHermitian := by
+      ext i j; fin_cases i <;> fin_cases j <;> simp [H₂, Matrix.conjTranspose_apply]
+    have hH₂_T : H₂ᵀ = H₂ := by
+      simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using hH₂_H.eq
+    have hSH_H₂ : S_Hᵀ * H₂ = R_Hᵀ := by
+      calc S_Hᵀ * H₂ = S_Hᵀ * H₂ᵀ := by rw [hH₂_T]
+        _ = (H₂ * S_H)ᵀ := (Matrix.transpose_mul _ _).symm
+        _ = R_Hᵀ := by rw [hH₂_S]
+    have hB_tail_H : B_tail.IsHermitian := isHermitian_submatrix B₃ hB₃ Sum.inr
+    have hcongr_H : P_Hᵀ * B₃ * P_H = Matrix.fromBlocks H₂ 0 0 B_tail := by
+      rw [hB₃_eq]
+      simp only [P_H, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+        Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+        Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+      congr 1
+      · rw [hH₂_S, neg_add_cancel]
+      · rw [hSH_H₂, neg_add_cancel]
+      · rw [hSH_H₂, neg_add_cancel, Matrix.zero_mul, neg_zero, zero_add, hSH_R, neg_zero, zero_add]
+    rw [← signature_congr B₃ P_H hB₃ hP_H_det,
+      signature_congr_eq_pa (isHermitian_congr B₃ P_H hB₃)
+        (isHermitian_fromBlocks H₂ hH₂_H B_tail hB_tail_H) hcongr_H,
+      signature_fromBlocks H₂ hH₂_H B_tail hB_tail_H,
+      signature_two_by_two_offdiag α 0 hα_ne hH₂_H, zero_add]
+    have hB_tail_11 : B_tail.toBlocks₁₁ = petersenAintS w := by
+      ext s₁ s₂
+      rcases s₁ with (i | j) | ⟨⟩ <;> rcases s₂ with (i' | j') | ⟨⟩
+      · simp [B_tail, B₃, e, hB₂_blk, hAint_tr, petersenAintS, petersenK]
+      · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
+          Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
+          hAint_tr, Matrix.fromBlocks_apply₁₂, petersenAintS, petersenK]
+        simpa [Fin.val_succ, i.isLt, j'.isLt] using hPU_B_PW i.succ j'.succ
+      · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
+          Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
+          hAint_tr, Matrix.fromBlocks_apply₁₂, petersenAintS, petersenL]
+        exact hPU_B_PW i.succ 0
+      · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
+          Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
+          hAint_tr, Matrix.fromBlocks_apply₂₁, petersenAintS, petersenK, Matrix.transpose_apply]
+        have h1 : ((petersenPW w)ᵀ * (petersenB w)ᵀ * petersenPU w) j.succ i'.succ =
+            ((petersenPU w)ᵀ * petersenB w * petersenPW w) i'.succ j.succ := by
+          have hT : ((petersenPU w)ᵀ * petersenB w * petersenPW w)ᵀ =
+              (petersenPW w)ᵀ * (petersenB w)ᵀ * petersenPU w := by
+            simp [Matrix.transpose_mul, Matrix.mul_assoc]
+          rw [← hT]; rfl
+        rw [h1]
+        simpa [Fin.val_succ, i'.isLt, j.isLt] using hPU_B_PW i'.succ j.succ
+      · simp [B_tail, B₃, e, hB₂_blk, hAint_tr, petersenAintS, petersenK, petersenC11]
+      · simp [B_tail, B₃, e, hB₂_blk, hAint_tr, petersenAintS, petersenL, petersenC12]
+      · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
+          Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
+          hAint_tr, Matrix.fromBlocks_apply₂₁, petersenAintS, petersenL, Matrix.transpose_apply]
+        have h1 : ((petersenPW w)ᵀ * (petersenB w)ᵀ * petersenPU w) 0 i'.succ =
+            ((petersenPU w)ᵀ * petersenB w * petersenPW w) i'.succ 0 := by
+          have hT : ((petersenPU w)ᵀ * petersenB w * petersenPW w)ᵀ =
+              (petersenPW w)ᵀ * (petersenB w)ᵀ * petersenPU w := by
+            simp [Matrix.transpose_mul, Matrix.mul_assoc]
+          rw [← hT]; rfl
+        rw [h1]
+        exact hPU_B_PW i'.succ 0
+      · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
+          Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
+          hAint_tr, Matrix.fromBlocks_apply₂₂, petersenAintS, petersenL, petersenC12,
+          Matrix.transpose_apply]
+        have hPW := isHermitian_congr (petersenC w) (petersenPW w) (isHermitian_petersenC w)
+        simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hPW.eq j'.succ) 0)
+      · simp [B_tail, B₃, e, hB₂_blk, hAint_tr, petersenAintS, petersenQcqMat]
+    have hB_tail_12_U : ∀ s (u : U), B_tail.toBlocks₁₂ s (Sum.inr u) = 0 := by
+      intro s u
+      rcases s with (i | j) | ⟨⟩
+      · simpa [B_tail, B₃, e, hB₂_blk] using hRfull_tr_U (Sum.inl i.succ) u
+      · simpa [B_tail, B₃, e, hB₂_blk] using hRfull_tr_U (Sum.inr j.succ) u
+      · simpa [B_tail, B₃, e, hB₂_blk] using hRfull_tr_U (Sum.inr 0) u
+    obtain ⟨hsigS, Minv, hSMinv⟩ := petersenAintS_sig_and_inv w hw
+    let R_S := B_tail.toBlocks₁₂
+    let M_rem := B_tail.toBlocks₂₂
+    have hB_tail_eq : B_tail = Matrix.fromBlocks (petersenAintS w) R_S R_Sᵀ M_rem := by
+      ext p q
+      rcases p with s₁ | r₁ <;> rcases q with s₂ | r₂
+      · exact congr_fun (congr_fun hB_tail_11 s₁) s₂
+      · rfl
+      · simp [R_S, Matrix.toBlocks₁₂, B_tail, Matrix.toBlocks₂₂, hB₃_sym]
+      · rfl
+    let S_S := Minv * R_S
+    let P_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) (-S_S) 0 1
+    let Q_S := Matrix.fromBlocks (1 : Matrix ((Fin 3 ⊕ Fin 3) ⊕ Unit) ((Fin 3 ⊕ Fin 3) ⊕ Unit) ℝ) S_S 0 1
+    have hPQ_S : P_S * Q_S = 1 := by simp [P_S, Q_S, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
+    have hP_S_det : IsUnit P_S.det :=
+      isUnit_iff_exists_inv.mpr ⟨Q_S.det, by rw [← Matrix.det_mul, hPQ_S, Matrix.det_one]⟩
+    have hAintS_S : petersenAintS w * S_S = R_S := by
+      simp [S_S, ← Matrix.mul_assoc, hSMinv]
+    have hAintS_T : (petersenAintS w)ᵀ = petersenAintS w := by
+      simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using (isHermitian_petersenAintS w).eq
+    have hSS_AintS : S_Sᵀ * petersenAintS w = R_Sᵀ := by
+      calc S_Sᵀ * petersenAintS w = S_Sᵀ * (petersenAintS w)ᵀ := by rw [hAintS_T]
+        _ = (petersenAintS w * S_S)ᵀ := (Matrix.transpose_mul _ _).symm
+        _ = R_Sᵀ := by rw [hAintS_S]
+    let M_final : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ := M_rem - S_Sᵀ * R_S
+    have hcongr_S : P_Sᵀ * B_tail * P_S = Matrix.fromBlocks (petersenAintS w) 0 0 M_final := by
+      rw [hB_tail_eq]
+      simp only [P_S, M_final, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+        Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+        Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+      congr 1
+      · rw [hAintS_S, neg_add_cancel]
+      · rw [hSS_AintS, neg_add_cancel]
+      · rw [hSS_AintS, neg_add_cancel, Matrix.zero_mul, neg_zero, zero_add, sub_eq_neg_add]
+    have hM_final_H : M_final.IsHermitian := by
+      have h1 := isHermitian_congr B_tail P_S hB_tail_H
+      rw [hcongr_S] at h1
+      ext a b
+      simpa [Matrix.conjTranspose_apply] using
+        congr_fun (congr_fun h1.eq (Sum.inr a)) (Sum.inr b)
+    rw [← signature_congr B_tail P_S hB_tail_H hP_S_det,
+      signature_congr_eq_pa (isHermitian_congr B_tail P_S hB_tail_H)
+        (isHermitian_fromBlocks _ (isHermitian_petersenAintS w) _ hM_final_H) hcongr_S,
+      signature_fromBlocks _ (isHermitian_petersenAintS w) _ hM_final_H, hsigS]
+    have hinter := signature_interlacing_delete_vertex M_final hM_final_H (Sum.inl ())
+    let eU : U ≃ {z : Unit ⊕ U // z ≠ Sum.inl ()} :=
+      { toFun := fun u => ⟨Sum.inr u, by simp⟩
+        invFun := fun ⟨z, hz⟩ => match z with
+          | Sum.inl () => absurd rfl hz
+          | Sum.inr u => u
+        left_inv := fun u => rfl
+        right_inv := fun ⟨z, hz⟩ => by rcases z with ⟨⟩ | u; exact absurd rfl hz; rfl }
+    have hM_sub : (M_final.submatrix (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1)
+        (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1)).submatrix eU eU =
+        G₂.submatrix Sum.inr Sum.inr := by
+      ext u v
+      have hSS_0 : (S_Sᵀ * R_S) (Sum.inr u) (Sum.inr v) = 0 := by
+        simp [R_S, Matrix.mul_apply, hB_tail_12_U]
+      simp only [Matrix.submatrix_apply, eU, Equiv.coe_fn_mk, M_final, Matrix.sub_apply, hSS_0, sub_zero]
+      simp [M_rem, B_tail, B₃, e, hB₂_blk, P_ext, Matrix.fromBlocks_transpose,
+        Matrix.fromBlocks_multiply, Matrix.mul_apply, Fintype.sum_sum_type]
+    have hsig_del : signature (M_final.submatrix (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1)
+        (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1))
+        (isHermitian_submatrix M_final hM_final_H _) ≤ 0 := by
+      rw [← signature_reindex eU _ (isHermitian_submatrix M_final hM_final_H _)]
+      rw [signature_congr_eq_pa _ (isHermitian_submatrix G₂ hG₂ Sum.inr) hM_sub]
+      exact hcase2
+    have hle1 : signature M_final hM_final_H - signature
+        (M_final.submatrix (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1)
+          (fun x : {z : Unit ⊕ U // z ≠ Sum.inl ()} => x.1))
+        (isHermitian_submatrix M_final hM_final_H _) ≤ 1 := (abs_le.mp hinter).2
+    omega
+
+end
 
 end SignedGraphs
