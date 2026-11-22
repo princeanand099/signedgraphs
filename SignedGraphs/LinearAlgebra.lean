@@ -18,22 +18,64 @@ variable {V : Type*} [Fintype V] [DecidableEq V]
 def switchSign (S : Set V) (σ : Sym2 V → ℤ) : Sym2 V → ℤ :=
   Sym2.lift ⟨fun u v => (if u ∈ S then -1 else 1) * (if v ∈ S then -1 else 1) * σ s(u, v), by
     intro u v
-    simp [Sym2.eq_swap, mul_comm, mul_left_comm, mul_assoc]⟩
+    simp [Sym2.eq_swap, mul_comm]⟩
 
 /-- Two signings are switching-equivalent if one is obtained from the other by switching at some `S`. -/
 def SwitchingEquiv (σ₁ σ₂ : Sym2 V → ℤ) : Prop :=
   ∃ S : Set V, ∀ e, σ₂ e = switchSign S σ₁ e
 
+private lemma pm_one_sq (P : Prop) [Decidable P] :
+    (if P then (-1 : ℤ) else 1) * (if P then -1 else 1) = 1 := by
+  split_ifs <;> norm_num
+
+/-- Switching multiplies the sign product of any `(u, v)`-walk by `s(u) * s(v)`. -/
+theorem walkSignProd_switch_aux (S : Set V) (σ : Sym2 V → ℤ) {G : SimpleGraph V}
+    {u v : V} (p : G.Walk u v) :
+    walkSignProd (switchSign S σ) p =
+      (if u ∈ S then (-1 : ℤ) else 1) * (if v ∈ S then (-1 : ℤ) else 1) * walkSignProd σ p := by
+  classical
+  induction p with
+  | nil =>
+    simp [walkSignProd, pm_one_sq]
+  | @cons u w v h p ih =>
+    simp only [walkSignProd, SimpleGraph.Walk.edges_cons, List.map_cons, List.prod_cons]
+    rw [ih]
+    have hsw : switchSign S σ s(u, w) =
+        (if u ∈ S then (-1 : ℤ) else 1) * (if w ∈ S then (-1 : ℤ) else 1) * σ s(u, w) := by
+      simp [switchSign]
+    rw [hsw]
+    have hsq : (if w ∈ S then (-1 : ℤ) else 1) * (if w ∈ S then (-1 : ℤ) else 1) = 1 :=
+      pm_one_sq (w ∈ S)
+    calc
+      (if u ∈ S then (-1 : ℤ) else 1) * (if w ∈ S then (-1 : ℤ) else 1) * σ s(u, w) *
+          ((if w ∈ S then (-1 : ℤ) else 1) * (if v ∈ S then (-1 : ℤ) else 1) *
+            (p.edges.map σ).prod)
+        = (if u ∈ S then (-1 : ℤ) else 1) * (if v ∈ S then (-1 : ℤ) else 1) *
+            ((if w ∈ S then (-1 : ℤ) else 1) * (if w ∈ S then (-1 : ℤ) else 1)) *
+            (σ s(u, w) * (p.edges.map σ).prod) := by ring
+      _ = (if u ∈ S then (-1 : ℤ) else 1) * (if v ∈ S then (-1 : ℤ) else 1) *
+            (σ s(u, w) * (p.edges.map σ).prod) := by rw [hsq, mul_one]
+
 /-- Switching preserves the sign product of every closed walk (cycle). -/
 theorem walkSignProd_switch (S : Set V) (σ : Sym2 V → ℤ) {G : SimpleGraph V}
     {v : V} (c : G.Walk v v) :
     walkSignProd (switchSign S σ) c = walkSignProd σ c := by
-  sorry
+  classical
+  rw [walkSignProd_switch_aux, pm_one_sq, one_mul]
+
+/-- Switching preserves `{+1, -1}` edge values. -/
+lemma switchSign_pm_one (S : SignedGraph V) (T : Set V) :
+    ∀ e ∈ S.graph.edgeSet, switchSign T S.sign e = 1 ∨ switchSign T S.sign e = -1 := by
+  classical
+  intro e he
+  rcases e with ⟨u, v⟩
+  simp only [switchSign, Sym2.lift_mk]
+  rcases S.sign_pm_one s(u, v) he with h | h <;> rw [h] <;> split_ifs <;> simp
 
 /-- Switching preserves the NOC property. -/
 theorem isNOC_switch (S : SignedGraph V) (T : Set V) :
-    IsNOC ⟨S.graph, switchSign T S.sign, by sorry⟩ ↔ IsNOC S := by
-  sorry
+    IsNOC ⟨S.graph, switchSign T S.sign, switchSign_pm_one S T⟩ ↔ IsNOC S := by
+  simp only [IsNOC, signedCycleType, walkSignProd_switch]
 
 /-- Sylvester's law of inertia for signature: `s(Pᵀ * A * P) = s(A)` for invertible `P`. -/
 theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit P.det) :
@@ -42,7 +84,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
 
 /-- Bipartite signed graphs have signature `0` (Section 2.1). -/
 theorem signature_eq_zero_of_bipartite (A : Matrix V V ℝ) (hA : A.IsHermitian)
-    (hdiag : ∀ v, A v v = 0) (hbip : (matrixGraph A).IsBipartite) :
+    (hdiag : ∀ v, A v v = 0) (hbip : (matrixGraph A hA.isSymm).IsBipartite) :
     signature A hA = 0 := by
   sorry
 

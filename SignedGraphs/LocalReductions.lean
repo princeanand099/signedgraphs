@@ -38,7 +38,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     (hdiag : ∀ u, A u u = 0) (hnoc : MatrixIsNOC A hA.isSymm)
     (hn : 3 ≤ Fintype.card V)
     (v x y : V) (hxy : x ≠ y) (hvx : v ≠ x) (hvy : v ≠ y)
-    (hN : ∀ w : V, (matrixGraph A).Adj v w ↔ w = x ∨ w = y)
+    (hN : ∀ w : V, (matrixGraph A hA.isSymm).Adj v w ↔ w = x ∨ w = y)
     (ih : ∀ (W : Type) [Fintype W] [DecidableEq W],
       Fintype.card W = Fintype.card V - 2 →
       ∀ (B : Matrix W W ℝ) (hB : B.IsHermitian),
