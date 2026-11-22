@@ -5,7 +5,6 @@ import SignedGraphs.Basic
 
 Formalization of:
 - Equation (3.1): Mod-4 arc-weight difference along an even cycle.
-- Lemma 3.2: Gao–Li–Ma–Xie maximal even-cycle lemma.
 - Lemma 3.3: Even-odd cycle linkage obstruction.
 - Lemma 3.4: Cycle-pair obstructions (1), (2), and (3) forcing `(Petersen, -1)`.
 -/
@@ -41,19 +40,48 @@ def petersenSignedGraph : SignedGraph (Fin 10) where
 /-- Two signed graphs `(G₁, σ₁)` and `(G₂, σ₂)` are switching-isomorphic if there is a
 graph isomorphism `e : G₁ ≃g G₂` and a vertex set `T` such that switching `σ₁` at `T`
 matches `σ₂` along `e`. -/
-def SwitchingIso {V W : Type*} (S₁ : SignedGraph V) (S₂ : SignedGraph W) : Prop :=
-  ∃ (e : S₁.graph ≃g S₂.graph) (T : Set V),
+def SwitchingIso {V W : Type*} [Fintype V] [DecidableEq V]
+    (S₁ : SignedGraph V) (S₂ : SignedGraph W) : Prop :=
+  ∃ (e : S₁.graph ≃g S₂.graph) (T : Finset V),
     ∀ u v, S₁.graph.Adj u v →
       (if u ∈ T then -1 else 1) * (if v ∈ T then -1 else 1) * S₁.sign s(u, v) =
         S₂.sign s(e u, e v)
 
-/-- **Equation (3.1)**: For any even cycle `C₁` partitioned at `u, v` into two `(u, v)`-arcs
-`p₁, p₂`, `w(p₁) - w(p₂) = w(C₁) + 2 * (p₂.length : ZMod 4)` in `ZMod 4`. -/
+private lemma two_mul_modFourWeight (σ : Sym2 V → ℤ) (e : Sym2 V) :
+    2 * modFourWeight σ e = 2 := by
+  unfold modFourWeight
+  split_ifs <;> decide
+
+private lemma two_mul_walkModFourWeight {G : SimpleGraph V} (σ : Sym2 V → ℤ)
+    {u v : V} (p : G.Walk u v) :
+    2 * walkModFourWeight σ p = 2 * (p.length : ZMod 4) := by
+  unfold walkModFourWeight
+  rw [← SimpleGraph.Walk.length_edges p]
+  induction p.edges with
+  | nil => simp
+  | cons e l ih =>
+    simp only [List.map_cons, List.sum_cons, List.length_cons, Nat.cast_add, Nat.cast_one]
+    rw [mul_add, mul_add, two_mul_modFourWeight, ih]
+    ring
+
+/-- **Equation (3.1)**: For any two `(u, v)`-walks `p₁, p₂`,
+`w(p₁) - w(p₂) = (w(p₁) + w(p₂)) + 2 * (p₂.length : ZMod 4)` in `ZMod 4`. -/
 theorem even_cycle_arc_weight_diff {G : SimpleGraph V} (σ : Sym2 V → ℤ)
-    {u v : V} (p₁ p₂ : G.Walk u v) (heven : Even (p₁.length + p₂.length)) :
+    {u v : V} (p₁ p₂ : G.Walk u v) :
     walkModFourWeight σ p₁ - walkModFourWeight σ p₂ =
       (walkModFourWeight σ p₁ + walkModFourWeight σ p₂) + 2 * (p₂.length : ZMod 4) := by
-  sorry
+  have h2 : 2 * walkModFourWeight σ p₂ = 2 * (p₂.length : ZMod 4) :=
+    two_mul_walkModFourWeight σ p₂
+  have h4 : (4 : ZMod 4) = 0 := rfl
+  calc
+    walkModFourWeight σ p₁ - walkModFourWeight σ p₂
+      = (walkModFourWeight σ p₁ + walkModFourWeight σ p₂) - 2 * walkModFourWeight σ p₂ := by ring
+    _ = (walkModFourWeight σ p₁ + walkModFourWeight σ p₂) - 2 * (p₂.length : ZMod 4) := by rw [h2]
+    _ = (walkModFourWeight σ p₁ + walkModFourWeight σ p₂) + 2 * (p₂.length : ZMod 4) := by
+      have hneg : -(2 * (p₂.length : ZMod 4)) = 2 * (p₂.length : ZMod 4) := by
+        have : (4 : ZMod 4) * (p₂.length : ZMod 4) = 0 := by rw [h4, zero_mul]
+        linear_combination -this
+      rw [sub_eq_add_neg, hneg]
 
 /-- **Lemma 3.3 (Even-odd cycle linkage)**: If an even cycle `C₁` and an odd cycle `C₂`
 are linked by two disjoint paths (or one path when sharing a single vertex `u₁`) with
