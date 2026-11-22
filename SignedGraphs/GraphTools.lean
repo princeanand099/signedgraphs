@@ -15,25 +15,25 @@ namespace SignedGraphs
 
 variable {V : Type*} [Fintype V] [DecidableEq V]
 
-omit [Fintype V] [DecidableEq V] in
+omit [Fintype V] in
 private lemma walk_edges_perm_rotate {G : SimpleGraph V} {u v : V}
     (c : G.Walk u u) (hv : v ∈ c.support) :
-    (c.rotate hv).edges.Perm c.edges := by
+    (c.rotate v hv).edges.Perm c.edges := by
   have h1 : c = (c.takeUntil v hv).append (c.dropUntil v hv) := (SimpleGraph.Walk.take_spec c hv).symm
-  have h2 : c.rotate hv = (c.dropUntil v hv).append (c.takeUntil v hv) := rfl
+  have h2 : c.rotate v hv = (c.dropUntil v hv).append (c.takeUntil v hv) := rfl
   rw [h2, SimpleGraph.Walk.edges_append]
   conv_rhs => rw [h1, SimpleGraph.Walk.edges_append]
   exact List.perm_append_comm
 
-omit [Fintype V] [DecidableEq V] in
+omit [Fintype V] in
 /-- Mod-4 weight is invariant under cycle rotation. -/
 lemma walkModFourWeight_rotate {G : SimpleGraph V} (σ : Sym2 V → ℤ) {u v : V}
     (c : G.Walk u u) (hv : v ∈ c.support) :
-    walkModFourWeight σ (c.rotate hv) = walkModFourWeight σ c := by
+    walkModFourWeight σ (c.rotate v hv) = walkModFourWeight σ c := by
   unfold walkModFourWeight
   exact ((walk_edges_perm_rotate c hv).map (modFourWeight σ)).sum_eq
 
-omit [Fintype V] [DecidableEq V] in
+omit [Fintype V] in
 /-- Splitting a simple cycle `c` at two distinct vertices `u₁, u₂ ∈ c.support` produces
 two internally vertex-disjoint simple `(u₁, u₂)`-paths `p₁, p₂` whose lengths sum to `c.length`
 and whose mod-4 weights sum to `walkModFourWeight σ c`. -/
@@ -46,10 +46,15 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
       (∀ x ∈ p₁.support, x ≠ u₁ → x ≠ u₂ → x ∉ p₂.support) ∧
       (∀ σ : Sym2 V → ℤ, walkModFourWeight σ p₁ + walkModFourWeight σ p₂ =
         walkModFourWeight σ c) := by
-  let c' : G.Walk u₁ u₁ := c.rotate hu₁
+  let c' : G.Walk u₁ u₁ := c.rotate u₁ hu₁
   have hc' : c'.IsCycle := hc.rotate hu₁
-  have hsupp_eq : ∀ x, x ∈ c'.support ↔ x ∈ c.support :=
-    fun x => SimpleGraph.Walk.mem_support_rotate_iff c hu₁
+  have hsupp_eq : ∀ x, x ∈ c'.support ↔ x ∈ c.support := by
+    intro x
+    have h1 : c' = (c.dropUntil u₁ hu₁).append (c.takeUntil u₁ hu₁) := rfl
+    have h2 : c = (c.takeUntil u₁ hu₁).append (c.dropUntil u₁ hu₁) := (SimpleGraph.Walk.take_spec c hu₁).symm
+    rw [h1, SimpleGraph.Walk.mem_support_append_iff]
+    conv_rhs => rw [h2, SimpleGraph.Walk.mem_support_append_iff]
+    exact or_comm
   have hu₂' : u₂ ∈ c'.support := (hsupp_eq u₂).mpr hu₂
   let p₁ : G.Walk u₁ u₂ := c'.takeUntil u₂ hu₂'
   let q₂ : G.Walk u₂ u₁ := c'.dropUntil u₂ hu₂'
@@ -58,33 +63,17 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
   have hlen : p₁.length + p₂.length = c.length := by
     have h1 : p₁.length + q₂.length = c'.length := by
       rw [← SimpleGraph.Walk.length_append, hspec]
-    have h2 : c'.length = c.length := SimpleGraph.Walk.length_rotate c hu₁
+    have h2 : c'.length = c.length := SimpleGraph.Walk.length_rotate c u₁ hu₁
     rw [SimpleGraph.Walk.length_reverse]
     omega
-  have hsupp_append : c'.support = p₁.support.dropLast ++ q₂.support := by
-    conv_lhs => rw [← hspec]
-    exact SimpleGraph.Walk.support_append p₁ q₂
   have htail_nodup : c'.support.tail.Nodup := hc'.support_nodup
-  have hp₁_ne_nil : p₁ ≠ .nil := by
-    intro h; cases h; exact hne rfl
-  have hq₂_ne_nil : q₂ ≠ .nil := by
-    intro h; cases h; exact hne rfl
   -- p₁.support = u₁ :: p₁.support.tail, and p₁.support.tail ++ q₂.support.tail = c'.support.tail
   have hsupp_tail : c'.support.tail = p₁.support.tail ++ q₂.support.tail := by
     conv_lhs => rw [← hspec]
     rw [SimpleGraph.Walk.support_append]
     cases hp₁_eq : p₁ with
-    | nil => exact absurd hp₁_eq hp₁_ne_nil
-    | cons hadj r =>
-      simp only [SimpleGraph.Walk.support_cons, List.dropLast_cons_of_ne_nil
-        (SimpleGraph.Walk.support_ne_nil r), List.cons_append, List.tail_cons]
-      have hq_cons : q₂.support = u₂ :: q₂.support.tail := by
-        cases q₂ <;> simp
-      have hr_last : r.support.dropLast ++ [u₂] = r.support := by
-        have hne_r : r.support ≠ [] := SimpleGraph.Walk.support_ne_nil r
-        have hlast : r.support.getLast hne_r = u₂ := SimpleGraph.Walk.getLast_support r
-        simpa [hlast] using List.dropLast_append_getLast hne_r
-      rw [hq_cons, ← List.singleton_append, ← List.append_assoc, hr_last]
+    | nil => exact absurd rfl hne
+    | cons hadj r => simp [List.cons_append]
   have hp₁_tail_nd : p₁.support.tail.Nodup := by
     rw [hsupp_tail, List.nodup_append] at htail_nodup
     exact htail_nodup.1
@@ -96,23 +85,23 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
     exact htail_nodup.2.2
   have hu₁_in_q₂_tail : u₁ ∈ q₂.support.tail := by
     cases hq₂_eq : q₂ with
-    | nil => exact absurd hq₂_eq hq₂_ne_nil
+    | nil => exact absurd rfl hne.symm
     | cons hadj r =>
       simp only [SimpleGraph.Walk.support_cons, List.tail_cons]
       exact SimpleGraph.Walk.end_mem_support r
   have hp₁_path : p₁.IsPath := by
-    refine ⟨?_⟩
+    refine SimpleGraph.Walk.IsPath.mk' ?_
     have hp₁_cons : p₁.support = u₁ :: p₁.support.tail := by cases p₁ <;> simp
     rw [hp₁_cons, List.nodup_cons]
     refine ⟨fun hu₁_mem => hdisj_tails u₁ hu₁_mem u₁ hu₁_in_q₂_tail rfl, hp₁_tail_nd⟩
   have hu₂_in_p₁_tail : u₂ ∈ p₁.support.tail := by
     cases hp₁_eq : p₁ with
-    | nil => exact absurd hp₁_eq hp₁_ne_nil
+    | nil => exact absurd rfl hne
     | cons hadj r =>
       simp only [SimpleGraph.Walk.support_cons, List.tail_cons]
       exact SimpleGraph.Walk.end_mem_support r
   have hq₂_path : q₂.IsPath := by
-    refine ⟨?_⟩
+    refine SimpleGraph.Walk.IsPath.mk' ?_
     have hq₂_cons : q₂.support = u₂ :: q₂.support.tail := by cases q₂ <;> simp
     rw [hq₂_cons, List.nodup_cons]
     refine ⟨fun hu₂_mem => hdisj_tails u₂ hu₂_in_p₁_tail u₂ hu₂_mem rfl, hq₂_tail_nd⟩
@@ -147,14 +136,15 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
 
 omit [Fintype V] [DecidableEq V] in
 private lemma coloring_walk_parity {G : SimpleGraph V} (f : G.Coloring (Fin 2)) :
-    ∀ {u v : V} (p : G.Walk u v), f v = f u + (p.length : Fin 2)
-  | _, _, .nil => by simp
+    ∀ {u v : V} (p : G.Walk u v), ((f v).val + (f u).val + p.length) % 2 = 0
+  | _, _, .nil => by simp; omega
   | u, _, .cons (v := w) hadj p => by
-    have hne : f u ≠ f w := f.valid hadj
-    have hstep : f w = f u + 1 := by
-      fin_cases hu : f u <;> fin_cases hw : f w <;> simp_all
-    rw [coloring_walk_parity f p, hstep, SimpleGraph.Walk.length_cons, Nat.cast_add, Nat.cast_one]
-    ring
+    have hne : (f u).val ≠ (f w).val := fun h => f.valid hadj (Fin.ext h)
+    have hu2 : (f u).val < 2 := (f u).isLt
+    have hw2 : (f w).val < 2 := (f w).isLt
+    have ih := coloring_walk_parity f p
+    simp only [SimpleGraph.Walk.length_cons]
+    omega
 
 omit [Fintype V] [DecidableEq V] in
 /-- A bipartite graph contains no odd closed walk (in particular, no odd cycle). -/
@@ -162,14 +152,7 @@ lemma even_length_of_isBipartite {G : SimpleGraph V} (hbip : G.IsBipartite)
     {v : V} (c : G.Walk v v) : Even c.length := by
   rcases hbip with ⟨f⟩
   have h := coloring_walk_parity f c
-  have h0 : (c.length : Fin 2) = 0 := by
-    have hsub : f v + (c.length : Fin 2) - f v = f v - f v := congrArg (· - f v) h.symm
-    simpa using hsub
-  have hdvd : 2 ∣ c.length := by
-    rw [← ZMod.natCast_eq_zero_iff]
-    exact h0
-  rcases hdvd with ⟨k, hk⟩
-  exact ⟨k, by omega⟩
+  exact ⟨c.length / 2, by omega⟩
 
 omit [Fintype V] [DecidableEq V] in
 private lemma isCycle_of_tail_nodup {G : SimpleGraph V} {v : V} (c : G.Walk v v)
@@ -180,7 +163,7 @@ private lemma isCycle_of_tail_nodup {G : SimpleGraph V} {v : V} (c : G.Walk v v)
     | nil => simp at hlen
     | @cons _ w _ hadj p =>
       -- p : G.Walk w v, and p.support = c.support.tail is Nodup, so p is a path!
-      have hp : p.IsPath := ⟨by simpa [SimpleGraph.Walk.support_cons] using hnd⟩
+      have hp : p.IsPath := SimpleGraph.Walk.IsPath.mk' (by simpa [SimpleGraph.Walk.support_cons] using hnd)
       rw [SimpleGraph.Walk.edges_cons, List.nodup_cons]
       refine ⟨?_, hp.isTrail.edges_nodup⟩
       intro hmem
@@ -195,7 +178,7 @@ private lemma isCycle_of_tail_nodup {G : SimpleGraph V} {v : V} (c : G.Walk v v)
           rcases hmem with heq | hq
           · simp only [Sym2.eq, Sym2.rel_iff', Prod.mk.injEq, Prod.swap_prod_mk] at heq
             rcases heq with ⟨_, rfl⟩ | ⟨rfl, _⟩
-            · exact G.ne_of_adj hadj' rfl
+            · exact False.elim (G.ne_of_adj hadj' rfl)
             · cases q with
               | nil => rfl
               | cons hadj'' q'' =>
@@ -228,7 +211,7 @@ lemma even_closed_walk_of_no_odd_cycle {G : SimpleGraph V}
       | nil => simp at h1
       | cons hadj p =>
         cases p with
-        | nil => exact G.ne_of_adj hadj rfl
+        | nil => exact False.elim (G.ne_of_adj hadj rfl)
         | cons _ _ => simp at h1
     by_cases h2 : w.length = 2
     · rw [h2]; exact ⟨1, rfl⟩
@@ -281,16 +264,18 @@ lemma isBipartite_of_no_odd_cycle {G : SimpleGraph V}
   have hreach : ∀ u : V, G.Reachable (root u) u := fun u =>
     Quotient.exact (Quotient.out_eq (s := G.reachableSetoid) ⟦u⟧)
   let walkFromRoot : ∀ u : V, G.Walk (root u) u := fun u => Classical.choice (hreach u)
-  refine ⟨SimpleGraph.Coloring.mk (fun u => ((walkFromRoot u).length : Fin 2)) ?_⟩
+  refine ⟨SimpleGraph.Coloring.mk (fun u => ⟨(walkFromRoot u).length % 2, Nat.mod_lt _ (by decide)⟩) ?_⟩
   intro u v hadj
   have hroot_eq : root u = root v := by
     simp only [root]
     congr 1
     exact Quotient.sound (SimpleGraph.Adj.reachable hadj)
   let pu : G.Walk (root u) u := walkFromRoot u
-  let pv : G.Walk (root u) v := hroot_eq ▸ walkFromRoot v
-  have hpv_len : pv.length = (walkFromRoot v).length := by
-    cases hroot_eq; rfl
+  have hex_pv : ∃ pv : G.Walk (root u) v, pv.length = (walkFromRoot v).length := by
+    have haux : ∀ (r₁ r₂ : V) (h : r₁ = r₂) (w : G.Walk r₂ v), ∃ pv : G.Walk r₁ v, pv.length = w.length := by
+      rintro r _ rfl w; exact ⟨w, rfl⟩
+    exact haux (root u) (root v) hroot_eq (walkFromRoot v)
+  rcases hex_pv with ⟨pv, hpv_len⟩
   let closed : G.Walk (root u) (root u) := pu.append (SimpleGraph.Walk.cons hadj pv.reverse)
   have hclosed_ev : Even closed.length := hev closed.length (root u) closed rfl
   have hlen : closed.length = pu.length + (walkFromRoot v).length + 1 := by
@@ -298,9 +283,7 @@ lemma isBipartite_of_no_odd_cycle {G : SimpleGraph V}
     omega
   rw [hlen] at hclosed_ev
   intro heq
-  have hmod : pu.length % 2 = (walkFromRoot v).length % 2 := by
-    have hval := congrArg Fin.val heq
-    simpa [Fin.val_natCast] using hval
+  have hmod : pu.length % 2 = (walkFromRoot v).length % 2 := congrArg Fin.val heq
   rcases hclosed_ev with ⟨k, hk⟩
   omega
 
@@ -329,8 +312,18 @@ private lemma exists_shortest_ab_path (G : SimpleGraph V) (A B S : Finset V)
   have hp'_path : p'.IsPath := p.toPath.2
   have hp'S : ∀ x ∈ p'.support, x ∉ S := fun x hx =>
     hpS x (SimpleGraph.Walk.support_toPath_subset p hx)
+  have hp'_le : p'.length ≤ p.length := by
+    have hsub : p'.support.toFinset ⊆ p.support.toFinset := by
+      intro x hx; exact List.mem_toFinset.mpr (SimpleGraph.Walk.support_toPath_subset p (List.mem_toFinset.mp hx))
+    have hc1 : p'.support.length = p'.support.toFinset.card :=
+      (List.toFinset_card_of_nodup hp'_path.support_nodup).symm
+    have hc2 : p'.support.toFinset.card ≤ p.support.toFinset.card := Finset.card_le_card hsub
+    have hc3 : p.support.toFinset.card ≤ p.support.length := List.toFinset_card_le p.support
+    have hs1 := SimpleGraph.Walk.length_support p'
+    have hs2 := SimpleGraph.Walk.length_support p
+    omega
   have hp'_len : p'.length = p.length :=
-    le_antisymm (SimpleGraph.Walk.length_toPath_le p) (hmin a b ha hb p' hp'S)
+    le_antisymm hp'_le (hmin a b ha hb p' hp'S)
   have hmin' : ∀ (a' b' : V), a' ∈ A → b' ∈ B → ∀ (q : G.Walk a' b'),
       (∀ x ∈ q.support, x ∉ S) → p'.length ≤ q.length := by
     intro a' b' ha' hb' q hqS; rw [hp'_len]; exact hmin a' b' ha' hb' q hqS
