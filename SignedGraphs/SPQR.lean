@@ -72,7 +72,7 @@ private lemma component_card_ge_two (G : SimpleGraph V) [DecidableRel G.Adj]
     have hmem := hclosed u hu w hadj
     rw [Finset.mem_union, hCeq, Finset.mem_singleton] at hmem
     rcases hmem with rfl | hA_mem
-    · exact absurd hadj (G.loopless.irrefl u)
+    · exact G.ne_of_adj hadj rfl
     · exact hA_mem
   have hd : G.degree u ≤ A.card := by
     rw [← SimpleGraph.card_neighborFinset_eq_degree]
@@ -113,7 +113,9 @@ private lemma exists_twoSep_of_not_three_conn (G : SimpleGraph V) [DecidableRel 
     intro h1
     rcases Finset.card_eq_one.mp h1 with ⟨v, rfl⟩
     apply hdisc
-    simpa only [Finset.coe_singleton] using h2conn v
+    have hset : (((↑({v} : Finset V) : Set V))ᶜ) = ({v}ᶜ : Set V) := by simp
+    rw [hset]
+    exact h2conn v
   have hA_eq2 : A.card = 2 := by omega
   rcases Finset.card_eq_two.mp hA_eq2 with ⟨x, y, hxy, rfl⟩
   let Sxy : Set V := (({x, y} : Finset V) : Set V)
@@ -409,10 +411,10 @@ private noncomputable def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [Decidable
   have hS_ne1 : S.card ≠ 1 := by
     intro h1
     rcases Finset.card_eq_one.mp h1 with ⟨s, hSs⟩
-    have hc₀_ns : c₀.1 ≠ s := fun h => by
+    have hc₀_ns : c₀.1 ∈ ({s}ᶜ : Set V) := fun h => by
       have : c₀.1 ∈ S := by rw [hSs, Finset.mem_singleton]; exact h
       exact Finset.disjoint_left.mp hC_disj_S hc₀_C this
-    have ho₀_ns : o₀.1 ≠ s := fun h => (hO_sub o₀.1 ho₀_O).2 (by rw [hSs, Finset.mem_singleton]; exact h)
+    have ho₀_ns : o₀.1 ∈ ({s}ᶜ : Set V) := fun h => (hO_sub o₀.1 ho₀_O).2 (by rw [hSs, Finset.mem_singleton]; exact h)
     obtain ⟨p⟩ := h2conn s ⟨c₀.1, hc₀_ns⟩ ⟨o₀.1, ho₀_ns⟩
     let pG : G.Walk c₀.1 o₀.1 := p.map (SimpleGraph.Embedding.induce ({s}ᶜ : Set V)).toHom
     obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set C pG hc₀_C (hO_sub o₀.1 ho₀_O).1
@@ -537,10 +539,10 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
         rcases hxy with rfl | rfl
         · simp [other, d₁.hxy]
         · simp [other, d₁.hxy.symm]
-      have hw₁_ne : w₁ ≠ other := by
+      have hw₁_ne : w₁ ∈ ({other}ᶜ : Set V) := by
         have := (Finset.mem_sdiff.mp hw₁).2
         simp only [other]; split_ifs <;> intro h <;> exact this (by simp [h])
-      have hw₂_ne : w₂ ≠ other := by
+      have hw₂_ne : w₂ ∈ ({other}ᶜ : Set V) := by
         have := (Finset.mem_sdiff.mp hw₂).2
         simp only [other]; split_ifs <;> intro h <;> exact this (by simp [h])
       obtain ⟨p⟩ := h2conn other ⟨w₁, hw₁_ne⟩ ⟨w₂, hw₂_ne⟩

@@ -944,8 +944,10 @@ theorem petersen_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
   · intro hdet
     let e₂ : Fin 2 ≃ Fin 2 ⊕ Empty := (Equiv.sumEmpty (Fin 2) Empty).symm
     let M₂ := (G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) Empty ℝ) 0 0).submatrix e₂ e₂
-    have hM₂ : M₂.IsHermitian := isHermitian_submatrix _ _ e₂
-    rw [← signature_reindex e₂ _ _]
+    have hG₂_add : (G₂ + Matrix.fromBlocks (petersenMH w) (0 : Matrix (Fin 2) Empty ℝ) 0 0).IsHermitian :=
+      hG₂.add (isHermitian_fromBlocks (petersenMH w) (isHermitian_petersenMH w) (0 : Matrix Empty Empty ℝ) isHermitian_zero)
+    have hM₂ : M₂.IsHermitian := isHermitian_submatrix _ hG₂_add e₂
+    rw [← signature_reindex e₂ _ hG₂_add]
     refine signature_two_by_two_neg_diag M₂ hM₂ ?_
     have h00 : M₂ 0 0 = petersenMH w 0 0 := by
       simp [M₂, e₂, hG₂_00]
@@ -1492,7 +1494,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               hcyc_supp_nd⟩
           have hcyc_len : cyc.length = c.length + 6 := by
             have : c₁.length = p.length + 1 := by rw [hc₁_eq, SimpleGraph.Walk.length_cons]
-            simp [cyc, hPlen]; omega
+            simp [cyc, P', hPlen]; omega
           have hcyc_odd : Odd cyc.length := by rcases hodd with ⟨k, hk⟩; exact ⟨k + 3, by omega⟩
           have hsign_neg : ∀ i j : Fin 10, ¬((i = 0 ∧ j = 1) ∨ (i = 1 ∧ j = 0)) →
               petersenGraph.Adj i j → (matrixSignedGraph B hB.isSymm).sign s((eH i).1, (eH j).1) = -1 := by
@@ -1546,8 +1548,6 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have hU_diag : ∀ u : U, (G₂.submatrix Sum.inr Sum.inr) u u = 0 := fun u => hB_diag u.1
     have hU_noc : MatrixIsNOC (G₂.submatrix Sum.inr Sum.inr)
         (isHermitian_submatrix G₂ hG₂ Sum.inr).isSymm := by
-      have hEq : G₂.submatrix Sum.inr Sum.inr = B.submatrix Subtype.val Subtype.val := rfl
-      rw [hEq]
       exact matrixIsNOC_submatrix_injective B hB.isSymm hB_noc Subtype.val Subtype.coe_injective
     exact ih U hU_le (G₂.submatrix Sum.inr Sum.inr) (isHermitian_submatrix G₂ hG₂ Sum.inr) hU_diag hU_noc
 
