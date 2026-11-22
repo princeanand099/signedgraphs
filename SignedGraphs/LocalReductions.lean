@@ -761,13 +761,11 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       dsimp only [Btilde]
       rw [hP1T]
       conv_lhs => rw [← Matrix.fromBlocks_toBlocks B_blk]
-      rfl
     rw [hstep]
     simp [Matrix.fromBlocks_multiply, Matrix.mul_assoc]
   have hBtilde₂_eq : Btilde₂ = Matrix.fromBlocks H R Rᵀ A' := by
     ext a b
-    simp only [Btilde₂, Matrix.submatrix_apply, hBtilde_blk, Matrix.toBlocks₁₁, Matrix.toBlocks₁₂,
-      Matrix.toBlocks₂₁, Matrix.toBlocks₂₂, Matrix.of_apply]
+    simp only [Btilde₂, Matrix.submatrix_apply, hBtilde_blk, Matrix.toBlocks₁₁, Matrix.toBlocks₁₂, Matrix.toBlocks₂₁, Matrix.toBlocks₂₂, Matrix.of_apply]
     rcases a with i | (⟨⟩ | u) <;> rcases b with j | (⟨⟩ | w)
     · fin_cases i <;> fin_cases j <;>
         simp [e₂, B_blk, e, P₃, H, Matrix.mul_apply, Matrix.transpose_apply, Fin.sum_univ_three,
