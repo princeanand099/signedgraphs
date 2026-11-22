@@ -918,7 +918,7 @@ theorem petersen_block_signature_nonpos
       rcases s₁ with (i | j) | ⟨⟩ <;> rcases s₂ with (i' | j') | ⟨⟩
       · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
           Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
-          hAint_tr, petersenAintS, petersenK]
+          hAint_tr, petersenAintS, petersenK, Matrix.zero_apply]
       · simp only [B_tail, Matrix.toBlocks₁₁, Matrix.toBlocks₂₂, Matrix.of_apply, B₃,
           Matrix.submatrix_apply, e, Equiv.coe_fn_mk, hB₂_blk, Matrix.fromBlocks_apply₁₁,
           hAint_tr, Matrix.fromBlocks_apply₁₂, petersenAintS, petersenK]
