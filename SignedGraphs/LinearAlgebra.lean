@@ -129,8 +129,8 @@ private lemma spectral_quad_form (A : Matrix V V ℝ) (hA : A.IsHermitian) :
     change A = U * Matrix.diagonal (RCLike.ofReal ∘ hA.eigenvalues) * star U at h
     simpa [hstar] using h
   conv_lhs => rw [hspec]
-  rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec U, Matrix.dotProduct_mulVec,
-    Matrix.vecMul_transpose, ← Matrix.mulVec_mulVec (Matrix.diagonal hA.eigenvalues)]
+  rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
+    Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
   simp only [e, LinearEquiv.coe_mk, LinearMap.coe_mk, AddHom.coe_mk,
     Matrix.mulVec_diagonal, dotProduct]
   refine Finset.sum_congr rfl fun i _ => ?_
@@ -202,8 +202,8 @@ private lemma posInertia_eq_sSup_aux (d : V → ℝ) :
     linarith
   have hsum := Submodule.finrank_sup_add_finrank_inf_eq W Wnonpos
   rw [hdisj, finrank_bot, add_zero] at hsum
-  have hle_card : Module.finrank ℝ (W ⊔ Wnonpos) ≤ Fintype.card V := by
-    simpa using Submodule.finrank_le (W ⊔ Wnonpos)
+  have hle_card : Module.finrank ℝ (↥(W ⊔ Wnonpos)) ≤ Fintype.card V :=
+    (Submodule.finrank_le (W ⊔ Wnonpos)).trans_eq (Module.finrank_fintype_fun_eq_card ℝ)
   have hnonpos_card : Module.finrank ℝ Wnonpos = (Finset.univ.filter fun i : V => ¬ (0 < d i)).card :=
     finrank_coordSubmodule (fun i => ¬ (0 < d i))
   have hpart : (Finset.univ.filter fun i : V => 0 < d i).card +
@@ -300,7 +300,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
   have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) := by
     intro x
     change dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (P *ᵥ x) (A *ᵥ (P *ᵥ x))
-    rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec Pᵀ, Matrix.dotProduct_mulVec,
+    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
       Matrix.vecMul_transpose, Matrix.mulVec_mulVec]
   have hpos : posInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
@@ -455,14 +455,17 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     congr 1
     rw [hsumV _ (by simp)]
     refine Finset.sum_congr rfl fun z _ => ?_
-    simp [z.2]
+    simp only [z.2, ↓reduceDIte]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
   have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
     intro x hx
     refine ⟨fun z => x z.1, ?_⟩
     ext u
     by_cases hu : u = v
-    · subst hu; simp only [ι, ↓reduceDIte]; exact hx.symm
+    · subst hu
+      change (if h : u = u then (0 : ℝ) else _) = x u
+      simp only [↓reduceDIte]
+      exact Eq.symm (by simpa [proj] using hx)
     · simp [ι, hu]
   have hfinrank_map_ι : ∀ U : Submodule ℝ (W₀ → ℝ), Module.finrank ℝ (U.map ι) = Module.finrank ℝ U :=
     fun U => (Submodule.equivMapOfInjective ι hι_inj U).finrank_eq.symm
@@ -489,33 +492,35 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
       rw [hquad_ι y]
       exact hU y hy hy0
   have hsub_codim : ∀ U : Submodule ℝ (V → ℝ),
-      Module.finrank ℝ U ≤ Module.finrank ℝ (U ⊓ LinearMap.ker proj) + 1 := by
+      Module.finrank ℝ ↥U ≤ Module.finrank ℝ ↥(U ⊓ LinearMap.ker proj) + 1 := by
     intro U
-    let f := proj.domRestrict U
-    have hker : LinearMap.ker f = (U ⊓ LinearMap.ker proj).comap U.subtype := by
-      ext ⟨x, hx⟩; simp [f, proj]
+    let f : ↥U →ₗ[ℝ] ℝ := proj.domRestrict U
     have hrk := LinearMap.finrank_range_add_finrank_ker f
-    have hrange : Module.finrank ℝ (LinearMap.range f) ≤ 1 := by
+    have hrange : Module.finrank ℝ ↥(LinearMap.range f) ≤ 1 := by
       simpa using Submodule.finrank_le (LinearMap.range f)
-    have hker_le : Module.finrank ℝ (LinearMap.ker f) ≤ Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
-      rw [hker]
-      exact Submodule.finrank_comap_le U.subtype (U ⊓ LinearMap.ker proj)
+    have hker_map : (LinearMap.ker f).map U.subtype ≤ U ⊓ LinearMap.ker proj := by
+      rintro x ⟨⟨y, hyU⟩, hyker, rfl⟩
+      exact ⟨hyU, by simpa [f] using hyker⟩
+    have hker_le : Module.finrank ℝ ↥(LinearMap.ker f) ≤ Module.finrank ℝ ↥(U ⊓ LinearMap.ker proj) := by
+      have hinj : Function.Injective U.subtype := Subtype.val_injective
+      rw [← (Submodule.equivMapOfInjective U.subtype hinj (LinearMap.ker f)).finrank_eq]
+      exact Submodule.finrank_mono hker_map
     omega
   have hpos_ge : posInertia A hA ≤ posInertia A' hA' + 1 := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
     refine csSup_le ⟨0, ⊥, finrank_bot ℝ (V → ℝ), fun x hx hx0 => by exfalso; exact hx0 hx⟩ ?_
     rintro n ⟨U, rfl, hU⟩
-    let U' := (U ⊓ LinearMap.ker proj).comap ι
+    let U' : Submodule ℝ (W₀ → ℝ) := (U ⊓ LinearMap.ker proj).comap ι
     have hU'_map : U'.map ι = U ⊓ LinearMap.ker proj := by
       ext x; constructor
       · rintro ⟨y, hy, rfl⟩; exact hy
       · intro hx
         rcases hker_mem x hx.2 with ⟨y, rfl⟩
         exact ⟨y, hx, rfl⟩
-    have hfinU' : Module.finrank ℝ U' = Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
+    have hfinU' : Module.finrank ℝ ↥U' = Module.finrank ℝ ↥(U ⊓ LinearMap.ker proj) := by
       rw [← hfinrank_map_ι U', hU'_map]
-    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
-        Module.finrank ℝ W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → 0 < dotProduct y (A' *ᵥ y) } := by
+    have hU'_le : Module.finrank ℝ ↥U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
+        Module.finrank ℝ ↥W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → 0 < dotProduct y (A' *ᵥ y) } := by
       refine le_csSup (posSubspace_bddAbove A') ⟨U', rfl, fun y hy hy0 => ?_⟩
       rw [← hquad_ι y]
       exact hU (ι y) hy.1 (fun h => hy0 (hι_inj (by simpa using h)))
@@ -524,17 +529,17 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     rw [negInertia_eq_sSup, negInertia_eq_sSup]
     refine csSup_le ⟨0, ⊥, finrank_bot ℝ (V → ℝ), fun x hx hx0 => by exfalso; exact hx0 hx⟩ ?_
     rintro n ⟨U, rfl, hU⟩
-    let U' := (U ⊓ LinearMap.ker proj).comap ι
+    let U' : Submodule ℝ (W₀ → ℝ) := (U ⊓ LinearMap.ker proj).comap ι
     have hU'_map : U'.map ι = U ⊓ LinearMap.ker proj := by
       ext x; constructor
       · rintro ⟨y, hy, rfl⟩; exact hy
       · intro hx
         rcases hker_mem x hx.2 with ⟨y, rfl⟩
         exact ⟨y, hx, rfl⟩
-    have hfinU' : Module.finrank ℝ U' = Module.finrank ℝ (U ⊓ LinearMap.ker proj) := by
+    have hfinU' : Module.finrank ℝ ↥U' = Module.finrank ℝ ↥(U ⊓ LinearMap.ker proj) := by
       rw [← hfinrank_map_ι U', hU'_map]
-    have hU'_le : Module.finrank ℝ U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
-        Module.finrank ℝ W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → dotProduct y (A' *ᵥ y) < 0 } := by
+    have hU'_le : Module.finrank ℝ ↥U' ≤ sSup { m : ℕ | ∃ W₁ : Submodule ℝ (W₀ → ℝ),
+        Module.finrank ℝ ↥W₁ = m ∧ ∀ y ∈ W₁, y ≠ 0 → dotProduct y (A' *ᵥ y) < 0 } := by
       refine le_csSup (negSubspace_bddAbove A') ⟨U', rfl, fun y hy hy0 => ?_⟩
       rw [← hquad_ι y]
       exact hU (ι y) hy.1 (fun h => hy0 (hι_inj (by simpa using h)))
