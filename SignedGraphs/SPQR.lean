@@ -72,7 +72,7 @@ private lemma component_card_ge_two (G : SimpleGraph V) [DecidableRel G.Adj]
     have hmem := hclosed u hu w hadj
     rw [Finset.mem_union, hCeq, Finset.mem_singleton] at hmem
     rcases hmem with rfl | hA_mem
-    · exact G.ne_of_adj hadj rfl
+    · exact False.elim (G.ne_of_adj hadj rfl)
     · exact hA_mem
   have hd : G.degree u ≤ A.card := by
     rw [← SimpleGraph.card_neighborFinset_eq_degree]
@@ -416,14 +416,13 @@ private noncomputable def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [Decidable
       exact Finset.disjoint_left.mp hC_disj_S hc₀_C this
     have ho₀_ns : o₀.1 ∈ ({s}ᶜ : Set V) := fun h => (hO_sub o₀.1 ho₀_O).2 (by rw [hSs, Finset.mem_singleton]; exact h)
     obtain ⟨p⟩ := h2conn s ⟨c₀.1, hc₀_ns⟩ ⟨o₀.1, ho₀_ns⟩
-    let pG : G.Walk c₀.1 o₀.1 := p.map (SimpleGraph.Embedding.induce ({s}ᶜ : Set V)).toHom
-    obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set C pG hc₀_C (hO_sub o₀.1 ho₀_O).1
+    let f := (SimpleGraph.Embedding.induce ({s}ᶜ : Set V)).toHom
+    obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set C (p.map f) hc₀_C (hO_sub o₀.1 ho₀_O).1
     have hmem := hC_closed a ha b hadj
     rw [hSs, Finset.mem_union, Finset.mem_singleton] at hmem
     rcases hmem with hbC | rfl
     · exact hb hbC
-    · dsimp only [pG] at hb_supp
-      rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
+    · rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
       rcases hb_supp with ⟨b', _, hb'eq⟩
       exact b'.2 hb'eq.symm
   have hS_eq2 : S.card = 2 := by omega
@@ -540,22 +539,29 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
         · simp [other, d₁.hxy]
         · simp [other, d₁.hxy.symm]
       have hw₁_ne : w₁ ∈ ({other}ᶜ : Set V) := by
-        have := (Finset.mem_sdiff.mp hw₁).2
-        simp only [other]; split_ifs <;> intro h <;> exact this (by simp [h])
+        have hns := (Finset.mem_sdiff.mp hw₁).2
+        simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hns
+        simp only [Set.mem_compl_iff, Set.mem_singleton_iff, other]
+        split_ifs
+        · exact hns.2
+        · exact hns.1
       have hw₂_ne : w₂ ∈ ({other}ᶜ : Set V) := by
-        have := (Finset.mem_sdiff.mp hw₂).2
-        simp only [other]; split_ifs <;> intro h <;> exact this (by simp [h])
+        have hns := (Finset.mem_sdiff.mp hw₂).2
+        simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hns
+        simp only [Set.mem_compl_iff, Set.mem_singleton_iff, other]
+        split_ifs
+        · exact hns.2
+        · exact hns.1
       obtain ⟨p⟩ := h2conn other ⟨w₁, hw₁_ne⟩ ⟨w₂, hw₂_ne⟩
-      let pG : G.Walk w₁ w₂ := p.map (SimpleGraph.Embedding.induce ({other}ᶜ : Set V)).toHom
+      let f := (SimpleGraph.Embedding.induce ({other}ᶜ : Set V)).toHom
       have hw₂_nH : w₂ ∉ d₁.VH \ {d₁.x, d₁.y} := by
         intro hmem
         have hinter : w₂ ∈ d₁.VH ∩ d₁.VG₂ :=
           Finset.mem_inter.mpr ⟨(Finset.mem_sdiff.mp hmem).1, (Finset.mem_sdiff.mp hw₂).1⟩
         rw [d₁.hinter] at hinter
         exact (Finset.mem_sdiff.mp hw₂).2 hinter
-      obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set (d₁.VH \ {d₁.x, d₁.y}) pG hw₁ hw₂_nH
+      obtain ⟨a, ha, b, hb, hadj, hb_supp⟩ := walk_exits_set (d₁.VH \ {d₁.x, d₁.y}) (p.map f) hw₁ hw₂_nH
       have hb_ne_other : b ≠ other := by
-        dsimp only [pG] at hb_supp
         rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
         rcases hb_supp with ⟨b', _, hb'eq⟩
         exact hb'eq ▸ b'.2
