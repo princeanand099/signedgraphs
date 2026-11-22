@@ -57,12 +57,11 @@ theorem inertia_sum (A : Matrix V V ℝ) (hA : A.IsHermitian) :
   congr 1
   ext i
   simp only [Finset.mem_union, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact ⟨fun _ => trivial, fun _ => lt_trichotomy 0 (hA.eigenvalues i) |>.imp_right
-    (fun h => h.elim (fun heq => heq.symm) id) |>.assoc.mp |> fun _ => by
-      rcases lt_trichotomy 0 (hA.eigenvalues i) with h | h | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inl (Or.inr h.symm)
-      · exact Or.inr h⟩
+  refine ⟨fun _ => trivial, fun _ => ?_⟩
+  rcases lt_trichotomy 0 (hA.eigenvalues i) with h | h | h
+  · exact Or.inl (Or.inl h)
+  · exact Or.inl (Or.inr h.symm)
+  · exact Or.inr h
 
 end MatrixSignature
 
@@ -103,15 +102,15 @@ def IsNOCModFour (S : SignedGraph V) : Prop :=
   ∀ (v : V) (c : S.graph.Walk v v), c.IsCycle → Odd c.length →
     walkModFourWeight S.sign c = 3
 
-/-- Underlying simple graph of a real symmetric zero-diagonal matrix `A`. -/
-def matrixGraph (A : Matrix V V ℝ) : SimpleGraph V where
+/-- Underlying simple graph of a real symmetric matrix `A`. -/
+def matrixGraph (A : Matrix V V ℝ) (hA : A.IsSymm) : SimpleGraph V where
   Adj u v := u ≠ v ∧ A u v ≠ 0
-  symm u v h := ⟨h.1.symm, by sorry⟩
-  loopless u h := h.1 rfl
+  symm := ⟨fun _ _ h => ⟨h.1.symm, by simpa [congrFun (congrFun hA _) _] using h.2⟩⟩
+  loopless := ⟨fun _ h => h.1 rfl⟩
 
-/-- Underlying signed graph `(G(A), σ_A)` of a real symmetric zero-diagonal matrix `A`. -/
+/-- Underlying signed graph `(G(A), σ_A)` of a real symmetric matrix `A`. -/
 noncomputable def matrixSignedGraph (A : Matrix V V ℝ) (hA : A.IsSymm) : SignedGraph V where
-  graph := matrixGraph A
+  graph := matrixGraph A hA
   sign := Sym2.lift ⟨fun u v => if 0 < A u v then 1 else -1, by
     intro u v
     have hsym : A u v = A v u := congrFun (congrFun hA v) u
@@ -122,14 +121,15 @@ noncomputable def matrixSignedGraph (A : Matrix V V ℝ) (hA : A.IsSymm) : Signe
     simp only [Sym2.lift_mk]
     split_ifs <;> simp
 
-/-- A real symmetric zero-diagonal matrix `A` is NOC if its underlying signed graph is NOC. -/
+/-- A real symmetric matrix `A` is NOC if its underlying signed graph is NOC. -/
 def MatrixIsNOC (A : Matrix V V ℝ) (hA : A.IsSymm) : Prop :=
   IsNOC (matrixSignedGraph A hA)
 
-/-- Count of simple cycles of length congruent to `r (mod 4)` (represented as unordered cycles). -/
-noncomputable def cycleCountModFour [Fintype V] [DecidableEq V] (G : SimpleGraph V) (r : ZMod 4) : ℕ :=
-  (Finset.univ.filter fun p : Σ v : V, {c : G.Walk v v // c.IsCycle ∧ (c.length : ZMod 4) = r}).card / 2
-  -- Note: canonical unoriented cycle count is handled cleanly in Challenge.lean via Sym2 edge sets.
+/-- Count of simple cycle edge-sets of length congruent to `r (mod 4)`. -/
+noncomputable def cycleCountModFour [Fintype V] [DecidableEq V] (G : SimpleGraph V) (r : ZMod 4) : ℕ := by
+  classical
+  exact (Finset.univ.filter fun S : Finset (Sym2 V) =>
+    ∃ (v : V) (c : G.Walk v v), c.IsCycle ∧ c.edges.toFinset = S ∧ (c.length : ZMod 4) = r).card
 
 end SignedGraphDefs
 
