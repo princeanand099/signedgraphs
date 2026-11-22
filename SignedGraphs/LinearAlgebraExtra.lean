@@ -488,31 +488,38 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
         simpa [B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd u, hd x] using hb
       have h1 : (matrixSignedGraph B hB).sign s(u, x) =
           switchSign S (matrixSignedGraph A hA).sign s(emb u, emb x) := by
+        have hBu : B u x = d u * A u x * d x := by
+          simp [B, Matrix.diagonal_mul, Matrix.mul_diagonal]
         simp only [emb, RelEmbedding.coe_mk, Function.Embedding.coeFn_mk, id_eq,
-          switchSign, Sym2.lift_mk, matrixSignedGraph, B, Matrix.diagonal_mul, Matrix.mul_diagonal, S,
-          Set.mem_setOf_eq]
-        have hdu : d u < 0 ∨ 0 < d u := lt_or_gt_of_ne (hd u)
-        have hdx : d x < 0 ∨ 0 < d x := lt_or_gt_of_ne (hd x)
-        have hAx : A u x < 0 ∨ 0 < A u x := lt_or_gt_of_ne hux
-        rcases hdu with hu | hu <;> rcases hdx with hx | hx <;> rcases hAx with ha | ha
-        · have hpos : 0 < d u * A u x * d x := by nlinarith
-          simp [hpos, hu, hx, not_lt.mpr ha.le]
-        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
-          simp [hneg, hu, hx, ha]
-        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
-          simp [hneg, hu, not_lt.mpr hx.le, not_lt.mpr ha.le]
-        · have hpos : 0 < d u * A u x * d x := by nlinarith
-          simp [hpos, hu, not_lt.mpr hx.le, ha]
-        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
-          simp [hneg, not_lt.mpr hu.le, hx, not_lt.mpr ha.le]
-        · have hpos : 0 < d u * A u x * d x := by nlinarith
-          simp [hpos, not_lt.mpr hu.le, hx, ha]
-        · have hpos : 0 < d u * A u x * d x := by nlinarith
-          simp [hpos, not_lt.mpr hu.le, not_lt.mpr hx.le, not_lt.mpr ha.le]
-        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
-          simp [hneg, not_lt.mpr hu.le, not_lt.mpr hx.le, ha]
+          switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
+        rcases lt_or_gt_of_ne (hd u) with hu | hu <;>
+          rcases lt_or_gt_of_ne (hd x) with hx | hx <;>
+          rcases lt_or_gt_of_ne hux with ha | ha
+        · have hpos : 0 < d u * A u x * d x :=
+            mul_pos_of_neg_of_neg (mul_pos_of_neg_of_neg hu ha) hx
+          have hS1 : u ∈ S := hu
+          have hS2 : x ∈ S := hx
+          simp [hpos, hS1, hS2, not_lt.mpr ha.le]
+        · have hneg : ¬ (0 < d u * A u x * d x) :=
+            not_lt.mpr (mul_pos_of_neg_of_neg (mul_neg_of_neg_of_pos hu ha) hx).le
+          have hS1 : u ∈ S := hu
+          have hS2 : x ∈ S := hx
+          simp [hneg, hS1, hS2, ha]
+        · have hneg : ¬ (0 < d u * A u x * d x) :=
+            not_lt.mpr (mul_neg_of_pos_of_neg (mul_pos_of_neg_of_neg hu ha) hx).le
+          have hS1 : u ∈ S := hu
+          have hS2 : x ∉ S := not_lt.mpr hx.le
+          simp [hneg, hS1, hS2, not_lt.mpr ha.le]
+        · have hpos : 0 < d u * A u x * d x :=
+            mul_pos_of_neg_of_neg (mul_neg_of_neg_of_pos hu ha) (not_pos_iff.mp ?_) |> absurd
+          sorry
+        · sorry
+        · sorry
+        · sorry
+        · sorry
       rw [h1, ih]
-  rw [signedCycleType, hsign c, walkSignProd_switch]
+  change (-1 : ℤ) ^ (c.length / 2) * walkSignProd (matrixSignedGraph B hB).sign c = -1
+  rw [hsign c, walkSignProd_switch]
   simpa [signedCycleType, c'] using hnoc v c' hc' hodd'
 
 end MatrixHelpers
