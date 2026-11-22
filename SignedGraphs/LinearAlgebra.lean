@@ -35,9 +35,11 @@ theorem walkSignProd_switch_aux (S : Finset V) (σ : Sym2 V → ℤ) {G : Simple
       (if u ∈ S then (-1 : ℤ) else 1) * (if v ∈ S then (-1 : ℤ) else 1) * walkSignProd σ p := by
   induction p with
   | nil =>
-    simp [walkSignProd, pm_one_sq]
+    simp only [walkSignProd, SimpleGraph.Walk.edges_nil, List.map_nil, List.prod_nil, mul_one]
+    exact (pm_one_sq _).symm
   | @cons u w v h p ih =>
     simp only [walkSignProd, SimpleGraph.Walk.edges_cons, List.map_cons, List.prod_cons]
+    dsimp only [walkSignProd] at ih
     rw [ih]
     have hsw : switchSign S σ s(u, w) =
         (if u ∈ S then (-1 : ℤ) else 1) * (if w ∈ S then (-1 : ℤ) else 1) * σ s(u, w) := by

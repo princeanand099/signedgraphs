@@ -34,7 +34,7 @@ structure RLeafDecomp (G : SimpleGraph V) where
 
 /-- **SPQR Two-Leaf Theorem (Section 6)**: If `G` is 2-connected with `δ(G) ≥ 3` and is not
 3-connected, then `G` has two R-node leaves `μ, μ'` whose interiors are disjoint (`H' ⊆ G₂`). -/
-theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V)
+theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [DecidableRel G.Adj]
     (hcard : 4 ≤ Fintype.card V)
     (hconn : G.Preconnected)
     (h2conn : ∀ v : V, (G.induce ({v}ᶜ : Set V)).Preconnected)
