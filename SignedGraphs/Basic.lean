@@ -125,7 +125,7 @@ private lemma list_modFourWeight_and_prod (σ : Sym2 V → ℤ) :
         simp [hneg]
       have hw : modFourWeight σ e = 3 := by simp [modFourWeight, hneg]
       rw [hw, hif, hneg]
-      refine ⟨by push_cast; ring, by rw [pow_succ']; ring⟩
+      refine ⟨by push_cast; ring, by rw [pow_succ']⟩
 
 private lemma neg_one_pow_eq_neg_one_iff' (n : ℕ) : (-1 : ℤ) ^ n = -1 ↔ Odd n := by
   rcases Nat.even_or_odd n with ⟨m, hm⟩ | ⟨m, hm⟩
