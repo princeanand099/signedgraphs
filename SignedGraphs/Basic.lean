@@ -116,15 +116,29 @@ private lemma list_modFourWeight_and_prod (σ : Sym2 V → ℤ) :
       List.countP_cons, Nat.cast_add, Nat.cast_one]
     rw [ih1, ih2]
     rcases he with h1 | hneg
-    · have hne : ¬ (σ e = -1) := by omega
-      simp only [modFourWeight, h1, ↓reduceIte, decide_eq_true_eq, hne, decide_false,
-        Bool.false_eq_true, ↓reduceIte, Nat.add_zero, one_mul]
-      refine ⟨by ring, rfl⟩
-    · have hne : ¬ (σ e = 1) := by omega
-      simp only [modFourWeight, hneg, hne, ↓reduceIte, decide_true, Nat.cast_add, Nat.cast_one]
-      refine ⟨by ring, ?_⟩
-      rw [pow_succ']
-      ring
+    · have hif : (if decide (σ e = -1) = true then (1 : ℕ) else 0) = 0 := by
+        simp [h1]
+      have hw : modFourWeight σ e = 1 := by simp [modFourWeight, h1]
+      rw [hw, hif, h1]
+      refine ⟨by push_cast; ring, by simp⟩
+    · have hif : (if decide (σ e = -1) = true then (1 : ℕ) else 0) = 1 := by
+        simp [hneg]
+      have hw : modFourWeight σ e = 3 := by simp [modFourWeight, hneg]
+      rw [hw, hif, hneg]
+      refine ⟨by push_cast; ring, by rw [pow_succ']; ring⟩
+
+private lemma neg_one_pow_eq_neg_one_iff' (n : ℕ) : (-1 : ℤ) ^ n = -1 ↔ Odd n := by
+  rcases Nat.even_or_odd n with ⟨m, hm⟩ | ⟨m, hm⟩
+  · subst hm
+    have : (-1 : ℤ) ^ (m + m) = 1 := by rw [← two_mul, pow_mul]; norm_num
+    rw [this]
+    constructor
+    · intro h; contradiction
+    · intro h; exfalso; exact (Nat.not_odd_iff_even.mpr ⟨m, rfl⟩) h
+  · subst hm
+    have : (-1 : ℤ) ^ (2 * m + 1) = -1 := by rw [pow_add, pow_mul]; norm_num
+    rw [this]
+    exact ⟨fun _ => ⟨m, rfl⟩, fun _ => rfl⟩
 
 /-- An odd cycle `C` has `ϵ(C) = -1` if and only if `w_σ(C) = 3` in `ZMod 4`. -/
 theorem signedCycleType_eq_neg_one_iff_modFourWeight_eq_three (S : SignedGraph V)
@@ -140,14 +154,13 @@ theorem signedCycleType_eq_neg_one_iff_modFourWeight_eq_three (S : SignedGraph V
   rw [hw, hp, hlen, hdiv, hk]
   set r := c.edges.countP (fun e => decide (S.sign e = -1))
   have hpow : (-1 : ℤ) ^ k * (-1 : ℤ) ^ r = (-1 : ℤ) ^ (k + r) := by rw [← pow_add]
-  rw [hpow, neg_one_pow_eq_neg_one_iff]
+  rw [hpow, neg_one_pow_eq_neg_one_iff']
   constructor
   · intro hkr
     rcases hkr with ⟨m, hm⟩
-    have hkr2 : k + r = 2 * m + 1 := hm
     have : ((2 * k + 1 : ℕ) : ZMod 4) + 2 * (r : ZMod 4) =
         ((2 * (k + r) + 1 : ℕ) : ZMod 4) := by push_cast; ring
-    rw [this, hkr2]
+    rw [this, hm]
     have h4 : ((2 * (2 * m + 1) + 1 : ℕ) : ZMod 4) = 4 * (m : ZMod 4) + 3 := by
       push_cast; ring
     rw [h4]
