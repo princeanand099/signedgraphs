@@ -293,6 +293,7 @@ private def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
     have hT_xy : T.Adj x_sub y_sub := by
       refine Or.inr ⟨?_, Or.inl (Or.inl ⟨rfl, rfl⟩)⟩
       intro h; exact d.hxy (congrArg Subtype.val h)
+    -- Since T.Adj x_sub y_sub, one of C₁, C₂ avoids both x_sub and y_sub
     have hex_C : ∃ (C_sub C_other : Finset d.VH),
         C_sub.Nonempty ∧ C_other.Nonempty ∧
         Disjoint C_sub A ∧ Disjoint C_other A ∧ Disjoint C_sub C_other ∧
@@ -378,6 +379,7 @@ private def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
         rcases Finset.mem_union.mp hmem with h1 | h2
         · exact h1
         · exact absurd (Or.inl hadj) (hCO_no_edge u_sub hu_sub w_sub h2)
+    -- Show S.card = 2 using hconn and h2conn
     have hO_sub : ∀ z ∈ O, z ∉ C ∧ z ∉ S := by
       intro z hz
       rcases Finset.mem_map.mp hz with ⟨z_sub, hz_sub, rfl⟩
@@ -420,11 +422,12 @@ private def twoSep_minimal_is_rLeaf (G : SimpleGraph V) [DecidableRel G.Adj]
       · exact hb hbC
       · rw [SimpleGraph.Walk.support_map, List.mem_map] at hb_supp
         rcases hb_supp with ⟨b', _, hb'eq⟩
-        exact b'.2 hb'eq.symm
+        exact b'.2 (Set.mem_singleton_iff.mpr hb'eq)
     have hS_eq2 : S.card = 2 := by omega
     rcases Finset.card_eq_two.mp hS_eq2 with ⟨a, b, hab, hSab⟩
     have hC_ge2 : 2 ≤ C.card :=
       component_card_ge_two G hdeg S C hS_card ⟨c₀.1, hc₀_C⟩ hC_disj_S hC_closed
+    -- Show (Finset.univ \ C) has card ≥ 4 since (d.VG₂ \ {d.x, d.y}) ∪ S ⊆ Finset.univ \ C
     have hG₂_int_disj_VH : Disjoint (d.VG₂ \ {d.x, d.y}) d.VH := by
       rw [Finset.disjoint_left]
       intro z hz hVH
@@ -512,7 +515,8 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
     d₁.VH ⊆ d₂.VG₂ := by
   intro u hu
   by_cases hxy : u = d₁.x ∨ u = d₁.y
-  · have hex_nbr : ∃ p ∈ d₁.VH, p ≠ d₁.x ∧ p ≠ d₁.y ∧ G.Adj u p := by
+  · -- Suppose u ∈ {d₁.x, d₁.y}. Show u has a neighbor in d₁.VH \ {d₁.x, d₁.y}.
+    have hex_nbr : ∃ p ∈ d₁.VH, p ≠ d₁.x ∧ p ≠ d₁.y ∧ G.Adj u p := by
       have hH_int : (d₁.VH \ {d₁.x, d₁.y}).Nonempty := by
         have hsub : ({d₁.x, d₁.y} : Finset V) ⊆ d₁.VH := by
           intro z hz; exact (Finset.mem_inter.mp (by rw [d₁.hinter]; exact hz)).1
@@ -576,8 +580,8 @@ private lemma twoSep_disjoint_complement (G : SimpleGraph V)
       have hbu : b = u := by
         rcases hxy with rfl | rfl <;> rcases hb_xy with rfl | rfl
         · rfl
-        · exact absurd rfl (by simp [other] at hb_ne_other)
-        · exact absurd rfl (by simp [other, d₁.hxy.symm] at hb_ne_other)
+        · exact False.elim (by simp [other] at hb_ne_other)
+        · exact False.elim (by simp [other, d₁.hxy.symm] at hb_ne_other)
         · rfl
       subst hbu
       exact ⟨a, ha_VH, ha_nxy.1, ha_nxy.2, hadj.symm⟩
@@ -628,6 +632,7 @@ theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [Decidab
   classical
   have _ := hcard
   obtain ⟨d0⟩ := exists_twoSep_of_not_three_conn G hconn h2conn hdeg hnot3
+  -- Step 1: Choose a TwoSep d₁ minimizing VH.card
   have hex1 : ∃ k : ℕ, ∃ d : TwoSep G, d.VH.card = k := ⟨d0.VH.card, d0, rfl⟩
   let k₁ := Nat.find hex1
   obtain ⟨d₁, hd₁_card⟩ := Nat.find_spec hex1
@@ -637,6 +642,7 @@ theorem two_r_leaves_of_two_connected_min_deg_three (G : SimpleGraph V) [Decidab
     exact Nat.find_min' hex1 ⟨d', rfl⟩
   let r₁ : RLeafDecomp G :=
     twoSep_minimal_is_rLeaf G hconn h2conn hdeg Finset.univ d₁ (Finset.subset_univ _) hd₁_min
+  -- Step 2: Choose a TwoSep d₂ with d₂.VH ⊆ d₁.VG₂ minimizing VH.card
   let d₁_flip := twoSep_flip d₁
   have hex2 : ∃ k : ℕ, ∃ d : TwoSep G, d.VH ⊆ d₁.VG₂ ∧ d.VH.card = k :=
     ⟨d₁_flip.VH.card, d₁_flip, Finset.Subset.refl d₁.VG₂, rfl⟩
