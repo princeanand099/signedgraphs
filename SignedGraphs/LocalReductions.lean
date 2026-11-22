@@ -12,9 +12,9 @@ open Matrix SimpleGraph
 
 namespace SignedGraphs
 
-variable {V : Type*} [Fintype V] [DecidableEq V]
+variable {V : Type} [Fintype V] [DecidableEq V]
 
-private lemma exists_ker_dotProduct_eq_one {W : Type*} [Fintype W] [DecidableEq W]
+private lemma exists_ker_dotProduct_eq_one {W : Type} [Fintype W] [DecidableEq W]
     (M : Matrix W W ℝ) (hM : M.IsHermitian) (r : W → ℝ) :
     (∃ x : W → ℝ, M *ᵥ x = r) ∨ (∃ u : W → ℝ, M *ᵥ u = 0 ∧ dotProduct u r = 1) := by
   classical
@@ -40,11 +40,26 @@ private lemma exists_ker_dotProduct_eq_one {W : Type*} [Fintype W] [DecidableEq 
         simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using hM.eq
       calc dotProduct k (M.mulVecLin y)
           = dotProduct k (M *ᵥ y) := rfl
-        _ = dotProduct (Mᵀ *ᵥ k) y := by
-            rw [← Matrix.vecMul_transpose, Matrix.dotProduct_mulVec]
-            simp [dotProduct_comm]
+        _ = dotProduct (k ᵥ* M) y := Matrix.dotProduct_mulVec k M y
+        _ = dotProduct (Mᵀ *ᵥ k) y := by rw [Matrix.mulVec_transpose]
         _ = dotProduct (M *ᵥ k) y := by rw [hMT]
         _ = 0 := by rw [hMk, zero_dotProduct]
+    have hφ_surj : Function.Surjective φ := by
+      intro f
+      obtain ⟨F, hF⟩ := Submodule.exists_extend (p := K) f
+      refine ⟨fun i => F (Pi.single i 1), ?_⟩
+      ext ⟨k, hk⟩
+      have hk_eq : k = ∑ i : W, k i • Pi.single i (1 : ℝ) := by
+        ext j
+        simp [Finset.sum_apply, Pi.single_apply]
+      calc φ (fun i => F (Pi.single i 1)) ⟨k, hk⟩
+          = ∑ i : W, k i * F (Pi.single i 1) := rfl
+        _ = F (∑ i : W, k i • Pi.single i 1) := by
+            rw [map_sum]
+            refine Finset.sum_congr rfl fun i _ => ?_
+            rw [map_smul, smul_eq_mul]
+        _ = F k := by rw [← hk_eq]
+        _ = f ⟨k, hk⟩ := hF ⟨k, hk⟩
     have hfin_RK : Module.finrank ℝ R + Module.finrank ℝ K = Fintype.card W := by
       simpa [R, K, Module.finrank_fintype_fun_eq_card] using
         LinearMap.finrank_range_add_finrank_ker M.mulVecLin
@@ -52,14 +67,9 @@ private lemma exists_ker_dotProduct_eq_one {W : Type*} [Fintype W] [DecidableEq 
         Fintype.card W := by
       simpa [Module.finrank_fintype_fun_eq_card] using
         LinearMap.finrank_range_add_finrank_ker φ
-    have hfin_range_φ : Module.finrank ℝ (LinearMap.range φ) ≤ Module.finrank ℝ K := by
-      calc Module.finrank ℝ (LinearMap.range φ)
-          ≤ Module.finrank ℝ (K →ₗ[ℝ] ℝ) := Submodule.finrank_le (LinearMap.range φ)
-        _ = Module.finrank ℝ K := Subspace.dual_finrank_eq
-    have hfin_eq : Module.finrank ℝ R = Module.finrank ℝ (LinearMap.ker φ) := by
-      have hle : Module.finrank ℝ R ≤ Module.finrank ℝ (LinearMap.ker φ) :=
-        Submodule.finrank_mono hR_le
-      omega
+    have hfin_range_φ : Module.finrank ℝ (LinearMap.range φ) = Module.finrank ℝ K := by
+      rw [LinearMap.range_eq_top.mpr hφ_surj, finrank_top, Subspace.dual_finrank_eq]
+    have hfin_eq : Module.finrank ℝ R = Module.finrank ℝ (LinearMap.ker φ) := by omega
     have hReq : R = LinearMap.ker φ := Submodule.eq_of_le_of_finrank_eq hR_le hfin_eq
     have hr_not_mem : r ∉ LinearMap.ker φ := by
       rw [← hReq]
@@ -150,7 +160,9 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       { toFun := fun x => ⟨f₁ x, by rcases x with ⟨⟩ | ⟨u, hu1, _⟩; exact hv₁; exact hu1⟩
         invFun := fun x => if hx : x.1 = v then Sum.inl () else Sum.inr ⟨x.1, x.2, hx⟩
         left_inv := fun x => by
-          rcases x with ⟨⟩ | ⟨u, hu1, huv⟩ <;> simp [f₁, huv]
+          rcases x with ⟨⟩ | ⟨u, hu1, huv⟩
+          · simp [f₁]
+          · simp [f₁, huv]
         right_inv := fun ⟨x, hx⟩ => by
           by_cases h : x = v <;> simp [f₁, h] }
     rw [Fintype.card_congr e₁, Fintype.card_coe]
@@ -159,7 +171,9 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       { toFun := fun x => ⟨f₂ x, by rcases x with ⟨⟩ | ⟨w, hw2, _⟩; exact hv₂; exact hw2⟩
         invFun := fun x => if hx : x.1 = v then Sum.inl () else Sum.inr ⟨x.1, x.2, hx⟩
         left_inv := fun x => by
-          rcases x with ⟨⟩ | ⟨w, hw2, hwv⟩ <;> simp [f₂, hwv]
+          rcases x with ⟨⟩ | ⟨w, hw2, hwv⟩
+          · simp [f₂]
+          · simp [f₂, hwv]
         right_inv := fun ⟨x, hx⟩ => by
           by_cases h : x = v <;> simp [f₂, h] }
     rw [Fintype.card_congr e₂, Fintype.card_coe]
@@ -193,7 +207,7 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   let r₁ : U₁ → ℝ := fun u => A u.1 v
   let r₂ : U₂ → ℝ := fun w => A w.1 v
   have hsym_uv : ∀ x y : V, A x y = A y x := fun x y => by
-    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hA.eq y) x).symm
+    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hA.eq x) y).symm
   rcases exists_ker_dotProduct_eq_one A₁ hA₁ r₁ with ⟨x₁, hx₁⟩ | ⟨u, hu_ker, hu_dot⟩
   · rcases exists_ker_dotProduct_eq_one A₂ hA₂ r₂ with ⟨x₂, hx₂⟩ | ⟨u, hu_ker, hu_dot⟩
     · -- Case 2: r₁ ∈ im(A₁) and r₂ ∈ im(A₂)
@@ -201,102 +215,104 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       let A_blk0 := A_blk.submatrix e0 e0
       have hA_blk0 : A_blk0.IsHermitian := isHermitian_submatrix A_blk hA_blk e0
       rw [← signature_reindex e0 A_blk hA_blk]
-      let P : Matrix (Unit ⊕ (U₁ ⊕ U₂)) (Unit ⊕ (U₁ ⊕ U₂)) ℝ :=
-        fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr (Sum.inl i), Sum.inl () => -x₁ i
-          | Sum.inr (Sum.inr j), Sum.inl () => -x₂ j
-          | Sum.inr (Sum.inl i), Sum.inr (Sum.inl i') => if i = i' then 1 else 0
-          | Sum.inr (Sum.inr j), Sum.inr (Sum.inr j') => if j = j' then 1 else 0
-          | Sum.inr (Sum.inl _), Sum.inr (Sum.inr _) => 0
-          | Sum.inr (Sum.inr _), Sum.inr (Sum.inl _) => 0
-      let Q : Matrix (Unit ⊕ (U₁ ⊕ U₂)) (Unit ⊕ (U₁ ⊕ U₂)) ℝ :=
-        fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr (Sum.inl i), Sum.inl () => x₁ i
-          | Sum.inr (Sum.inr j), Sum.inl () => x₂ j
-          | Sum.inr (Sum.inl i), Sum.inr (Sum.inl i') => if i = i' then 1 else 0
-          | Sum.inr (Sum.inr j), Sum.inr (Sum.inr j') => if j = j' then 1 else 0
-          | Sum.inr (Sum.inl _), Sum.inr (Sum.inr _) => 0
-          | Sum.inr (Sum.inr _), Sum.inr (Sum.inl _) => 0
+      let X : Matrix (U₁ ⊕ U₂) Unit ℝ := Matrix.of fun z _ => Sum.elim x₁ x₂ z
+      let P : Matrix (Unit ⊕ (U₁ ⊕ U₂)) (Unit ⊕ (U₁ ⊕ U₂)) ℝ := Matrix.fromBlocks 1 0 (-X) 1
+      let Q : Matrix (Unit ⊕ (U₁ ⊕ U₂)) (Unit ⊕ (U₁ ⊕ U₂)) ℝ := Matrix.fromBlocks 1 0 X 1
       have hPQ : P * Q = 1 := by
-        ext a b
-        rcases a with ⟨⟩ | (i | i) <;> rcases b with ⟨⟩ | (j | j) <;>
-          simp [P, Q, Matrix.mul_apply, Fintype.sum_sum_type]
+        simp [P, Q, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
       have hP_det : IsUnit P.det := isUnit_iff_exists_inv.mpr ⟨Q.det, by rw [← Matrix.det_mul, hPQ, Matrix.det_one]⟩
       let c₁ : ℝ := dotProduct r₁ x₁
       let c₂ : ℝ := dotProduct r₂ x₂
       let S₁ : Matrix Unit Unit ℝ := Matrix.of (fun _ _ => -c₁ - c₂)
       let B_diag := Matrix.fromBlocks S₁ 0 0 (Matrix.fromBlocks A₁ 0 0 A₂)
-      have hcongr : Pᵀ * A_blk0 * P = B_diag := by
-        have hx₁_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * x₁ k = r₁ i := fun i => congr_fun hx₁ i
-        have hx₂_j : ∀ j : U₂, ∑ k : U₂, A₂ j k * x₂ k = r₂ j := fun j => congr_fun hx₂ j
+      have hA_blk0_eq : A_blk0 = Matrix.fromBlocks 0
+          (Matrix.of fun _ z => Sum.elim r₁ r₂ z)
+          (Matrix.of fun z _ => Sum.elim r₁ r₂ z)
+          (Matrix.fromBlocks A₁ 0 0 A₂) := by
         ext a b
         rcases a with ⟨⟩ | (i | i) <;> rcases b with ⟨⟩ | (j | j)
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, S₁, c₁, c₂, dotProduct, r₁, r₂, A₁, A₂,
-            Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, hdiag v]
-          calc -(∑ k : U₁, x₁ k * A k.1 v) - ∑ k : U₂, x₂ k * A k.1 v +
-              (∑ k : U₁, (-(A v k.1 * x₁ k) + (∑ m : U₁, A k.1 m.1 * x₁ m) * x₁ k)) +
-              ∑ k : U₂, (-(A v k.1 * x₂ k) + (∑ m : U₂, A k.1 m.1 * x₂ m) * x₂ k)
-            = -(∑ k : U₁, x₁ k * A k.1 v) - ∑ k : U₂, x₂ k * A k.1 v +
-              (∑ k : U₁, (-(A v k.1 * x₁ k) + A k.1 v * x₁ k)) +
-              ∑ k : U₂, (-(A v k.1 * x₂ k) + A k.1 v * x₂ k) := by
-                congr 2
-                · refine Finset.sum_congr rfl fun k _ => ?_
-                  rw [show ∑ m : U₁, A k.1 m.1 * x₁ m = A k.1 v from hx₁_i k]
-                · refine Finset.sum_congr rfl fun k _ => ?_
-                  rw [show ∑ m : U₂, A k.1 m.1 * x₂ m = A k.1 v from hx₂_j k]
-            _ = -∑ k : U₁, A k.1 v * x₁ k - ∑ k : U₂, A k.1 v * x₂ k := by
-                simp only [hsym_uv v _, mul_comm (x₁ _), mul_comm (x₂ _)]
-                ring
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          have h1 : ∀ k : U₂, A k.1 j.1 = 0 := fun k => by
-            rw [hsym_uv]; exact hno_cross j.1 j.2.1 k.1 k.2.1 j.2.2 k.2.2
-          simp [h1]
-          have hx1j : ∑ k : U₁, x₁ k * A k.1 j.1 = A j.1 v := by
-            have := hx₁_i j
-            simpa [A₁, hsym_uv j.1 _, mul_comm] using this
-          rw [hsym_uv v j.1]
+        · simp [A_blk0, A_blk, e0, e, hdiag v]
+        · simp [A_blk0, A_blk, e0, e, r₁, hsym_uv v i.1]
+        · simp [A_blk0, A_blk, e0, e, r₂, hsym_uv v j.1]
+        · simp [A_blk0, A_blk, e0, e, r₁]
+        · simp [A_blk0, A_blk, e0, e, A₁]
+        · simp [A_blk0, A_blk, e0, e, hno_cross i.1 i.2.1 j.1 j.2.1 i.2.2 j.2.2]
+        · simp [A_blk0, A_blk, e0, e, r₂]
+        · simp [A_blk0, A_blk, e0, e, hsym_uv i.1 j.1, hno_cross j.1 j.2.1 i.1 i.2.1 j.2.2 i.2.2]
+        · simp [A_blk0, A_blk, e0, e, A₂]
+      have hcongr : Pᵀ * A_blk0 * P = B_diag := by
+        rw [hA_blk0_eq]
+        simp only [P, B_diag, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+          Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+          Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+        congr 1
+        · ext ⟨⟩ ⟨⟩
+          have hx₁_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * x₁ k = r₁ i := fun i => congr_fun hx₁ i
+          have hx₂_j : ∀ j : U₂, ∑ k : U₂, A₂ j k * x₂ k = r₂ j := fun j => congr_fun hx₂ j
+          simp only [S₁, X, c₁, c₂, dotProduct, Matrix.sub_apply, Matrix.add_apply, Matrix.neg_apply,
+            Matrix.mul_apply, Matrix.transpose_apply, Matrix.of_apply, Fintype.sum_sum_type,
+            Sum.elim_inl, Sum.elim_inr]
+          have h1 : ∑ k : U₁, (-(r₁ k) + ∑ m : U₁, A₁ k m * x₁ m) * x₁ k = 0 := by
+            refine Finset.sum_eq_zero fun k _ => ?_
+            rw [hx₁_i k]; ring
+          have h2 : ∑ k : U₂, (-(r₂ k) + ∑ m : U₂, A₂ k m * x₂ m) * x₂ k = 0 := by
+            refine Finset.sum_eq_zero fun k _ => ?_
+            rw [hx₂_j k]; ring
+          have h1' : ∑ k : U₁, x₁ k * (r₁ k - ∑ m : U₁, A₁ k m * x₁ m) = 0 := by
+            refine Finset.sum_eq_zero fun k _ => ?_
+            rw [hx₁_i k]; ring
+          have h2' : ∑ k : U₂, x₂ k * (r₂ k - ∑ m : U₂, A₂ k m * x₂ m) = 0 := by
+            refine Finset.sum_eq_zero fun k _ => ?_
+            rw [hx₂_j k]; ring
+          have h3 : ∑ k : U₁, x₁ k * r₁ k = ∑ k : U₁, r₁ k * x₁ k :=
+            Finset.sum_congr rfl fun k _ => mul_comm _ _
+          have h4 : ∑ k : U₂, x₂ k * r₂ k = ∑ k : U₂, r₂ k * x₂ k :=
+            Finset.sum_congr rfl fun k _ => mul_comm _ _
+          simp only [Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂, Matrix.fromBlocks_apply₂₁,
+            Matrix.fromBlocks_apply₂₂, Matrix.zero_apply, zero_mul, Finset.sum_const_zero,
+            add_zero, zero_add] at *
+          have hAx1 : ∑ k : U₁, (∑ m : U₁, x₁ m * A₁ m k) * x₁ k = ∑ k : U₁, r₁ k * x₁ k := by
+            refine Finset.sum_congr rfl fun k _ => ?_
+            have hsym1 : ∀ m : U₁, A₁ m k = A₁ k m := fun m => hsym_uv m.1 k.1
+            simp only [hsym1, mul_comm (x₁ _), hx₁_i k]
+          have hAx2 : ∑ k : U₂, (∑ m : U₂, x₂ m * A₂ m k) * x₂ k = ∑ k : U₂, r₂ k * x₂ k := by
+            refine Finset.sum_congr rfl fun k _ => ?_
+            have hsym2 : ∀ m : U₂, A₂ m k = A₂ k m := fun m => hsym_uv m.1 k.1
+            simp only [hsym2, mul_comm (x₂ _), hx₂_j k]
           linarith
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          have h1 : ∀ k : U₁, A k.1 j.1 = 0 := fun k => hno_cross k.1 k.2.1 j.1 j.2.1 k.2.2 j.2.2
-          simp [h1]
-          have hx2j : ∑ k : U₂, x₂ k * A k.1 j.1 = A j.1 v := by
-            have := hx₂_j j
-            simpa [A₂, hsym_uv j.1 _, mul_comm] using this
-          rw [hsym_uv v j.1]
-          linarith
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          have h1 : ∀ k : U₂, A i.1 k.1 = 0 := fun k => hno_cross i.1 i.2.1 k.1 k.2.1 i.2.2 k.2.2
-          simp [h1]
-          have hx1i : ∑ k : U₁, A i.1 k.1 * x₁ k = A i.1 v := hx₁_i i
-          linarith
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, A₁, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          exact hno_cross i.1 i.2.1 j.1 j.2.1 i.2.2 j.2.2
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          have h1 : ∀ k : U₁, A i.1 k.1 = 0 := fun k => by
-            rw [hsym_uv]
-            exact hno_cross k.1 k.2.1 i.1 i.2.1 k.2.2 i.2.2
-          simp [h1]
-          have hx2i : ∑ k : U₂, A i.1 k.1 * x₂ k = A i.1 v := hx₂_j i
-          linarith
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-          rw [hsym_uv]
-          exact hno_cross j.1 j.2.1 i.1 i.2.1 j.2.2 i.2.2
-        · simp [P, A_blk0, A_blk, e0, e, B_diag, A₂, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-      have hS₁ : S₁.IsHermitian := by
-        ext ⟨⟩ ⟨⟩; simp [S₁, Matrix.conjTranspose_apply]
+        · ext ⟨⟩ z
+          rcases z with i | j
+          · have hx₁_i : ∑ k : U₁, A₁ i k * x₁ k = r₁ i := congr_fun hx₁ i
+            have hsym1 : ∀ k : U₁, A₁ k i = A₁ i k := fun k => hsym_uv k.1 i.1
+            simp only [X, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.transpose_apply,
+              Matrix.of_apply, Matrix.zero_apply, Fintype.sum_sum_type, Sum.elim_inl, Sum.elim_inr,
+              Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₂₁, mul_zero, Finset.sum_const_zero,
+              add_zero]
+            simp only [hsym1, mul_comm (x₁ _), hx₁_i]
+            ring
+          · have hx₂_j : ∑ k : U₂, A₂ j k * x₂ k = r₂ j := congr_fun hx₂ j
+            have hsym2 : ∀ k : U₂, A₂ k j = A₂ j k := fun k => hsym_uv k.1 j.1
+            simp only [X, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.transpose_apply,
+              Matrix.of_apply, Matrix.zero_apply, Fintype.sum_sum_type, Sum.elim_inl, Sum.elim_inr,
+              Matrix.fromBlocks_apply₁₂, Matrix.fromBlocks_apply₂₂, mul_zero, Finset.sum_const_zero,
+              zero_add]
+            simp only [hsym2, mul_comm (x₂ _), hx₂_j]
+            ring
+        · ext z ⟨⟩
+          rcases z with i | j
+          · have hx₁_i : ∑ k : U₁, A₁ i k * x₁ k = r₁ i := congr_fun hx₁ i
+            simp only [X, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.of_apply,
+              Matrix.zero_apply, Fintype.sum_sum_type, Sum.elim_inl, Sum.elim_inr,
+              Matrix.fromBlocks_apply₁₁, Matrix.fromBlocks_apply₁₂, zero_mul, Finset.sum_const_zero,
+              add_zero, hx₁_i]
+            ring
+          · have hx₂_j : ∑ k : U₂, A₂ j k * x₂ k = r₂ j := congr_fun hx₂ j
+            simp only [X, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.of_apply,
+              Matrix.zero_apply, Fintype.sum_sum_type, Sum.elim_inl, Sum.elim_inr,
+              Matrix.fromBlocks_apply₂₁, Matrix.fromBlocks_apply₂₂, zero_mul, Finset.sum_const_zero,
+              zero_add, hx₂_j]
+            ring
+      have hS₁ : S₁.IsHermitian := by ext ⟨⟩ ⟨⟩; simp [S₁, Matrix.conjTranspose_apply]
       have hsB_diag : signature A_blk0 hA_blk0 = signature S₁ hS₁ + (signature A₁ hA₁ + signature A₂ hA₂) := by
         have hc := signature_congr A_blk0 P hA_blk0 hP_det
         rw [← hc]
@@ -312,41 +328,45 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         ext ⟨⟩ ⟨⟩; simp [Matrix.conjTranspose_apply]
       have hsG₁_split : signature AG₁ hAG₁ =
           signature (Matrix.of (fun _ _ : Unit => -c₁)) hM₁ + signature A₁ hA₁ := by
-        let P₁ : Matrix (Unit ⊕ U₁) (Unit ⊕ U₁) ℝ := fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr i, Sum.inl () => -x₁ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-        let Q₁ : Matrix (Unit ⊕ U₁) (Unit ⊕ U₁) ℝ := fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr i, Sum.inl () => x₁ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-        have hPQ₁ : P₁ * Q₁ = 1 := by
-          ext a b; rcases a with ⟨⟩ | i <;> rcases b with ⟨⟩ | j <;>
-            simp [P₁, Q₁, Matrix.mul_apply, Fintype.sum_sum_type]
+        let X₁ : Matrix U₁ Unit ℝ := Matrix.of fun i _ => x₁ i
+        let P₁ : Matrix (Unit ⊕ U₁) (Unit ⊕ U₁) ℝ := Matrix.fromBlocks 1 0 (-X₁) 1
+        let Q₁ : Matrix (Unit ⊕ U₁) (Unit ⊕ U₁) ℝ := Matrix.fromBlocks 1 0 X₁ 1
+        have hPQ₁ : P₁ * Q₁ = 1 := by simp [P₁, Q₁, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
         have hP₁_det : IsUnit P₁.det := isUnit_iff_exists_inv.mpr ⟨Q₁.det, by rw [← Matrix.det_mul, hPQ₁, Matrix.det_one]⟩
-        have hcongr₁ : P₁ᵀ * AG₁ * P₁ = Matrix.fromBlocks (Matrix.of (fun _ _ : Unit => -c₁)) 0 0 A₁ := by
-          have hx₁_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * x₁ k = r₁ i := fun i => congr_fun hx₁ i
+        have hAG₁_eq : AG₁ = Matrix.fromBlocks 0 (Matrix.of fun _ i => r₁ i) (Matrix.of fun i _ => r₁ i) A₁ := by
           ext a b; rcases a with ⟨⟩ | i <;> rcases b with ⟨⟩ | j
-          · simp [P₁, AG₁, f₁, c₁, dotProduct, r₁, A₁, Matrix.mul_apply, Matrix.transpose_apply,
-              Fintype.sum_sum_type, hdiag v]
-            calc -(∑ k : U₁, x₁ k * A k.1 v) +
-                ∑ k : U₁, (-(A v k.1 * x₁ k) + (∑ m : U₁, A k.1 m.1 * x₁ m) * x₁ k)
-              = -(∑ k : U₁, x₁ k * A k.1 v) +
-                ∑ k : U₁, (-(A v k.1 * x₁ k) + A k.1 v * x₁ k) := by
-                  congr 1; refine Finset.sum_congr rfl fun k _ => ?_
-                  rw [show ∑ m : U₁, A k.1 m.1 * x₁ m = A k.1 v from hx₁_i k]
-              _ = -∑ k : U₁, A k.1 v * x₁ k := by
-                  simp only [hsym_uv v _, mul_comm (x₁ _)]; ring
-          · simp [P₁, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-            have hx1j : ∑ k : U₁, x₁ k * A k.1 j.1 = A j.1 v := by
-              have := hx₁_i j; simpa [A₁, hsym_uv j.1 _, mul_comm] using this
-            rw [hsym_uv v j.1]; linarith
-          · simp [P₁, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-            have hx1i : ∑ k : U₁, A i.1 k.1 * x₁ k = A i.1 v := hx₁_i i
+          · simp [AG₁, f₁, hdiag v]
+          · simp [AG₁, f₁, r₁, hsym_uv v j.1]
+          · simp [AG₁, f₁, r₁]
+          · simp [AG₁, f₁, A₁]
+        have hcongr₁ : P₁ᵀ * AG₁ * P₁ = Matrix.fromBlocks (Matrix.of (fun _ _ : Unit => -c₁)) 0 0 A₁ := by
+          rw [hAG₁_eq]
+          simp only [P₁, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+            Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+            Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+          congr 1
+          · ext ⟨⟩ ⟨⟩
+            have hx₁_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * x₁ k = r₁ i := fun i => congr_fun hx₁ i
+            have hsym1 : ∀ m k : U₁, A₁ m k = A₁ k m := fun m k => hsym_uv m.1 k.1
+            simp only [X₁, c₁, dotProduct, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply,
+              Matrix.transpose_apply, Matrix.of_apply]
+            have h3 : ∑ k : U₁, x₁ k * r₁ k = ∑ k : U₁, r₁ k * x₁ k :=
+              Finset.sum_congr rfl fun k _ => mul_comm _ _
+            have hAx1 : ∑ k : U₁, (∑ m : U₁, x₁ m * A₁ m k) * x₁ k = ∑ k : U₁, r₁ k * x₁ k := by
+              refine Finset.sum_congr rfl fun k _ => ?_
+              simp only [hsym1 _ k, mul_comm (x₁ _), hx₁_i k]
             linarith
-          · simp [P₁, AG₁, f₁, A₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
+          · ext ⟨⟩ i
+            have hx₁_i : ∑ k : U₁, A₁ i k * x₁ k = r₁ i := congr_fun hx₁ i
+            have hsym1 : ∀ k : U₁, A₁ k i = A₁ i k := fun k => hsym_uv k.1 i.1
+            simp only [X₁, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.transpose_apply,
+              Matrix.of_apply, Matrix.zero_apply, hsym1, mul_comm (x₁ _), hx₁_i]
+            ring
+          · ext i ⟨⟩
+            have hx₁_i : ∑ k : U₁, A₁ i k * x₁ k = r₁ i := congr_fun hx₁ i
+            simp only [X₁, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.of_apply,
+              Matrix.zero_apply, hx₁_i]
+            ring
         have hc := signature_congr AG₁ P₁ hAG₁ hP₁_det
         rw [← hc]
         have hfb := signature_fromBlocks (Matrix.of (fun _ _ : Unit => -c₁)) hM₁ A₁ hA₁
@@ -354,41 +374,45 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         exact hcongr₁
       have hsG₂_split : signature AG₂ hAG₂ =
           signature (Matrix.of (fun _ _ : Unit => -c₂)) hM₂ + signature A₂ hA₂ := by
-        let P₂ : Matrix (Unit ⊕ U₂) (Unit ⊕ U₂) ℝ := fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr i, Sum.inl () => -x₂ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-        let Q₂ : Matrix (Unit ⊕ U₂) (Unit ⊕ U₂) ℝ := fun a b => match a, b with
-          | Sum.inl (), Sum.inl () => 1
-          | Sum.inl (), Sum.inr _ => 0
-          | Sum.inr i, Sum.inl () => x₂ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-        have hPQ₂ : P₂ * Q₂ = 1 := by
-          ext a b; rcases a with ⟨⟩ | i <;> rcases b with ⟨⟩ | j <;>
-            simp [P₂, Q₂, Matrix.mul_apply, Fintype.sum_sum_type]
+        let X₂ : Matrix U₂ Unit ℝ := Matrix.of fun i _ => x₂ i
+        let P₂ : Matrix (Unit ⊕ U₂) (Unit ⊕ U₂) ℝ := Matrix.fromBlocks 1 0 (-X₂) 1
+        let Q₂ : Matrix (Unit ⊕ U₂) (Unit ⊕ U₂) ℝ := Matrix.fromBlocks 1 0 X₂ 1
+        have hPQ₂ : P₂ * Q₂ = 1 := by simp [P₂, Q₂, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
         have hP₂_det : IsUnit P₂.det := isUnit_iff_exists_inv.mpr ⟨Q₂.det, by rw [← Matrix.det_mul, hPQ₂, Matrix.det_one]⟩
-        have hcongr₂ : P₂ᵀ * AG₂ * P₂ = Matrix.fromBlocks (Matrix.of (fun _ _ : Unit => -c₂)) 0 0 A₂ := by
-          have hx₂_j : ∀ j : U₂, ∑ k : U₂, A₂ j k * x₂ k = r₂ j := fun j => congr_fun hx₂ j
+        have hAG₂_eq : AG₂ = Matrix.fromBlocks 0 (Matrix.of fun _ i => r₂ i) (Matrix.of fun i _ => r₂ i) A₂ := by
           ext a b; rcases a with ⟨⟩ | i <;> rcases b with ⟨⟩ | j
-          · simp [P₂, AG₂, f₂, c₂, dotProduct, r₂, A₂, Matrix.mul_apply, Matrix.transpose_apply,
-              Fintype.sum_sum_type, hdiag v]
-            calc -(∑ k : U₂, x₂ k * A k.1 v) +
-                ∑ k : U₂, (-(A v k.1 * x₂ k) + (∑ m : U₂, A k.1 m.1 * x₂ m) * x₂ k)
-              = -(∑ k : U₂, x₂ k * A k.1 v) +
-                ∑ k : U₂, (-(A v k.1 * x₂ k) + A k.1 v * x₂ k) := by
-                  congr 1; refine Finset.sum_congr rfl fun k _ => ?_
-                  rw [show ∑ m : U₂, A k.1 m.1 * x₂ m = A k.1 v from hx₂_j k]
-              _ = -∑ k : U₂, A k.1 v * x₂ k := by
-                  simp only [hsym_uv v _, mul_comm (x₂ _)]; ring
-          · simp [P₂, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-            have hx2j : ∑ k : U₂, x₂ k * A k.1 j.1 = A j.1 v := by
-              have := hx₂_j j; simpa [A₂, hsym_uv j.1 _, mul_comm] using this
-            rw [hsym_uv v j.1]; linarith
-          · simp [P₂, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-            have hx2i : ∑ k : U₂, A i.1 k.1 * x₂ k = A i.1 v := hx₂_j i
+          · simp [AG₂, f₂, hdiag v]
+          · simp [AG₂, f₂, r₂, hsym_uv v j.1]
+          · simp [AG₂, f₂, r₂]
+          · simp [AG₂, f₂, A₂]
+        have hcongr₂ : P₂ᵀ * AG₂ * P₂ = Matrix.fromBlocks (Matrix.of (fun _ _ : Unit => -c₂)) 0 0 A₂ := by
+          rw [hAG₂_eq]
+          simp only [P₂, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+            Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+            Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+          congr 1
+          · ext ⟨⟩ ⟨⟩
+            have hx₂_j : ∀ j : U₂, ∑ k : U₂, A₂ j k * x₂ k = r₂ j := fun j => congr_fun hx₂ j
+            have hsym2 : ∀ m k : U₂, A₂ m k = A₂ k m := fun m k => hsym_uv m.1 k.1
+            simp only [X₂, c₂, dotProduct, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply,
+              Matrix.transpose_apply, Matrix.of_apply]
+            have h3 : ∑ k : U₂, x₂ k * r₂ k = ∑ k : U₂, r₂ k * x₂ k :=
+              Finset.sum_congr rfl fun k _ => mul_comm _ _
+            have hAx2 : ∑ k : U₂, (∑ m : U₂, x₂ m * A₂ m k) * x₂ k = ∑ k : U₂, r₂ k * x₂ k := by
+              refine Finset.sum_congr rfl fun k _ => ?_
+              simp only [hsym2 _ k, mul_comm (x₂ _), hx₂_j k]
             linarith
-          · simp [P₂, AG₂, f₂, A₂, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
+          · ext ⟨⟩ i
+            have hx₂_i : ∑ k : U₂, A₂ i k * x₂ k = r₂ i := congr_fun hx₂ i
+            have hsym2 : ∀ k : U₂, A₂ k i = A₂ i k := fun k => hsym_uv k.1 i.1
+            simp only [X₂, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.transpose_apply,
+              Matrix.of_apply, Matrix.zero_apply, hsym2, mul_comm (x₂ _), hx₂_i]
+            ring
+          · ext i ⟨⟩
+            have hx₂_i : ∑ k : U₂, A₂ i k * x₂ k = r₂ i := congr_fun hx₂ i
+            simp only [X₂, Matrix.add_apply, Matrix.neg_apply, Matrix.mul_apply, Matrix.of_apply,
+              Matrix.zero_apply, hx₂_i]
+            ring
         have hc := signature_congr AG₂ P₂ hAG₂ hP₂_det
         rw [← hc]
         have hfb := signature_fromBlocks (Matrix.of (fun _ _ : Unit => -c₂)) hM₂ A₂ hA₂
@@ -420,84 +444,66 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       let A_blk2 := A_blk.submatrix e2 e2
       have hA_blk2 : A_blk2.IsHermitian := isHermitian_submatrix A_blk hA_blk e2
       rw [← signature_reindex e2 A_blk hA_blk]
-      let P : Matrix ((Unit ⊕ U₂) ⊕ U₁) ((Unit ⊕ U₂) ⊕ U₁) ℝ :=
-        fun a b => match a, b with
-          | Sum.inl (Sum.inl ()), Sum.inl (Sum.inl ()) => 1
-          | Sum.inl (Sum.inr w), Sum.inl (Sum.inr w') => if w = w' then 1 else 0
-          | Sum.inl (Sum.inr w), Sum.inr i => -u w * r₁ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-          | _, _ => 0
-      let Q : Matrix ((Unit ⊕ U₂) ⊕ U₁) ((Unit ⊕ U₂) ⊕ U₁) ℝ :=
-        fun a b => match a, b with
-          | Sum.inl (Sum.inl ()), Sum.inl (Sum.inl ()) => 1
-          | Sum.inl (Sum.inr w), Sum.inl (Sum.inr w') => if w = w' then 1 else 0
-          | Sum.inl (Sum.inr w), Sum.inr i => u w * r₁ i
-          | Sum.inr i, Sum.inr i' => if i = i' then 1 else 0
-          | _, _ => 0
-      have hPQ : P * Q = 1 := by
-        ext a b
-        rcases a with (⟨⟩ | w) | i <;> rcases b with (⟨⟩ | w') | j <;>
-          simp [P, Q, Matrix.mul_apply, Fintype.sum_sum_type]
+      let Y : Matrix (Unit ⊕ U₂) U₁ ℝ := Matrix.of fun a i => match a with
+        | Sum.inl () => 0
+        | Sum.inr w => u w * r₁ i
+      let P : Matrix ((Unit ⊕ U₂) ⊕ U₁) ((Unit ⊕ U₂) ⊕ U₁) ℝ := Matrix.fromBlocks 1 (-Y) 0 1
+      let Q : Matrix ((Unit ⊕ U₂) ⊕ U₁) ((Unit ⊕ U₂) ⊕ U₁) ℝ := Matrix.fromBlocks 1 Y 0 1
+      have hPQ : P * Q = 1 := by simp [P, Q, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
       have hP_det : IsUnit P.det := isUnit_iff_exists_inv.mpr ⟨Q.det, by rw [← Matrix.det_mul, hPQ, Matrix.det_one]⟩
-      have hu_ker_w : ∀ w : U₂, ∑ k : U₂, A₂ w k * u k = 0 := fun w => congr_fun hu_ker w
-      have hcongr : Pᵀ * A_blk2 * P = Matrix.fromBlocks AG₂ 0 0 A₁ := by
+      let R₁ : Matrix (Unit ⊕ U₂) U₁ ℝ := Matrix.of fun a i => match a with
+        | Sum.inl () => r₁ i
+        | Sum.inr _ => 0
+      have hA_blk2_eq : A_blk2 = Matrix.fromBlocks AG₂ R₁ R₁ᵀ A₁ := by
         ext a b
         rcases a with (⟨⟩ | w) | i <;> rcases b with (⟨⟩ | w') | j
-        · simp [P, A_blk2, A_blk, e2, e, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-        · simp [P, A_blk2, A_blk, e2, e, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-        · simp [P, A_blk2, A_blk, e2, e, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type, r₁]
-          have hsum : ∑ k : U₂, A v k.1 * (-u k * A j.1 v) = -(dotProduct u r₂) * A j.1 v := by
-            simp only [dotProduct, r₂]
-            calc ∑ k : U₂, A v k.1 * (-u k * A j.1 v)
-                = -(∑ k : U₂, u k * A k.1 v) * A j.1 v := by
-                  rw [Finset.sum_mul]
-                  refine Finset.sum_congr rfl fun k _ => ?_
-                  rw [hsym_uv v k.1]; ring
-          rw [hsum, hu_dot, neg_one_mul, add_neg_cancel]
-        · simp [P, A_blk2, A_blk, e2, e, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-        · simp [P, A_blk2, A_blk, e2, e, AG₂, f₂, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type]
-        · simp [P, A_blk2, A_blk, e2, e, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type, r₁]
-          have hcross : A w.1 j.1 = 0 := by
-            rw [hsym_uv]; exact hno_cross j.1 j.2.1 w.1 w.2.1 j.2.2 w.2.2
-          have hker_sum : ∑ k : U₂, A w.1 k.1 * (-u k * A j.1 v) = 0 := by
-            calc ∑ k : U₂, A w.1 k.1 * (-u k * A j.1 v)
-                = -(∑ k : U₂, A₂ w k * u k) * A j.1 v := by
-                  rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; simp [A₂]; ring
-              _ = 0 := by rw [hu_ker_w w, neg_zero, zero_mul]
-          rw [hcross, hker_sum, add_zero]
-        · simp [P, A_blk2, A_blk, e2, e, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type, r₁]
-          have hsum : ∑ k : U₂, (-u k * A i.1 v) * A k.1 v = -(dotProduct u r₂) * A i.1 v := by
-            simp only [dotProduct, r₂]
-            rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; ring
-          rw [hsum, hu_dot, neg_one_mul, hsym_uv i.1 v, neg_add_cancel]
-        · simp [P, A_blk2, A_blk, e2, e, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type, r₁]
-          have hcross : A i.1 w'.1 = 0 := hno_cross i.1 i.2.1 w'.1 w'.2.1 i.2.2 w'.2.2
-          have hker_sum : ∑ k : U₂, (-u k * A i.1 v) * A k.1 w'.1 = 0 := by
-            calc ∑ k : U₂, (-u k * A i.1 v) * A k.1 w'.1
-                = -(∑ k : U₂, A₂ w' k * u k) * A i.1 v := by
-                  rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_
-                  simp [A₂, hsym_uv k.1 w'.1]; ring
-              _ = 0 := by rw [hu_ker_w w', neg_zero, zero_mul]
-          rw [hcross, hker_sum, zero_add]
-        · simp [P, A_blk2, A_blk, e2, e, A₁, Matrix.mul_apply, Matrix.transpose_apply,
-            Fintype.sum_sum_type, r₁]
-          have hcross1 : ∀ k : U₂, A i.1 k.1 = 0 := fun k => hno_cross i.1 i.2.1 k.1 k.2.1 i.2.2 k.2.2
-          have hcross2 : ∀ k : U₂, A k.1 j.1 = 0 := fun k => by
-            rw [hsym_uv]; exact hno_cross j.1 j.2.1 k.1 k.2.1 j.2.2 k.2.2
-          have hker_sum : ∀ k : U₂, (∑ m : U₂, A k.1 m.1 * (-u m * A j.1 v)) = 0 := fun k => by
-            calc ∑ m : U₂, A k.1 m.1 * (-u m * A j.1 v)
-                = -(∑ m : U₂, A₂ k m * u m) * A j.1 v := by
-                  rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun m _ => ?_; simp [A₂]; ring
-              _ = 0 := by rw [hu_ker_w k, neg_zero, zero_mul]
-          simp [hcross1, hcross2, hker_sum]
+        · simp [A_blk2, A_blk, e2, e, AG₂, f₂]
+        · simp [A_blk2, A_blk, e2, e, AG₂, f₂]
+        · simp [A_blk2, A_blk, e2, e, R₁, r₁, hsym_uv v j.1]
+        · simp [A_blk2, A_blk, e2, e, AG₂, f₂]
+        · simp [A_blk2, A_blk, e2, e, AG₂, f₂]
+        · simp [A_blk2, A_blk, e2, e, R₁, hsym_uv w.1 j.1, hno_cross j.1 j.2.1 w.1 w.2.1 j.2.2 w.2.2]
+        · simp [A_blk2, A_blk, e2, e, R₁, r₁]
+        · simp [A_blk2, A_blk, e2, e, R₁, hno_cross i.1 i.2.1 w'.1 w'.2.1 i.2.2 w'.2.2]
+        · simp [A_blk2, A_blk, e2, e, A₁]
+      have hAG₂_Y : AG₂ * Y = R₁ := by
+        have hu_ker_w : ∀ w : U₂, ∑ k : U₂, A₂ w k * u k = 0 := fun w => congr_fun hu_ker w
+        ext a i
+        rcases a with ⟨⟩ | w
+        · simp only [AG₂, f₂, Y, R₁, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_sum_type,
+            Finset.univ_unique, Finset.sum_singleton, Sum.elim_inl, Sum.elim_inr, mul_zero, zero_add]
+          calc ∑ k : U₂, A v k.1 * (u k * r₁ i)
+              = (∑ k : U₂, u k * r₂ k) * r₁ i := by
+                rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_
+                simp [r₂, hsym_uv v k.1]; ring
+            _ = r₁ i := by change dotProduct u r₂ * r₁ i = r₁ i; rw [hu_dot, one_mul]
+        · simp only [AG₂, f₂, Y, R₁, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_sum_type,
+            Finset.univ_unique, Finset.sum_singleton, Sum.elim_inl, Sum.elim_inr, mul_zero, zero_add]
+          calc ∑ k : U₂, A w.1 k.1 * (u k * r₁ i)
+              = (∑ k : U₂, A₂ w k * u k) * r₁ i := by
+                rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; simp [A₂]; ring
+            _ = 0 := by rw [hu_ker_w w, zero_mul]
+      have hYT_R₁ : Yᵀ * R₁ = 0 := by
+        ext i j
+        simp [Y, R₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
+      have hcongr : Pᵀ * A_blk2 * P = Matrix.fromBlocks AG₂ 0 0 A₁ := by
+        rw [hA_blk2_eq]
+        simp only [P, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+          Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+          Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+        have hAG₂T : AG₂ᵀ = AG₂ := by
+          simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using hAG₂.eq
+        have hYT_AG₂ : Yᵀ * AG₂ = R₁ᵀ := by
+          calc Yᵀ * AG₂ = Yᵀ * AG₂ᵀ := by rw [hAG₂T]
+            _ = (AG₂ * Y)ᵀ := (Matrix.transpose_mul AG₂ Y).symm
+            _ = R₁ᵀ := by rw [hAG₂_Y]
+        have hR₁T_Y : R₁ᵀ * Y = 0 := by
+          calc R₁ᵀ * Y = (Yᵀ * R₁)ᵀ := by rw [Matrix.transpose_mul, Matrix.transpose_transpose]
+            _ = 0 := by rw [hYT_R₁, Matrix.transpose_zero]
+        congr 1
+        · rw [hAG₂_Y, neg_add_cancel]
+        · rw [hYT_AG₂, neg_add_cancel]
+        · rw [Matrix.mul_assoc, hAG₂_Y, hYT_R₁, hR₁T_Y]; simp
       have hc := signature_congr A_blk2 P hA_blk2 hP_det
       rw [← hc]
       have hs : signature (Pᵀ * A_blk2 * P) (isHermitian_congr A_blk2 P hA_blk2) =
@@ -508,73 +514,66 @@ theorem cut_vertex_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       rw [hs]
       omega
   · -- Case 1a: r₁ ∉ im(A₁), decouple G₁ ⊕ A₂
-    let P : Matrix ((Unit ⊕ U₁) ⊕ U₂) ((Unit ⊕ U₁) ⊕ U₂) ℝ :=
-      fun a b => match a, b with
-        | Sum.inl (Sum.inl ()), Sum.inl (Sum.inl ()) => 1
-        | Sum.inl (Sum.inr i), Sum.inl (Sum.inr i') => if i = i' then 1 else 0
-        | Sum.inl (Sum.inr i), Sum.inr j => -u i * r₂ j
-        | Sum.inr j, Sum.inr j' => if j = j' then 1 else 0
-        | _, _ => 0
-    let Q : Matrix ((Unit ⊕ U₁) ⊕ U₂) ((Unit ⊕ U₁) ⊕ U₂) ℝ :=
-      fun a b => match a, b with
-        | Sum.inl (Sum.inl ()), Sum.inl (Sum.inl ()) => 1
-        | Sum.inl (Sum.inr i), Sum.inl (Sum.inr i') => if i = i' then 1 else 0
-        | Sum.inl (Sum.inr i), Sum.inr j => u i * r₂ j
-        | Sum.inr j, Sum.inr j' => if j = j' then 1 else 0
-        | _, _ => 0
-    have hPQ : P * Q = 1 := by
-      ext a b
-      rcases a with (⟨⟩ | i) | j <;> rcases b with (⟨⟩ | i') | j' <;>
-        simp [P, Q, Matrix.mul_apply, Fintype.sum_sum_type]
+    let Y : Matrix (Unit ⊕ U₁) U₂ ℝ := Matrix.of fun a j => match a with
+      | Sum.inl () => 0
+      | Sum.inr i => u i * r₂ j
+    let P : Matrix ((Unit ⊕ U₁) ⊕ U₂) ((Unit ⊕ U₁) ⊕ U₂) ℝ := Matrix.fromBlocks 1 (-Y) 0 1
+    let Q : Matrix ((Unit ⊕ U₁) ⊕ U₂) ((Unit ⊕ U₁) ⊕ U₂) ℝ := Matrix.fromBlocks 1 Y 0 1
+    have hPQ : P * Q = 1 := by simp [P, Q, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
     have hP_det : IsUnit P.det := isUnit_iff_exists_inv.mpr ⟨Q.det, by rw [← Matrix.det_mul, hPQ, Matrix.det_one]⟩
-    have hu_ker_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * u k = 0 := fun i => congr_fun hu_ker i
-    have hcongr : Pᵀ * A_blk * P = Matrix.fromBlocks AG₁ 0 0 A₂ := by
+    let R₂ : Matrix (Unit ⊕ U₁) U₂ ℝ := Matrix.of fun a j => match a with
+      | Sum.inl () => r₂ j
+      | Sum.inr _ => 0
+    have hA_blk_eq : A_blk = Matrix.fromBlocks AG₁ R₂ R₂ᵀ A₂ := by
       ext a b
       rcases a with (⟨⟩ | i) | j <;> rcases b with (⟨⟩ | i') | j'
-      · simp [P, A_blk, e, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-      · simp [P, A_blk, e, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-      · simp [P, A_blk, e, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, r₂]
-        have hsum : ∑ k : U₁, A v k.1 * (-u k * A j'.1 v) = -(dotProduct u r₁) * A j'.1 v := by
-          simp only [dotProduct, r₁]
-          rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_
-          rw [hsym_uv v k.1]; ring
-        rw [hsum, hu_dot, neg_one_mul, add_neg_cancel]
-      · simp [P, A_blk, e, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-      · simp [P, A_blk, e, AG₁, f₁, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
-      · simp [P, A_blk, e, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, r₂]
-        have hcross : A i.1 j'.1 = 0 := hno_cross i.1 i.2.1 j'.1 j'.2.1 i.2.2 j'.2.2
-        have hker_sum : ∑ k : U₁, A i.1 k.1 * (-u k * A j'.1 v) = 0 := by
-          calc ∑ k : U₁, A i.1 k.1 * (-u k * A j'.1 v)
-              = -(∑ k : U₁, A₁ i k * u k) * A j'.1 v := by
-                rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; simp [A₁]; ring
-            _ = 0 := by rw [hu_ker_i i, neg_zero, zero_mul]
-        rw [hcross, hker_sum, add_zero]
-      · simp [P, A_blk, e, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, r₂]
-        have hsum : ∑ k : U₁, (-u k * A j.1 v) * A k.1 v = -(dotProduct u r₁) * A j.1 v := by
-          simp only [dotProduct, r₁]
-          rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; ring
-        rw [hsum, hu_dot, neg_one_mul, hsym_uv j.1 v, neg_add_cancel]
-      · simp [P, A_blk, e, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, r₂]
-        have hcross : A j.1 i'.1 = 0 := by
-          rw [hsym_uv]; exact hno_cross i'.1 i'.2.1 j.1 j.2.1 i'.2.2 j.2.2
-        have hker_sum : ∑ k : U₁, (-u k * A j.1 v) * A k.1 i'.1 = 0 := by
-          calc ∑ k : U₁, (-u k * A j.1 v) * A k.1 i'.1
-              = -(∑ k : U₁, A₁ i' k * u k) * A j.1 v := by
-                rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_
-                simp [A₁, hsym_uv k.1 i'.1]; ring
-            _ = 0 := by rw [hu_ker_i i', neg_zero, zero_mul]
-        rw [hcross, hker_sum, zero_add]
-      · simp [P, A_blk, e, A₂, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type, r₂]
-        have hcross1 : ∀ k : U₁, A j.1 k.1 = 0 := fun k => by
-          rw [hsym_uv]; exact hno_cross k.1 k.2.1 j.1 j.2.1 k.2.2 j.2.2
-        have hcross2 : ∀ k : U₁, A k.1 j'.1 = 0 := fun k =>
-          hno_cross k.1 k.2.1 j'.1 j'.2.1 k.2.2 j'.2.2
-        have hker_sum : ∀ k : U₁, (∑ m : U₁, A k.1 m.1 * (-u m * A j'.1 v)) = 0 := fun k => by
-          calc ∑ m : U₁, A k.1 m.1 * (-u m * A j'.1 v)
-              = -(∑ m : U₁, A₁ k m * u m) * A j'.1 v := by
-                rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun m _ => ?_; simp [A₁]; ring
-            _ = 0 := by rw [hu_ker_i k, neg_zero, zero_mul]
-        simp [hcross1, hcross2, hker_sum]
+      · simp [A_blk, e, AG₁, f₁]
+      · simp [A_blk, e, AG₁, f₁]
+      · simp [A_blk, e, R₂, r₂, hsym_uv v j'.1]
+      · simp [A_blk, e, AG₁, f₁]
+      · simp [A_blk, e, AG₁, f₁]
+      · simp [A_blk, e, R₂, hno_cross i.1 i.2.1 j'.1 j'.2.1 i.2.2 j'.2.2]
+      · simp [A_blk, e, R₂, r₂]
+      · simp [A_blk, e, R₂, hsym_uv j.1 i'.1, hno_cross i'.1 i'.2.1 j.1 j.2.1 i'.2.2 j.2.2]
+      · simp [A_blk, e, A₂]
+    have hAG₁_Y : AG₁ * Y = R₂ := by
+      have hu_ker_i : ∀ i : U₁, ∑ k : U₁, A₁ i k * u k = 0 := fun i => congr_fun hu_ker i
+      ext a j
+      rcases a with ⟨⟩ | i
+      · simp only [AG₁, f₁, Y, R₂, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_sum_type,
+          Finset.univ_unique, Finset.sum_singleton, Sum.elim_inl, Sum.elim_inr, mul_zero, zero_add]
+        calc ∑ k : U₁, A v k.1 * (u k * r₂ j)
+            = (∑ k : U₁, u k * r₁ k) * r₂ j := by
+              rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_
+              simp [r₁, hsym_uv v k.1]; ring
+          _ = r₂ j := by change dotProduct u r₁ * r₂ j = r₂ j; rw [hu_dot, one_mul]
+      · simp only [AG₁, f₁, Y, R₂, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_sum_type,
+          Finset.univ_unique, Finset.sum_singleton, Sum.elim_inl, Sum.elim_inr, mul_zero, zero_add]
+        calc ∑ k : U₁, A i.1 k.1 * (u k * r₂ j)
+            = (∑ k : U₁, A₁ i k * u k) * r₂ j := by
+              rw [Finset.sum_mul]; refine Finset.sum_congr rfl fun k _ => ?_; simp [A₁]; ring
+          _ = 0 := by rw [hu_ker_i i, zero_mul]
+    have hYT_R₂ : Yᵀ * R₂ = 0 := by
+      ext i j
+      simp [Y, R₂, Matrix.mul_apply, Matrix.transpose_apply, Fintype.sum_sum_type]
+    have hcongr : Pᵀ * A_blk * P = Matrix.fromBlocks AG₁ 0 0 A₂ := by
+      rw [hA_blk_eq]
+      simp only [P, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+        Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+        Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+      have hAG₁T : AG₁ᵀ = AG₁ := by
+        simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using hAG₁.eq
+      have hYT_AG₁ : Yᵀ * AG₁ = R₂ᵀ := by
+        calc Yᵀ * AG₁ = Yᵀ * AG₁ᵀ := by rw [hAG₁T]
+          _ = (AG₁ * Y)ᵀ := (Matrix.transpose_mul AG₁ Y).symm
+          _ = R₂ᵀ := by rw [hAG₁_Y]
+      have hR₂T_Y : R₂ᵀ * Y = 0 := by
+        calc R₂ᵀ * Y = (Yᵀ * R₂)ᵀ := by rw [Matrix.transpose_mul, Matrix.transpose_transpose]
+          _ = 0 := by rw [hYT_R₂, Matrix.transpose_zero]
+      congr 1
+      · rw [hAG₁_Y, neg_add_cancel]
+      · rw [hYT_AG₁, neg_add_cancel]
+      · rw [Matrix.mul_assoc, hAG₁_Y, hYT_R₂, hR₂T_Y]; simp
     have hc := signature_congr A_blk P hA_blk hP_det
     rw [← hc]
     have hs : signature (Pᵀ * A_blk * P) (isHermitian_congr A_blk P hA_blk) =
@@ -641,13 +640,13 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have h := matrixIsNOC_diagonal_congr A hA.isSymm hnoc d hd_ne hB_sym
     simpa [hB_eq] using h
   have hB_vx : B v x = 1 := by
-    simp [B, D, d, Matrix.diagonal_mul, Matrix.mul_diagonal, hvx.symm, hAvx_ne]
+    simp [B, D, d, Matrix.diagonal_mul, Matrix.mul_diagonal, hvx, hvy, hAvx_ne]
   have hB_vy : B v y = 1 := by
-    simp [B, D, d, Matrix.diagonal_mul, Matrix.mul_diagonal, hvy.symm, hxy.symm, hAvy_ne]
+    simp [B, D, d, Matrix.diagonal_mul, Matrix.mul_diagonal, hvx, hvy, hxy.symm, hAvy_ne]
   have hB_vw : ∀ w : V, w ≠ x → w ≠ y → B v w = 0 := fun w hwx hwy => by
     simp [B, D, Matrix.diagonal_mul, Matrix.mul_diagonal, hAvw_zero w hwx hwy]
   have hsym_B : ∀ a b : V, B a b = B b a := fun a b => by
-    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB.eq b) a).symm
+    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB.eq a) b).symm
   rw [← signature_congr A D hA hD_det]
   change signature B hB ≤ 0
   have hBxy_nonneg : 0 ≤ B x y := by
@@ -659,16 +658,16 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         (SimpleGraph.Walk.cons ⟨hxy, hBxy_ne⟩
           (SimpleGraph.Walk.cons ⟨hvy.symm, by rw [hsym_B, hB_vy]; norm_num⟩ SimpleGraph.Walk.nil))
     have hc_cyc : c.IsCycle := by
-      refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
+      refine ⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
       · simp [c, hvx, hxy, hvy, hvy.symm, hvx.symm, hxy.symm, Sym2.eq_swap]
-      · simp [c]
       · simp [c, hvx, hxy, hvy, hvx.symm, hxy.symm, hvy.symm]
-    have hodd : Odd c.length := by simp [c]
+    have hodd : Odd c.length := ⟨1, rfl⟩
     have hnoc_c := hB_noc v c hc_cyc hodd
     have hsign_c : signedCycleType (matrixSignedGraph B hB.isSymm).sign c = 1 := by
       simp [signedCycleType, c, walkSignProd, matrixSignedGraph, hB_vx, hsym_B y v,
         hB_vy, not_lt.mpr hneg.le]
-    linarith
+    rw [hsign_c] at hnoc_c
+    omega
   let U := {w : V // w ≠ v ∧ w ≠ x ∧ w ≠ y}
   let e : Fin 3 ⊕ U ≃ V :=
     { toFun := fun
@@ -689,8 +688,10 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         by_cases hz0 : z = v
         · simp [hz0]
         · by_cases hz1 : z = x
-          · simp [hz0, hz1]
-          · by_cases hz2 : z = y <;> simp [hz0, hz1, hz2] }
+          · simp [hz0, hz1, hvx.symm]
+          · by_cases hz2 : z = y
+            · simp [hz0, hz1, hz2, hvy.symm, hxy.symm]
+            · simp [hz0, hz1, hz2] }
   have hcard_U : Fintype.card (Unit ⊕ U) = Fintype.card V - 2 := by
     have hcard_e : 3 + Fintype.card U = Fintype.card V := by
       simpa [Fintype.card_sum, Fintype.card_fin] using Fintype.card_congr e
@@ -707,13 +708,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     ext i j; fin_cases i <;> fin_cases j <;>
       simp [P₃, Q₃, Matrix.mul_apply, Fin.sum_univ_three] <;> norm_num
   have hPQ₁ : P₁ * Q₁ = 1 := by
-    ext a b
-    rcases a with i | u <;> rcases b with j | w
-    · have h := congr_fun (congr_fun hPQ₃ i) j
-      simpa [P₁, Q₁, Matrix.mul_apply, Fintype.sum_sum_type] using h
-    · simp [P₁, Q₁, Matrix.mul_apply, Fintype.sum_sum_type]
-    · simp [P₁, Q₁, Matrix.mul_apply, Fintype.sum_sum_type]
-    · simp [P₁, Q₁, Matrix.mul_apply, Fintype.sum_sum_type, Matrix.one_apply]
+    simp [P₁, Q₁, Matrix.fromBlocks_multiply, hPQ₃, Matrix.fromBlocks_one]
   have hP₁_det : IsUnit P₁.det := isUnit_iff_exists_inv.mpr ⟨Q₁.det, by rw [← Matrix.det_mul, hPQ₁, Matrix.det_one]⟩
   rw [← signature_congr B_blk P₁ hB_blk hP₁_det]
   let Btilde := P₁ᵀ * B_blk * P₁
@@ -741,100 +736,85 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   let Btilde₂ := Btilde.submatrix e₂ e₂
   have hBtilde₂ : Btilde₂.IsHermitian := isHermitian_submatrix Btilde hBtilde e₂
   rw [← signature_reindex e₂ Btilde hBtilde]
-  let s : Unit ⊕ U → ℝ := fun
-    | Sum.inl () => 0
-    | Sum.inr u => -(B x u.1 + B y u.1) / 2
-  let P₂ : Matrix (Fin 2 ⊕ (Unit ⊕ U)) (Fin 2 ⊕ (Unit ⊕ U)) ℝ :=
-    fun a b => match a, b with
-      | Sum.inl i, Sum.inl j => if i = j then 1 else 0
-      | Sum.inl 0, Sum.inr z => s z
-      | Sum.inl 1, Sum.inr _ => 0
-      | Sum.inr _, Sum.inl _ => 0
-      | Sum.inr z, Sum.inr z' => if z = z' then 1 else 0
-  let Q₂ : Matrix (Fin 2 ⊕ (Unit ⊕ U)) (Fin 2 ⊕ (Unit ⊕ U)) ℝ :=
-    fun a b => match a, b with
-      | Sum.inl i, Sum.inl j => if i = j then 1 else 0
-      | Sum.inl 0, Sum.inr z => -s z
-      | Sum.inl 1, Sum.inr _ => 0
-      | Sum.inr _, Sum.inl _ => 0
-      | Sum.inr z, Sum.inr z' => if z = z' then 1 else 0
-  have hPQ₂ : P₂ * Q₂ = 1 := by
+  let H : Matrix (Fin 2) (Fin 2) ℝ := !![0, 2; 2, 2 * B x y]
+  let R : Matrix (Fin 2) (Unit ⊕ U) ℝ := Matrix.of fun i z => match i, z with
+    | 0, _ => 0
+    | 1, Sum.inl () => 0
+    | 1, Sum.inr u => B x u.1 + B y u.1
+  let A' : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ := Matrix.of fun a b => match a, b with
+    | Sum.inl (), Sum.inl () => -2 * B x y
+    | Sum.inl (), Sum.inr u => B x u.1 - B y u.1
+    | Sum.inr u, Sum.inl () => B u.1 x - B u.1 y
+    | Sum.inr u, Sum.inr w => B u.1 w.1
+  have hBtilde₂_eq : Btilde₂ = Matrix.fromBlocks H R Rᵀ A' := by
     ext a b
-    rcases a with i | z <;> rcases b with j | z'
-    · fin_cases i <;> fin_cases j <;> simp [P₂, Q₂, Matrix.mul_apply, Fintype.sum_sum_type]
-    · fin_cases i <;> simp [P₂, Q₂, Matrix.mul_apply, Fintype.sum_sum_type]
-    · fin_cases j <;> simp [P₂, Q₂, Matrix.mul_apply, Fintype.sum_sum_type]
-    · simp [P₂, Q₂, Matrix.mul_apply, Fintype.sum_sum_type]
+    rcases a with i | (⟨⟩ | u) <;> rcases b with j | (⟨⟩ | w)
+    · fin_cases i <;> fin_cases j <;>
+        simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, H, Matrix.mul_apply, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Fin.sum_univ_three, hB_diag v, hB_diag x, hB_diag y,
+          hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x] <;> ring
+    · fin_cases i <;>
+        simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, R, Matrix.mul_apply, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Fin.sum_univ_three, hB_diag v, hB_diag x, hB_diag y,
+          hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x] <;> ring
+    · fin_cases i <;>
+        simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, R, Matrix.mul_apply, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Fin.sum_univ_three, hB_vw w.1 w.2.2.1 w.2.2.2] <;> ring
+    · fin_cases j <;>
+        simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, R, Matrix.mul_apply, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Fin.sum_univ_three, hB_diag v, hB_diag x, hB_diag y,
+          hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x] <;> ring
+    · simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, A', Matrix.mul_apply, Matrix.transpose_apply,
+        Fintype.sum_sum_type, Fin.sum_univ_three, hB_diag v, hB_diag x, hB_diag y, hsym_B y x]
+      ring
+    · simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, A', Matrix.mul_apply, Matrix.transpose_apply,
+        Fintype.sum_sum_type, Fin.sum_univ_three]
+      ring
+    · fin_cases j <;>
+        simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, R, Matrix.mul_apply, Matrix.transpose_apply,
+          Fintype.sum_sum_type, Fin.sum_univ_three, hsym_B u.1 v, hB_vw u.1 u.2.2.1 u.2.2.2,
+          hsym_B x u.1, hsym_B y u.1] <;> ring
+    · simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, A', Matrix.mul_apply, Matrix.transpose_apply,
+        Fintype.sum_sum_type, Fin.sum_univ_three]
+      ring
+    · simp [Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, A', Matrix.mul_apply, Matrix.transpose_apply,
+        Fintype.sum_sum_type, Fin.sum_univ_three]
+  let S : Matrix (Fin 2) (Unit ⊕ U) ℝ := Matrix.of fun i z => match i, z with
+    | 0, Sum.inl () => 0
+    | 0, Sum.inr u => (B x u.1 + B y u.1) / 2
+    | 1, _ => 0
+  let P₂ : Matrix (Fin 2 ⊕ (Unit ⊕ U)) (Fin 2 ⊕ (Unit ⊕ U)) ℝ := Matrix.fromBlocks 1 (-S) 0 1
+  let Q₂ : Matrix (Fin 2 ⊕ (Unit ⊕ U)) (Fin 2 ⊕ (Unit ⊕ U)) ℝ := Matrix.fromBlocks 1 S 0 1
+  have hPQ₂ : P₂ * Q₂ = 1 := by simp [P₂, Q₂, Matrix.fromBlocks_multiply, Matrix.fromBlocks_one]
   have hP₂_det : IsUnit P₂.det := isUnit_iff_exists_inv.mpr ⟨Q₂.det, by rw [← Matrix.det_mul, hPQ₂, Matrix.det_one]⟩
   rw [← signature_congr Btilde₂ P₂ hBtilde₂ hP₂_det]
-  let H : Matrix (Fin 2) (Fin 2) ℝ := !![0, 2; 2, 2 * B x y]
-  let A' : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ :=
-    fun a b => match a, b with
-      | Sum.inl (), Sum.inl () => -2 * B x y
-      | Sum.inl (), Sum.inr u => B x u.1 - B y u.1
-      | Sum.inr u, Sum.inl () => B u.1 x - B u.1 y
-      | Sum.inr u, Sum.inr w => B u.1 w.1
-  have hcongr₂ : P₂ᵀ * Btilde₂ * P₂ = Matrix.fromBlocks H 0 0 A' := by
-    ext a b
-    rcases a with i | z <;> rcases b with j | z'
-    · fin_cases i <;> fin_cases j <;>
-        simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, H, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x] <;>
-        ring
-    · fin_cases i <;> rcases z' with ⟨⟩ | u
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_vx, hB_vy, hB_vw u.1 u.2.2.1 u.2.2.2]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vx, hB_vy, hB_vw u.1 u.2.2.1 u.2.2.2]
-        ring
-    · fin_cases j <;> rcases z with ⟨⟩ | u
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vx, hB_vy, hsym_B u.1 v, hB_vw u.1 u.2.2.1 u.2.2.2]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hB_vx, hB_vy, hsym_B x v, hsym_B y v, hsym_B y x]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vx, hB_vy, hsym_B u.1 v, hB_vw u.1 u.2.2.1 u.2.2.2, hsym_B x u.1, hsym_B y u.1]
-        ring
-    · rcases z with ⟨⟩ | u <;> rcases z' with ⟨⟩ | w
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, A', Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_diag v, hB_diag x, hB_diag y, hsym_B y x]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, A', Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vx, hB_vy, hB_vw w.1 w.2.2.1 w.2.2.2]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, A', Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vx, hB_vy, hsym_B u.1 v, hB_vw u.1 u.2.2.1 u.2.2.2, hsym_B x u.1, hsym_B y u.1]
-        ring
-      · simp [P₂, Btilde₂, Btilde, B_blk, P₁, P₃, e₂, e, s, A', Matrix.mul_apply,
-          Matrix.transpose_apply, Fintype.sum_sum_type, Fin.sum_univ_three,
-          hB_vw u.1 u.2.2.1 u.2.2.2, hB_vw w.1 w.2.2.1 w.2.2.2, hsym_B u.1 v]
-        ring
+  have hHS : H * S = R := by
+    ext i z
+    fin_cases i <;> rcases z with ⟨⟩ | u <;>
+      simp [H, S, R, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have hST_R : Sᵀ * R = 0 := by
+    ext z z'
+    rcases z with ⟨⟩ | u <;> rcases z' with ⟨⟩ | w <;>
+      simp [S, R, Matrix.mul_apply, Matrix.transpose_apply, Fin.sum_univ_two]
   have hH : H.IsHermitian := by
     ext i j; fin_cases i <;> fin_cases j <;> simp [H, Matrix.conjTranspose_apply]
+  have hHT : Hᵀ = H := by simpa [Matrix.conjTranspose_eq_transpose_of_trivial] using hH.eq
+  have hcongr₂ : P₂ᵀ * Btilde₂ * P₂ = Matrix.fromBlocks H 0 0 A' := by
+    rw [hBtilde₂_eq]
+    simp only [P₂, Matrix.fromBlocks_transpose, Matrix.transpose_one, Matrix.transpose_zero,
+      Matrix.transpose_neg, Matrix.fromBlocks_multiply, Matrix.mul_zero, Matrix.zero_mul,
+      Matrix.mul_one, Matrix.one_mul, add_zero, zero_add, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
+    have hST_H : Sᵀ * H = Rᵀ := by
+      calc Sᵀ * H = Sᵀ * Hᵀ := by rw [hHT]
+        _ = (H * S)ᵀ := (Matrix.transpose_mul H S).symm
+        _ = Rᵀ := by rw [hHS]
+    have hRT_S : Rᵀ * S = 0 := by
+      calc Rᵀ * S = (Sᵀ * R)ᵀ := by rw [Matrix.transpose_mul, Matrix.transpose_transpose]
+        _ = 0 := by rw [hST_R, Matrix.transpose_zero]
+    congr 1
+    · rw [hHS, neg_add_cancel]
+    · rw [hST_H, neg_add_cancel]
+    · rw [Matrix.mul_assoc, hHS, hST_R, hRT_S]; simp
   have hA' : A'.IsHermitian := by
     ext a b
     rcases a with ⟨⟩ | u <;> rcases b with ⟨⟩ | w <;>
@@ -847,31 +827,31 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   rw [hs_split]
   have hsH : signature H hH = 0 := signature_two_by_two_offdiag 2 (2 * B x y) (by norm_num) hH
   rw [hsH, zero_add]
-  let A'₀ : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ :=
-    fun a b => match a, b with
-      | Sum.inl (), Sum.inl () => 0
-      | a, b => A' a b
+  let A'₀ : Matrix (Unit ⊕ U) (Unit ⊕ U) ℝ := Matrix.of fun a b => match a, b with
+    | Sum.inl (), Sum.inl () => 0
+    | Sum.inl (), Sum.inr u => B x u.1 - B y u.1
+    | Sum.inr u, Sum.inl () => B u.1 x - B u.1 y
+    | Sum.inr u, Sum.inr w => B u.1 w.1
   have hA'₀ : A'₀.IsHermitian := by
     ext a b
     rcases a with ⟨⟩ | u <;> rcases b with ⟨⟩ | w <;>
-      simp [A'₀, A', Matrix.conjTranspose_apply, hsym_B]
+      simp [A'₀, Matrix.conjTranspose_apply, hsym_B]
   have hA'_le : signature A' hA' ≤ signature A'₀ hA'₀ := by
     refine signature_mono_of_posSemidef A' A'₀ hA' hA'₀ ?_
-    intro z
+    refine ⟨hA'₀.sub hA', fun z => ?_⟩
     have hdiff : ∀ a, ((A'₀ - A') *ᵥ z) a = if a = Sum.inl () then 2 * B x y * z (Sum.inl ()) else 0 := by
       intro a
       rcases a with ⟨⟩ | u
       · simp [Matrix.mulVec, dotProduct, A'₀, A', Fintype.sum_sum_type]; ring
       · simp [Matrix.mulVec, dotProduct, A'₀, A', Fintype.sum_sum_type]
-    simp only [dotProduct, hdiff, Fintype.sum_sum_type, Finset.univ_unique, Finset.sum_singleton]
-    simp only [↓reduceIte, Sum.inl.injEq, reduceCtorEq, Finset.sum_const_zero, add_zero]
+    simp only [star_trivial, dotProduct, hdiff, Fintype.sum_sum_type, Finset.univ_unique,
+      Finset.sum_singleton, ↓reduceIte, Sum.inl.injEq, reduceCtorEq, Finset.sum_const_zero, add_zero]
     nlinarith [sq_nonneg (z (Sum.inl ()))]
   have hA'₀_diag : ∀ z, A'₀ z z = 0 := by
     intro z
     rcases z with ⟨⟩ | u
     · simp [A'₀]
-    · simp [A'₀, A', hB_diag u.1]
-  -- Helper: lift any walk in A'₀ avoiding Sum.inl () to a walk in B inside U
+    · simp [A'₀, hB_diag u.1]
   let projU : Unit ⊕ U → V := fun | Sum.inl () => v | Sum.inr u => u.1
   have hprojU_inj : ∀ a b : Unit ⊕ U, a ≠ Sum.inl () → b ≠ Sum.inl () → projU a = projU b → a = b := by
     intro a b ha hb hEq
@@ -886,10 +866,8 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         q.length = p.length ∧
         walkSignProd (matrixSignedGraph B hB.isSymm).sign q =
           walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign p ∧
-        (∀ z ∈ q.support, ∃ u : U, u.1 = z ∧ Sum.inr u ∈ p.support) ∧
-        (p.support.Nodup → q.support.Nodup) ∧
-        (p.IsCycle → q.IsCycle) := by
-    intro a b p hnot
+        q.support = p.support.map projU ∧
+        q.edges = p.edges.map (Sym2.map projU) := by
     have hrec : ∀ {s t : Unit ⊕ U} (p : (matrixGraph A'₀ hA'₀.isSymm).Walk s t),
         Sum.inl () ∉ p.support →
         ∀ (as : U) (bs : U), s = Sum.inr as → t = Sum.inr bs →
@@ -923,58 +901,20 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         have hadjB : (matrixGraph B hB.isSymm).Adj as.1 u₂.1 := by
           subst hs; subst hu₂
           refine ⟨fun h => hadj.1 (congrArg Sum.inr (Subtype.ext h)), ?_⟩
-          simpa [matrixGraph, A'₀, A'] using hadj.2
+          simpa [matrixGraph, A'₀] using hadj.2
         refine ⟨SimpleGraph.Walk.cons hadjB q', by simp [hq'len], ?_, ?_, ?_⟩
         · subst hs; subst hu₂
           simp only [walkSignProd, SimpleGraph.Walk.edges_cons, List.map_cons, List.prod_cons]
           have h1 : (matrixSignedGraph B hB.isSymm).sign s(as.1, u₂.1) =
               (matrixSignedGraph A'₀ hA'₀.isSymm).sign s(Sum.inr as, Sum.inr u₂) := by
-            simp [matrixSignedGraph, A'₀, A']
+            simp [matrixSignedGraph, A'₀]
           rw [h1]
           exact congrArg _ hq'sign
         · simp [SimpleGraph.Walk.support_cons, hs, projU, hq'supp]
         · subst hs; subst hu₂
           simp [SimpleGraph.Walk.edges_cons, projU, hq'edges]
-    obtain ⟨q, hqlen, hqsign, hqsupp, hqedges⟩ := hrec p hnot a b rfl rfl
-    refine ⟨q, hqlen, hqsign, ?_, ?_, ?_⟩
-    · intro z hz
-      rw [hqsupp] at hz
-      rcases List.mem_map.mp hz with ⟨w, hw, rfl⟩
-      rcases w with ⟨⟩ | u
-      · exact absurd hw hnot
-      · exact ⟨u, rfl, hw⟩
-    · intro hnd
-      rw [hqsupp]
-      refine List.Nodup.map_on ?_ hnd
-      intro w₁ hw₁ w₂ hw₂ hEq
-      exact hprojU_inj w₁ w₂ (fun h => hnot (h ▸ hw₁)) (fun h => hnot (h ▸ hw₂)) hEq
-    · intro hcyc
-      have hne : q ≠ SimpleGraph.Walk.nil := by
-        intro hqnil
-        have : p.length = 0 := by rw [← hqlen, hqnil]; rfl
-        exact hcyc.ne_nil (SimpleGraph.Walk.eq_nil_of_length_eq_zero this)
-      have htail : q.support.tail.Nodup := by
-        rw [hqsupp, List.map_tail]
-        refine List.Nodup.map_on ?_ hcyc.support_nodup
-        intro w₁ hw₁ w₂ hw₂ hEq
-        exact hprojU_inj w₁ w₂
-          (fun h => hnot (h ▸ List.mem_of_mem_tail hw₁))
-          (fun h => hnot (h ▸ List.mem_of_mem_tail hw₂)) hEq
-      have hedges : q.edges.Nodup := by
-        rw [hqedges]
-        refine List.Nodup.map_on ?_ hcyc.edges_nodup
-        intro e₁ he₁ e₂ he₂ hEq
-        rcases e₁ with ⟨u₁, v₁⟩
-        rcases e₂ with ⟨u₂, v₂⟩
-        have hu₁ : u₁ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges p he₁)
-        have hv₁ : v₁ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges p he₁)
-        have hu₂ : u₂ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges p he₂)
-        have hv₂ : v₂ ≠ Sum.inl () := fun h => hnot (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges p he₂)
-        simp only [Sym2.map_pair_eq, Sym2.eq_iff] at hEq
-        rcases hEq with ⟨h1, h2⟩ | ⟨h1, h2⟩
-        · rw [hprojU_inj u₁ u₂ hu₁ hu₂ h1, hprojU_inj v₁ v₂ hv₁ hv₂ h2]
-        · rw [hprojU_inj u₁ v₂ hu₁ hv₂ h1, hprojU_inj v₁ u₂ hv₁ hu₂ h2, Sym2.eq_swap]
-      exact ⟨⟨hedges⟩, hne, htail⟩
+    intro a b p hnot
+    exact hrec p hnot a b rfl rfl
   have hA'₀_noc : MatrixIsNOC A'₀ hA'₀.isSymm := by
     intro z₀ c hc hodd
     let top : Unit ⊕ U := Sum.inl ()
@@ -1027,12 +967,20 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           have hp_nd : p.support.Nodup := (List.nodup_append.mp hc₀_supp).1
           have htop_not_p : top ∉ p.support := fun hm =>
             (List.nodup_append.mp hc₀_supp).2.2 top hm (List.mem_singleton_self top) rfl
-          obtain ⟨P, hPlen, hPsign, hPsupp, hPnd, _⟩ := hlift p htop_not_p
-          have hP_path : P.IsPath := ⟨hPnd hp_nd⟩
+          obtain ⟨P, hPlen, hPsign, hPsupp, _⟩ := hlift p htop_not_p
+          have hP_path : P.IsPath := by
+            refine ⟨?_⟩
+            rw [hPsupp]
+            refine List.Nodup.map_on ?_ hp_nd
+            intro a ha b hb hEq
+            exact hprojU_inj a b (fun h => htop_not_p (h ▸ ha)) (fun h => htop_not_p (h ▸ hb)) hEq
           have hP_avoid : ∀ z ∈ P.support, z ≠ v ∧ z ≠ x ∧ z ≠ y := by
             intro z hz
-            rcases hPsupp z hz with ⟨u, rfl, _⟩
-            exact u.2
+            rw [hPsupp] at hz
+            rcases List.mem_map.mp hz with ⟨w, hw, rfl⟩
+            rcases w with ⟨⟩ | u
+            · exact absurd hw htop_not_p
+            · exact u.2
           have hclen : c₀.length = P.length + 2 := by
             rw [hc₀_eq, SimpleGraph.Walk.length_cons, hq_eq, SimpleGraph.Walk.length_append]
             simp [hPlen]; omega
@@ -1046,8 +994,8 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               List.prod_cons, List.prod_append, List.prod_nil, mul_one, Sym2.eq_swap]
             rw [hPsign]
             ring
-          have h1_ne : B x w₁.1 - B y w₁.1 ≠ 0 := by simpa [matrixGraph, A'₀, A', top] using h₁.2
-          have h2_ne : B x w₂.1 - B y w₂.1 ≠ 0 := by simpa [matrixGraph, A'₀, A', top] using h₂.2
+          have h1_ne : B x w₁.1 - B y w₁.1 ≠ 0 := by simpa [matrixGraph, A'₀, top] using h₁.2
+          have h2_ne : B x w₂.1 - B y w₂.1 ≠ 0 := by simpa [matrixGraph, A'₀, top] using h₂.2
           have hcase1 := sign_diff_cases (B x w₁.1) (B y w₁.1) h1_ne
           have hcase2 := sign_diff_cases (B x w₂.1) (B y w₂.1) h2_ne
           have hw12 : w₁.1 ≠ w₂.1 := by
@@ -1067,7 +1015,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               (hb : (matrixGraph B hB.isSymm).Adj w₂.1 u₀),
               (SimpleGraph.Walk.cons ha (P.append (SimpleGraph.Walk.cons hb SimpleGraph.Walk.nil))).IsCycle := by
             intro u₀ hu₀ ha hb
-            refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
+            refine ⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
             · rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_append,
                 SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.nodup_cons]
               refine ⟨?_, ?_⟩
@@ -1086,7 +1034,6 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 intro hEq
                 subst hEq
                 exact hu₀ (SimpleGraph.Walk.snd_mem_support_of_mem_edges P he')
-            · exact SimpleGraph.Walk.cons_ne_nil _ _
             · rw [SimpleGraph.Walk.support_cons, List.tail_cons, SimpleGraph.Walk.support_append]
               simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.tail_cons]
               rw [List.nodup_append]
@@ -1097,14 +1044,12 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               exact hu₀ ha'
           rcases hcase1 with ⟨hx1_ne, hx1_s⟩ | ⟨hy1_ne, hy1_s⟩ <;>
             rcases hcase2 with ⟨hx2_ne, hx2_s⟩ | ⟨hy2_ne, hy2_s⟩
-          · -- Case (X₁, X₂): cycle x - w₁ - P - w₂ - x
-            have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
+          · have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
             have hadj1 : (matrixGraph B hB.isSymm).Adj x w₁.1 := ⟨w₁.2.2.1.symm, hx1_ne⟩
             have hadj2 : (matrixGraph B hB.isSymm).Adj w₂.1 x := ⟨w₂.2.2.1, by rwa [hsym_B]⟩
             let cyc := SimpleGraph.Walk.cons hadj1 (P.append (SimpleGraph.Walk.cons hadj2 SimpleGraph.Walk.nil))
             have hcyc : cyc.IsCycle := h_edge_cycle x hx_notP hadj1 hadj2
-            have hcyc_len : cyc.length = c₀.length := by
-              simp [cyc, hclen]; omega
+            have hcyc_len : cyc.length = c₀.length := by simp [cyc, hclen]; omega
             have hcyc_sign : walkSignProd (matrixSignedGraph B hB.isSymm).sign cyc =
                 walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign c₀ := by
               rw [hcsign]
@@ -1113,16 +1058,15 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 List.prod_cons, List.prod_append, List.prod_nil, mul_one]
               have hs1 : (matrixSignedGraph B hB.isSymm).sign s(x, w₁.1) =
                   (matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₁) := by
-                simpa [matrixSignedGraph, A'₀, A', top] using hx1_s
+                simpa [matrixSignedGraph, A'₀, top] using hx1_s
               have hs2 : (matrixSignedGraph B hB.isSymm).sign s(w₂.1, x) =
                   (matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₂) := by
                 rw [Sym2.eq_swap]
-                simpa [matrixSignedGraph, A'₀, A', top] using hx2_s
+                simpa [matrixSignedGraph, A'₀, top] using hx2_s
               rw [hs1, hs2]; ring
             have hnoc_cyc := hB_noc x cyc hcyc (hcyc_len.symm ▸ hodd₀)
             simpa only [signedCycleType, hcyc_len, hcyc_sign] using hnoc_cyc
-          · -- Case (X₁, Y₂): cycle x - w₁ - P - w₂ - y - v - x
-            have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
+          · have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
             have hy_notP : y ∉ P.support := fun hm => (hP_avoid y hm).2.2 rfl
             have hv_notP : v ∉ P.support := fun hm => (hP_avoid v hm).1 rfl
             have hadj1 : (matrixGraph B hB.isSymm).Adj x w₁.1 := ⟨w₁.2.2.1.symm, hx1_ne⟩
@@ -1133,7 +1077,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               (SimpleGraph.Walk.cons hadj3 (SimpleGraph.Walk.cons hadj4 SimpleGraph.Walk.nil))
             let cyc := SimpleGraph.Walk.cons hadj1 (P.append tailW)
             have hcyc : cyc.IsCycle := by
-              refine ⟨⟨?_, ?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
+              refine ⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
               · rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_append, List.nodup_cons]
                 refine ⟨?_, ?_⟩
                 · intro hm
@@ -1173,11 +1117,8 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 · exact hy_notP ha'
                 · exact hv_notP ha'
                 · exact hx_notP ha'
-            have hcyc_len : cyc.length = c₀.length + 2 := by
-              simp [cyc, tailW, hclen]; omega
-            have hcyc_odd : Odd cyc.length := by
-              rcases hodd₀ with ⟨k, hk⟩
-              exact ⟨k + 1, by omega⟩
+            have hcyc_len : cyc.length = c₀.length + 2 := by simp [cyc, tailW, hclen]; omega
+            have hcyc_odd : Odd cyc.length := by rcases hodd₀ with ⟨k, hk⟩; exact ⟨k + 1, by omega⟩
             have hcyc_sign : walkSignProd (matrixSignedGraph B hB.isSymm).sign cyc =
                 - walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign c₀ := by
               rw [hcsign]
@@ -1187,11 +1128,11 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 List.prod_cons, List.prod_append, List.prod_nil, mul_one]
               have hs1 : (matrixSignedGraph B hB.isSymm).sign s(x, w₁.1) =
                   (matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₁) := by
-                simpa [matrixSignedGraph, A'₀, A', top] using hx1_s
+                simpa [matrixSignedGraph, A'₀, top] using hx1_s
               have hs2 : (matrixSignedGraph B hB.isSymm).sign s(w₂.1, y) =
                   -(matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₂) := by
                 rw [Sym2.eq_swap]
-                simpa [matrixSignedGraph, A'₀, A', top] using hy2_s
+                simpa [matrixSignedGraph, A'₀, top] using hy2_s
               have hs3 : (matrixSignedGraph B hB.isSymm).sign s(y, v) = 1 := by
                 simp [matrixSignedGraph, hsym_B y v, hB_vy]
               have hs4 : (matrixSignedGraph B hB.isSymm).sign s(v, x) = 1 := by
@@ -1203,8 +1144,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             rw [hdiv, pow_succ] at hnoc_cyc
             rw [signedCycleType]
             linarith
-          · -- Case (Y₁, X₂): cycle y - w₁ - P - w₂ - x - v - y
-            have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
+          · have hx_notP : x ∉ P.support := fun hm => (hP_avoid x hm).2.1 rfl
             have hy_notP : y ∉ P.support := fun hm => (hP_avoid y hm).2.2 rfl
             have hv_notP : v ∉ P.support := fun hm => (hP_avoid v hm).1 rfl
             have hadj1 : (matrixGraph B hB.isSymm).Adj y w₁.1 := ⟨w₁.2.2.2.symm, hy1_ne⟩
@@ -1215,7 +1155,7 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               (SimpleGraph.Walk.cons hadj3 (SimpleGraph.Walk.cons hadj4 SimpleGraph.Walk.nil))
             let cyc := SimpleGraph.Walk.cons hadj1 (P.append tailW)
             have hcyc : cyc.IsCycle := by
-              refine ⟨⟨?_, ?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
+              refine ⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _, ?_⟩
               · rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_append, List.nodup_cons]
                 refine ⟨?_, ?_⟩
                 · intro hm
@@ -1255,11 +1195,8 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 · exact hx_notP ha'
                 · exact hv_notP ha'
                 · exact hy_notP ha'
-            have hcyc_len : cyc.length = c₀.length + 2 := by
-              simp [cyc, tailW, hclen]; omega
-            have hcyc_odd : Odd cyc.length := by
-              rcases hodd₀ with ⟨k, hk⟩
-              exact ⟨k + 1, by omega⟩
+            have hcyc_len : cyc.length = c₀.length + 2 := by simp [cyc, tailW, hclen]; omega
+            have hcyc_odd : Odd cyc.length := by rcases hodd₀ with ⟨k, hk⟩; exact ⟨k + 1, by omega⟩
             have hcyc_sign : walkSignProd (matrixSignedGraph B hB.isSymm).sign cyc =
                 - walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign c₀ := by
               rw [hcsign]
@@ -1269,11 +1206,11 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 List.prod_cons, List.prod_append, List.prod_nil, mul_one]
               have hs1 : (matrixSignedGraph B hB.isSymm).sign s(y, w₁.1) =
                   -(matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₁) := by
-                simpa [matrixSignedGraph, A'₀, A', top] using hy1_s
+                simpa [matrixSignedGraph, A'₀, top] using hy1_s
               have hs2 : (matrixSignedGraph B hB.isSymm).sign s(w₂.1, x) =
                   (matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₂) := by
                 rw [Sym2.eq_swap]
-                simpa [matrixSignedGraph, A'₀, A', top] using hx2_s
+                simpa [matrixSignedGraph, A'₀, top] using hx2_s
               have hs3 : (matrixSignedGraph B hB.isSymm).sign s(x, v) = 1 := by
                 simp [matrixSignedGraph, hsym_B x v, hB_vx]
               have hs4 : (matrixSignedGraph B hB.isSymm).sign s(v, y) = 1 := by
@@ -1285,14 +1222,12 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             rw [hdiv, pow_succ] at hnoc_cyc
             rw [signedCycleType]
             linarith
-          · -- Case (Y₁, Y₂): cycle y - w₁ - P - w₂ - y
-            have hy_notP : y ∉ P.support := fun hm => (hP_avoid y hm).2.2 rfl
+          · have hy_notP : y ∉ P.support := fun hm => (hP_avoid y hm).2.2 rfl
             have hadj1 : (matrixGraph B hB.isSymm).Adj y w₁.1 := ⟨w₁.2.2.2.symm, hy1_ne⟩
             have hadj2 : (matrixGraph B hB.isSymm).Adj w₂.1 y := ⟨w₂.2.2.2, by rwa [hsym_B]⟩
             let cyc := SimpleGraph.Walk.cons hadj1 (P.append (SimpleGraph.Walk.cons hadj2 SimpleGraph.Walk.nil))
             have hcyc : cyc.IsCycle := h_edge_cycle y hy_notP hadj1 hadj2
-            have hcyc_len : cyc.length = c₀.length := by
-              simp [cyc, hclen]; omega
+            have hcyc_len : cyc.length = c₀.length := by simp [cyc, hclen]; omega
             have hcyc_sign : walkSignProd (matrixSignedGraph B hB.isSymm).sign cyc =
                 walkSignProd (matrixSignedGraph A'₀ hA'₀.isSymm).sign c₀ := by
               rw [hcsign]
@@ -1301,22 +1236,45 @@ theorem degree_two_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                 List.prod_cons, List.prod_append, List.prod_nil, mul_one]
               have hs1 : (matrixSignedGraph B hB.isSymm).sign s(y, w₁.1) =
                   -(matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₁) := by
-                simpa [matrixSignedGraph, A'₀, A', top] using hy1_s
+                simpa [matrixSignedGraph, A'₀, top] using hy1_s
               have hs2 : (matrixSignedGraph B hB.isSymm).sign s(w₂.1, y) =
                   -(matrixSignedGraph A'₀ hA'₀.isSymm).sign s(top, Sum.inr w₂) := by
                 rw [Sym2.eq_swap]
-                simpa [matrixSignedGraph, A'₀, A', top] using hy2_s
+                simpa [matrixSignedGraph, A'₀, top] using hy2_s
               rw [hs1, hs2]; ring
             have hnoc_cyc := hB_noc y cyc hcyc (hcyc_len.symm ▸ hodd₀)
             simpa only [signedCycleType, hcyc_len, hcyc_sign] using hnoc_cyc
-    · -- c avoids top, so it lifts directly to a cycle in B
-      cases z₀ with
+    · cases z₀ with
       | inl u =>
         cases u
         exact absurd (SimpleGraph.Walk.start_mem_support c) htop
       | inr w₀ =>
-        obtain ⟨q, hqlen, hqsign, _, _, hqcyc⟩ := hlift c htop
-        have hnoc_q := hB_noc w₀.1 q (hqcyc hc) (hqlen.symm ▸ hodd)
+        obtain ⟨q, hqlen, hqsign, hqsupp, hqedges⟩ := hlift c htop
+        have hqcyc : q.IsCycle := by
+          refine ⟨⟨?_⟩, ?_, ?_⟩
+          · rw [hqedges]
+            refine List.Nodup.map_on ?_ hc.edges_nodup
+            intro e₁ he₁ e₂ he₂ hEq
+            rcases e₁ with ⟨u₁, v₁⟩
+            rcases e₂ with ⟨u₂, v₂⟩
+            have hu₁ : u₁ ≠ Sum.inl () := fun h => htop (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges c he₁)
+            have hv₁ : v₁ ≠ Sum.inl () := fun h => htop (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges c he₁)
+            have hu₂ : u₂ ≠ Sum.inl () := fun h => htop (h ▸ SimpleGraph.Walk.fst_mem_support_of_mem_edges c he₂)
+            have hv₂ : v₂ ≠ Sum.inl () := fun h => htop (h ▸ SimpleGraph.Walk.snd_mem_support_of_mem_edges c he₂)
+            simp only [Sym2.map_pair_eq, Sym2.eq_iff] at hEq
+            rcases hEq with ⟨h1, h2⟩ | ⟨h1, h2⟩
+            · rw [hprojU_inj u₁ u₂ hu₁ hu₂ h1, hprojU_inj v₁ v₂ hv₁ hv₂ h2]
+            · rw [hprojU_inj u₁ v₂ hu₁ hv₂ h1, hprojU_inj v₁ u₂ hv₁ hu₂ h2, Sym2.eq_swap]
+          · intro hqnil
+            have : c.length = 0 := by rw [← hqlen, hqnil]; rfl
+            exact hc.ne_nil (SimpleGraph.Walk.eq_nil_of_length_eq_zero this)
+          · rw [hqsupp, List.map_tail]
+            refine List.Nodup.map_on ?_ hc.support_nodup
+            intro w₁ hw₁ w₂ hw₂ hEq
+            exact hprojU_inj w₁ w₂
+              (fun h => htop (h ▸ List.mem_of_mem_tail hw₁))
+              (fun h => htop (h ▸ List.mem_of_mem_tail hw₂)) hEq
+        have hnoc_q := hB_noc w₀.1 q hqcyc (hqlen.symm ▸ hodd)
         simpa only [signedCycleType, hqlen, hqsign] using hnoc_q
   have hA'₀_le := ih (Unit ⊕ U) hcard_U A'₀ hA'₀ hA'₀_diag hA'₀_noc
   omega

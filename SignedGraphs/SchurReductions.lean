@@ -13,7 +13,7 @@ open Matrix SimpleGraph
 
 namespace SignedGraphs
 
-variable {V : Type*} [Fintype V] [DecidableEq V]
+variable {V : Type} [Fintype V] [DecidableEq V]
 
 /-- **Lemma 5.1(1)**: Every weighted `(K₄, +1)` NOC matrix has `s(A) ≤ 0`. -/
 theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
@@ -30,14 +30,14 @@ theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
     exact IsUnit.mk0 _ (Finset.prod_ne_zero_iff.mpr fun u _ => hd_ne u)
   let B₀ : Matrix V V ℝ := Dᵀ * A * D
   have hB₀ : B₀.IsHermitian := isHermitian_congr A D hA
-  let B : Matrix (Fin 4) (Fin 4) ℝ := B₀.submatrix e.symm e.symm
-  have hB : B.IsHermitian := isHermitian_submatrix B₀ hB₀ e.symm
-  rw [← signature_congr A D hA hD_det, ← signature_reindex e.symm B₀ hB₀]
+  let B : Matrix (Fin 4) (Fin 4) ℝ := B₀.submatrix e.symm.toEquiv e.symm.toEquiv
+  have hB : B.IsHermitian := isHermitian_submatrix B₀ hB₀ e.symm.toEquiv
+  rw [← signature_congr A D hA hD_det, ← signature_reindex e.symm.toEquiv B₀ hB₀]
   change signature B hB ≤ 0
   have hB_diag : ∀ i : Fin 4, B i i = 0 := fun i => by
     simp [B, B₀, D, Matrix.diagonal_transpose, Matrix.diagonal_mul, Matrix.mul_diagonal, hdiag]
   have hB_sym : ∀ i j : Fin 4, B i j = B j i := fun i j => by
-    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB.eq j) i).symm
+    simpa [Matrix.conjTranspose_apply] using (congr_fun (congr_fun hB.eq i) j).symm
   have hB_pos : ∀ i j : Fin 4, i ≠ j → 0 < B i j := by
     intro i j hij
     have hadjK : k4SignedGraph.graph.Adj i j := hij
@@ -59,7 +59,6 @@ theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have ha : 0 < a := hB_pos 0 1 (by decide)
   have hb : 0 < b := hB_pos 0 2 (by decide)
   have hc : 0 < c := hB_pos 1 2 (by decide)
-  -- Construct 2D strictly negative-definite subspace on coordinates {0, 1, 2}
   let ι : (Fin 3 → ℝ) →ₗ[ℝ] (Fin 4 → ℝ) :=
     { toFun := fun y i => if h : i.val < 3 then y ⟨i.val, h⟩ else 0
       map_add' := fun y₁ y₂ => by ext i; split_ifs <;> simp
@@ -131,8 +130,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     (hcardH : VH.card = 4)
     (hno_cross : ∀ u ∈ VH, ∀ w ∈ VG₂, u ≠ x → u ≠ y → w ≠ x → w ≠ y → A u w = 0)
     (hH_iso : ∃ (e : Fin 4 ≃ VH),
-      e 0 = ⟨x, by have : x ∈ VH ∩ VG₂ := by rw [hinter]; simp; exact (Finset.mem_inter.mp this).1⟩ ∧
-      e 1 = ⟨y, by have : y ∈ VH ∩ VG₂ := by rw [hinter]; simp; exact (Finset.mem_inter.mp this).1⟩ ∧
+      (e 0).1 = x ∧ (e 1).1 = y ∧
       A (e 2).1 (e 3).1 ≠ 0 ∧ A (e 0).1 (e 2).1 ≠ 0 ∧ A (e 0).1 (e 3).1 ≠ 0 ∧
       A (e 1).1 (e 2).1 ≠ 0 ∧ A (e 1).1 (e 3).1 ≠ 0)
     (ih : ∀ (W : Type) [Fintype W] [DecidableEq W],
