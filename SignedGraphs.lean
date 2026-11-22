@@ -1,11 +1,10 @@
 import SignedGraphs.Basic
+import SignedGraphs.GraphTools
 import SignedGraphs.LinearAlgebra
-import SignedGraphs.LinearAlgebraExtra
 import SignedGraphs.LocalReductions
 import SignedGraphs.ParityAndCycles
 import SignedGraphs.Classification
 import SignedGraphs.BipartiteLeaves
-import SignedGraphs.PetersenAlgebra
 import SignedGraphs.SchurReductions
 import SignedGraphs.SPQR
 import SignedGraphs.MainTheorem
