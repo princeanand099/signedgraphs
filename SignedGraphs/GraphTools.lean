@@ -6,9 +6,7 @@ import SignedGraphs.Basic
 Self-contained elementary graph-theory helpers used across Sections 3, 4, and 6:
 - `cycle_arcs_of_mem`: splits any simple cycle `C` at two distinct vertices `u₁, u₂ ∈ V(C)`
   into two internally vertex-disjoint simple `(u₁, u₂)`-paths preserving total length and mod-4 weight.
-- `isBipartite_of_no_odd_cycle` / `even_length_of_isBipartite`: a finite simple graph is bipartite iff
-  it contains no odd cycle.
-- `two_disjoint_paths_between_sets`: Menger's theorem for `k = 2`.
+- `isBipartite_iff_no_odd_cycle`: a finite simple graph is bipartite iff it contains no odd cycle.
 -/
 
 open SimpleGraph
@@ -71,6 +69,7 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
     intro h; cases h; exact hne rfl
   have hq₂_ne_nil : q₂ ≠ .nil := by
     intro h; cases h; exact hne rfl
+  -- p₁.support = u₁ :: p₁.support.tail, and p₁.support.tail ++ q₂.support.tail = c'.support.tail
   have hsupp_tail : c'.support.tail = p₁.support.tail ++ q₂.support.tail := by
     conv_lhs => rw [← hspec]
     rw [SimpleGraph.Walk.support_append]
@@ -135,6 +134,7 @@ lemma cycle_arcs_of_mem {G : SimpleGraph V} {v u₁ u₂ : V}
     exact hdisj_tails x hxp₁_tail x hxq₂_tail rfl
   · intro σ
     have h1 : walkModFourWeight σ (p₁.append q₂) = walkModFourWeight σ c' := by rw [hspec]
+    rw [SimpleGraph.Walk.edges_append] at *
     have hadd : walkModFourWeight σ (p₁.append q₂) =
         walkModFourWeight σ p₁ + walkModFourWeight σ q₂ := by
       simp [walkModFourWeight, SimpleGraph.Walk.edges_append]
@@ -175,13 +175,18 @@ omit [Fintype V] [DecidableEq V] in
 private lemma isCycle_of_tail_nodup {G : SimpleGraph V} {v : V} (c : G.Walk v v)
     (hnd : c.support.tail.Nodup) (hlen : 3 ≤ c.length) : c.IsCycle := by
   refine ⟨⟨⟨?_⟩, ?_⟩, hnd⟩
-  · cases c with
+  · -- If c.support.tail is nodup and c.length ≥ 3, then c.edges is nodup
+    cases c with
     | nil => simp at hlen
     | @cons _ w _ hadj p =>
+      -- p : G.Walk w v, and p.support = c.support.tail is Nodup, so p is a path!
       have hp : p.IsPath := ⟨by simpa [SimpleGraph.Walk.support_cons] using hnd⟩
       rw [SimpleGraph.Walk.edges_cons, List.nodup_cons]
       refine ⟨?_, hp.isTrail.edges_nodup⟩
       intro hmem
+      have hv_mem : v ∈ p.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges p hmem
+      have hw_mem : w ∈ p.support := SimpleGraph.Walk.snd_mem_support_of_mem_edges p hmem
+      -- p is a path from w to v containing edge s(v, w), so p.length = 1
       have hp1 : p.length = 1 := by
         cases p with
         | nil => simp at hmem
@@ -230,7 +235,8 @@ lemma even_closed_walk_of_no_odd_cycle {G : SimpleGraph V}
     have hge3 : 3 ≤ w.length := by omega
     by_cases hnd : w.support.tail.Nodup
     · exact hno v w (isCycle_of_tail_nodup w hnd hge3)
-    · classical
+    · -- w.support.tail has a repeated vertex; split w into two strictly shorter closed walks
+      classical
       cases w with
       | nil => simp at h0
       | @cons _ u _ hadj p =>
@@ -334,7 +340,7 @@ private lemma exists_shortest_ab_path (G : SimpleGraph V) (A B S : Finset V)
   · intro hxA
     let q := p'.dropUntil x hxp
     have hqS : ∀ y ∈ q.support, y ∉ S := fun y hy =>
-      hp'S y (SimpleGraph.Walk.support_dropUntil_subset p' hxp hy)
+      hp'S y (SimpleGraph.Walk.support_dropUntil_subset p hxp hy)
     have hle := hmin' x b hxA hb q hqS
     have hlt : q.length < p'.length := by
       have hspec := SimpleGraph.Walk.take_spec p' hxp
@@ -349,7 +355,7 @@ private lemma exists_shortest_ab_path (G : SimpleGraph V) (A B S : Finset V)
   · intro hxB
     let q := p'.takeUntil x hxp
     have hqS : ∀ y ∈ q.support, y ∉ S := fun y hy =>
-      hp'S y (SimpleGraph.Walk.support_takeUntil_subset p' hxp hy)
+      hp'S y (SimpleGraph.Walk.support_takeUntil_subset p hxp hy)
     have hle := hmin' a x ha hxB q hqS
     have hlt : q.length < p'.length := by
       have hspec := SimpleGraph.Walk.take_spec p' hxp
@@ -362,7 +368,6 @@ private lemma exists_shortest_ab_path (G : SimpleGraph V) (A B S : Finset V)
       omega
     omega
 
-omit [Fintype V] in
 private lemma walk_exits_finset {G : SimpleGraph V} (S : Finset V) {a b : V}
     (p : G.Walk a b) (ha : a ∈ S) (hb : b ∉ S) :
     ∃ x ∈ S, ∃ y ∉ S, G.Adj x y ∧ x ∈ p.support ∧ y ∈ p.support := by
@@ -375,7 +380,6 @@ private lemma walk_exits_finset {G : SimpleGraph V} (S : Finset V) {a b : V}
     · exact ⟨x, ha, y, hy, hxy, List.mem_cons_self ..,
         List.mem_cons_of_mem _ (SimpleGraph.Walk.start_mem_support q)⟩
 
-omit [Fintype V] in
 private lemma walk_prefix_to_set {G : SimpleGraph V} (T : Finset V) {a b : V}
     (p : G.Walk a b) (hex : ∃ t ∈ T, t ∈ p.support) :
     ∃ t ∈ T, ∃ q : G.Walk a t,
@@ -411,7 +415,6 @@ private lemma walk_prefix_to_set {G : SimpleGraph V} (T : Finset V) {a b : V}
         · exact hxT
         · exact hqint v hvq
 
-omit [Fintype V] in
 private lemma trim_ab_path {G : SimpleGraph V} (A B : Finset V) {a b : V}
     (ha : a ∈ A) (hb : b ∈ B) (p : G.Walk a b) :
     ∃ a' ∈ A, ∃ b' ∈ B, ∃ q : G.Walk a' b',
@@ -457,9 +460,32 @@ private lemma trim_ab_path {G : SimpleGraph V} (A B : Finset V) {a b : V}
     exact hq₂_int x (hx'.resolve_right hxa)
   · exact hq₁p_notB x (hq_sub_q₁p x hx) hxb
 
+private lemma isPath_append_of_disjoint {G : SimpleGraph V} {a b c : V}
+    (p : G.Walk a b) (q : G.Walk b c) (hp : p.IsPath) (hq : q.IsPath)
+    (hdisj : ∀ x ∈ p.support, x ∈ q.support → x = b) :
+    (p.append q).IsPath := by
+  refine SimpleGraph.Walk.IsPath.mk' ?_
+  rw [SimpleGraph.Walk.support_append, List.nodup_append]
+  refine ⟨hp.support_nodup.sublist (List.dropLast_sublist _), hq.support_nodup, ?_⟩
+  intro x hxp y hyq hxy
+  subst hxy
+  have hne : p.support ≠ [] := SimpleGraph.Walk.support_ne_nil p
+  have hlast : p.support.getLast hne = b := SimpleGraph.Walk.getLast_support p
+  have hxb : x = b := hdisj x (List.dropLast_subset _ hxp) hyq
+  subst hxb
+  have hnd := hp.support_nodup
+  rw [← List.dropLast_append_getLast hne, hlast, List.nodup_append] at hnd
+  exact hnd.2.2 x hxp x (List.mem_singleton_self x) rfl
+
+private lemma walk_lift_le {G H : SimpleGraph V} (hle : G ≤ H) {u v : V}
+    (p : G.Walk u v) :
+    ∃ q : H.Walk u v, q.support = p.support ∧ q.length = p.length :=
+  ⟨p.map (SimpleGraph.Hom.ofLE hle), by simp, by simp⟩
+
 /-- **Menger's Theorem for `k = 2`**: If `A, B : Finset V` have no 1-vertex separator in `G`
 (and `2 ≤ A.card`, `2 ≤ B.card`), then `G` contains two vertex-disjoint simple paths
 `p₁ : G.Walk a₁ b₁` and `p₂ : G.Walk a₂ b₂` from `A` to `B`, internally disjoint from `A ∪ B`. -/
+open Classical in
 theorem two_disjoint_paths_between_sets :
     ∀ (m : ℕ) (G : SimpleGraph V) (A B : Finset V),
       (Finset.univ.filter fun e : Sym2 V => e ∈ G.edgeSet).card = m →
@@ -476,6 +502,7 @@ theorem two_disjoint_paths_between_sets :
   | h m ih =>
     classical
     intro G A B hm hA hB hno_cut
+    -- Case 0: A ∩ B is nonempty
     by_cases hinter : (A ∩ B).Nonempty
     · rcases hinter with ⟨v, hv⟩
       have hvA : v ∈ A := (Finset.mem_inter.mp hv).1
@@ -497,6 +524,7 @@ theorem two_disjoint_paths_between_sets :
         exact hvn2 (List.mem_toFinset.mp hx2)
       · intro x hx h1 _; simp at hx; exact absurd hx h1
     · have hAB_disj : Disjoint A B := Finset.not_nonempty_iff_eq_empty.mp hinter |> Finset.disjoint_iff_inter_eq_empty.mpr
+      -- Case 1: There is a direct edge between A and B
       by_cases hedge : ∃ a ∈ A, ∃ b ∈ B, G.Adj a b
       · rcases hedge with ⟨a, ha, b, hb, hadj⟩
         have hab : a ≠ b := G.ne_of_adj hadj
@@ -505,13 +533,15 @@ theorem two_disjoint_paths_between_sets :
           refine ⟨?_⟩; simp [p_ab, hab]
         have hp_ab_int : ∀ x ∈ p_ab.support, x ≠ a → x ≠ b → x ∉ A ∧ x ∉ B := by
           intro x hx hxa hxb; simp [p_ab] at hx; rcases hx with rfl | rfl <;> contradiction
+        -- Find shortest A-B path avoiding a
         have hex1 : ∃ a' ∈ A, ∃ b' ∈ B, ∃ p : G.Walk a' b', ∀ x ∈ p.support, x ∉ ({a} : Finset V) := by
           rcases hno_cut a with ⟨a', ha', b', hb', p, hap⟩
           exact ⟨a', ha', b', hb', p, fun x hx hxa => hap ((Finset.mem_singleton.mp hxa) ▸ hx)⟩
         obtain ⟨a₁, b₁, p₁, ha₁, hb₁, hp₁, hp₁a, hp₁_int⟩ := exists_shortest_ab_path G A B {a} hex1
         have ha_n1 : a ∉ p₁.support := fun h => hp₁a a h (Finset.mem_singleton_self a)
         by_cases hb_in1 : b ∈ p₁.support
-        · have hb₁_eq : b₁ = b := by
+        · -- b ∈ p₁.support, so b₁ = b. Now find shortest A-B path avoiding b.
+          have hb₁_eq : b₁ = b := by
             by_contra hne
             have hba₁ : b ≠ a₁ := fun h => Finset.disjoint_left.mp hAB_disj (h ▸ ha₁) hb
             exact (hp₁_int b hb_in1 hba₁ (Ne.symm hne)).2 hb
@@ -526,10 +556,19 @@ theorem two_disjoint_paths_between_sets :
               have hab₂ : a ≠ b₂ := fun h => Finset.disjoint_left.mp hAB_disj ha (h ▸ hb₂)
               exact (hp₂_int a ha_in2 (Ne.symm hne) hab₂).1 ha
             by_cases hdisj12 : Disjoint p₁.support.toFinset p₂.support.toFinset
-            · have ha12 : a₁ ≠ a₂ := fun h => ha_n1 (h ▸ ha₂_eq ▸ SimpleGraph.Walk.start_mem_support p₁)
-              have hb12 : b₁ ≠ b₂ := fun h => hb_n2 (h ▸ hb₁_eq ▸ SimpleGraph.Walk.end_mem_support p₂)
+            · have ha12 : a₁ ≠ a₂ := by
+                intro h
+                have hmem : a₁ ∈ p₁.support := SimpleGraph.Walk.start_mem_support p₁
+                rw [h, ha₂_eq] at hmem
+                exact ha_n1 hmem
+              have hb12 : b₁ ≠ b₂ := by
+                intro h
+                have hmem : b₂ ∈ p₂.support := SimpleGraph.Walk.end_mem_support p₂
+                rw [← h, hb₁_eq] at hmem
+                exact hb_n2 hmem
               exact ⟨a₁, a₂, b₁, b₂, p₁, p₂, ha₁, ha₂, hb₁, hb₂, ha12, hb12, hp₁, hp₂, hdisj12, hp₁_int, hp₂_int⟩
-            · rw [Finset.not_disjoint_iff] at hdisj12
+            · -- p₁ and p₂ share some vertex z; combine prefix of p₁ with suffix of p₂ avoiding {a, b}
+              rw [Finset.not_disjoint_iff] at hdisj12
               rcases hdisj12 with ⟨z, hz1, hz2⟩
               have hz1' : z ∈ p₁.support := List.mem_toFinset.mp hz1
               have hz2' : z ∈ p₂.support := List.mem_toFinset.mp hz2
@@ -546,6 +585,8 @@ theorem two_disjoint_paths_between_sets :
                   · have hspec := SimpleGraph.Walk.take_spec p₁ hz1'
                     have hnd := hp₁.support_nodup
                     rw [← hspec, SimpleGraph.Walk.support_append] at hnd
+                    have hdrop_ne : (p₁.dropUntil z hz1').support ≠ [] :=
+                      SimpleGraph.Walk.support_ne_nil _
                     have hb_in_drop : b ∈ (p₁.dropUntil z hz1').support := by
                       rw [← hb₁_eq]; exact SimpleGraph.Walk.end_mem_support _
                     have hb_eq_z : b = z := by
@@ -598,33 +639,36 @@ theorem two_disjoint_paths_between_sets :
               rw [Finset.disjoint_left]
               intro x hx1 hx2
               simp only [p_ab, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil,
-                List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton] at hx1
+                List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton, Finset.notMem_empty, or_false] at hx1
               rcases hx1 with rfl | rfl
               · exact ha_nq' (List.mem_toFinset.mp hx2)
               · exact hb_nq' (List.mem_toFinset.mp hx2)
-          · refine ⟨a, a₂, b, b₂, p_ab, p₂, ha, ha₂, hb, hb₂,
+          · -- a ∉ p₂.support and b ∉ p₂.support: p_ab and p₂ are disjoint!
+            refine ⟨a, a₂, b, b₂, p_ab, p₂, ha, ha₂, hb, hb₂,
               fun h => ha_in2 (h ▸ SimpleGraph.Walk.start_mem_support p₂),
               fun h => hb_n2 (h ▸ SimpleGraph.Walk.end_mem_support p₂),
               hp_ab_path, hp₂, ?_, hp_ab_int, hp₂_int⟩
             rw [Finset.disjoint_left]
             intro x hx1 hx2
             simp only [p_ab, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil,
-              List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton] at hx1
+              List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton, Finset.notMem_empty, or_false] at hx1
             rcases hx1 with rfl | rfl
             · exact ha_in2 (List.mem_toFinset.mp hx2)
             · exact hb_n2 (List.mem_toFinset.mp hx2)
-        · refine ⟨a, a₁, b, b₁, p_ab, p₁, ha, ha₁, hb, hb₁,
+        · -- b ∉ p₁.support and a ∉ p₁.support: p_ab and p₁ are disjoint!
+          refine ⟨a, a₁, b, b₁, p_ab, p₁, ha, ha₁, hb, hb₁,
             fun h => ha_n1 (h ▸ SimpleGraph.Walk.start_mem_support p₁),
             fun h => hb_in1 (h ▸ SimpleGraph.Walk.end_mem_support p₁),
             hp_ab_path, hp₁, ?_, hp_ab_int, hp₁_int⟩
           rw [Finset.disjoint_left]
           intro x hx1 hx2
           simp only [p_ab, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil,
-            List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton] at hx1
+            List.toFinset_cons, List.toFinset_nil, Finset.mem_insert, Finset.mem_singleton, Finset.notMem_empty, or_false] at hx1
           rcases hx1 with rfl | rfl
           · exact ha_n1 (List.mem_toFinset.mp hx2)
           · exact hb_in1 (List.mem_toFinset.mp hx2)
-      · by_cases hred : ∃ e ∈ G.edgeSet, ∀ v : V, ∃ a ∈ A, ∃ b ∈ B,
+      · -- Case 2: Disjoint A B and no direct edge between A and B
+        by_cases hred : ∃ e ∈ G.edgeSet, ∀ v : V, ∃ a ∈ A, ∃ b ∈ B,
             ∃ p : (G.deleteEdges {e}).Walk a b, v ∉ p.support
         · rcases hred with ⟨e, heG, hno_cut'⟩
           let G' := G.deleteEdges {e}
@@ -651,14 +695,13 @@ theorem two_disjoint_paths_between_sets :
           · simpa [SimpleGraph.Walk.support_map] using hdisj
           · intro x hx; simpa [SimpleGraph.Walk.support_map] using hi₁ x (by simpa [SimpleGraph.Walk.support_map] using hx)
           · intro x hx; simpa [SimpleGraph.Walk.support_map] using hi₂ x (by simpa [SimpleGraph.Walk.support_map] using hx)
-        · push Not at hred
+        · -- Every edge of G is critical for hno_cut!
+          push Not at hred
           obtain ⟨a₀, ha₀⟩ := Finset.card_pos.mp (by omega : 0 < A.card)
           rcases hno_cut a₀ with ⟨a', ha', b', hb', p0, _⟩
-          have hp0_ne : p0 ≠ .nil := by
-            intro hnil; cases hnil; exact Finset.disjoint_left.mp hAB_disj ha' hb'
           have hex_e : ∃ u v : V, G.Adj u v := by
             cases p0 with
-            | nil => exact absurd rfl hp0_ne
+            | nil => exact False.elim (Finset.disjoint_left.mp hAB_disj ha' hb')
             | @cons u v _ hadj _ => exact ⟨u, v, hadj⟩
           rcases hex_e with ⟨u, v, huv⟩
           have huv_mem : s(u, v) ∈ G.edgeSet := huv
@@ -698,14 +741,13 @@ theorem two_disjoint_paths_between_sets :
             intro b hb hbw hbCA
             simp only [C_A, Finset.mem_filter, Finset.mem_univ, true_and] at hbCA
             rcases hbCA with ⟨_, a, ha, haw, ⟨p'⟩⟩
-            let pG' : G'.Walk a b := p'.map (SimpleGraph.Embedding.induce ({w}ᶜ : Set V)).toHom
-            have hwn : w ∉ pG'.support := by
+            let f := (SimpleGraph.Embedding.induce ({w}ᶜ : Set V)).toHom
+            have hwn : w ∉ (p'.map f).support := by
               intro hm
-              dsimp only [pG'] at hm
               rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
               rcases hm with ⟨x, _, hxw⟩
               exact x.2 hxw.symm
-            exact hw_cut a ha b hb pG' hwn
+            exact hw_cut a ha b hb (p'.map f) hwn
           have hCA_closed : ∀ x ∈ C_A, ∀ y : V, G'.Adj x y → y ≠ w → y ∈ C_A := by
             intro x hx y hadj hyw
             simp only [C_A, Finset.mem_filter, Finset.mem_univ, true_and] at hx ⊢
@@ -990,6 +1032,30 @@ theorem two_disjoint_paths_between_sets :
           let φB : G_B →g G := SimpleGraph.Hom.ofLE hGB_le
           let rw_path : G.Walk aw bw := (pw.map φA).append (qw.map φB)
           let ruv_path : G.Walk au bv := (pu.map φA).append (SimpleGraph.Walk.cons huv' (qv.map φB))
+          have hrw_isPath : rw_path.IsPath := by
+            apply isPath_append_of_disjoint _ _ (hpw.map fun _ _ h => h) (hqw.map fun _ _ h => h)
+            intro x hxp hxq
+            simp only [SimpleGraph.Walk.support_map, List.map_id'] at hxp hxq
+            have h1 := hpw_in x hxp
+            have h2 := hqw_in x hxq
+            rcases Finset.mem_union.mp h1 with hxCA | hxw
+            · rcases Finset.mem_union.mp h2 with hxCB | hxw
+              · exact absurd hxCB (Finset.disjoint_left.mp hCA_CB_disj hxCA)
+              · exact Finset.mem_singleton.mp hxw
+            · exact Finset.mem_singleton.mp hxw
+          have hruv_isPath : ruv_path.IsPath := by
+            have hqv_ext : (SimpleGraph.Walk.cons huv' (qv.map φB)).IsPath := by
+              refine SimpleGraph.Walk.IsPath.cons (hqv.map fun _ _ h => h) ?_
+              intro hm
+              simp only [SimpleGraph.Walk.support_map, List.map_id'] at hm
+              exact Finset.disjoint_left.mp hCA_CB_disj hu'CA (hqv_in u' hm)
+            apply isPath_append_of_disjoint _ _ (hpu.map fun _ _ h => h) hqv_ext
+            intro x hxp hxq
+            simp only [SimpleGraph.Walk.support_map, List.map_id',
+              SimpleGraph.Walk.support_cons, List.mem_cons] at hxp hxq
+            rcases hxq with rfl | hxq'
+            · rfl
+            · exact absurd (hqv_in x hxq') (Finset.disjoint_left.mp hCA_CB_disj (hpu_in x hxp))
           have hdisj_r : Disjoint rw_path.support.toFinset ruv_path.support.toFinset := by
             rw [Finset.disjoint_left]
             intro x hx1 hx2

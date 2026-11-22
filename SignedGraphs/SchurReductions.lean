@@ -761,7 +761,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
   have hA'_le := ih W hcard_W A' hA'_H hA'_diag hA'_noc
   omega
 
-private lemma petersenGraph_adj_decide (i j : Fin 10) :
+lemma petersenGraph_adj_decide (i j : Fin 10) :
     petersenGraph.Adj i j ↔
       i ≠ j ∧
       ((i.val < 5 ∧ j.val < 5 ∧ (j.val = (i.val + 1) % 5 ∨ i.val = (j.val + 1) % 5)) ∨
@@ -1493,8 +1493,9 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             exact ⟨⟨htrail, fun h => absurd (congrArg SimpleGraph.Walk.length h) (by simp [cyc])⟩,
               hcyc_supp_nd⟩
           have hcyc_len : cyc.length = c.length + 6 := by
-            have : c₁.length = p.length + 1 := by rw [hc₁_eq, SimpleGraph.Walk.length_cons]
-            simp [cyc, P', hPlen]; omega
+            have hc1p : c₁.length = p.length + 1 := by rw [hc₁_eq, SimpleGraph.Walk.length_cons]
+            have hcl : cyc.length = P.length + 7 := by simp [cyc, P']
+            omega
           have hcyc_odd : Odd cyc.length := by rcases hodd with ⟨k, hk⟩; exact ⟨k + 3, by omega⟩
           have hsign_neg : ∀ i j : Fin 10, ¬((i = 0 ∧ j = 1) ∨ (i = 1 ∧ j = 0)) →
               petersenGraph.Adj i j → (matrixSignedGraph B hB.isSymm).sign s((eH i).1, (eH j).1) = -1 := by
@@ -1548,7 +1549,7 @@ theorem petersen_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have hU_diag : ∀ u : U, (G₂.submatrix Sum.inr Sum.inr) u u = 0 := fun u => hB_diag u.1
     have hU_noc : MatrixIsNOC (G₂.submatrix Sum.inr Sum.inr)
         (isHermitian_submatrix G₂ hG₂ Sum.inr).isSymm := by
-      exact matrixIsNOC_submatrix_injective B hB.isSymm hB_noc Subtype.val Subtype.coe_injective
+      exact matrixIsNOC_submatrix_injective B hB.isSymm hB_noc Subtype.val Subtype.coe_injective _
     exact ih U hU_le (G₂.submatrix Sum.inr Sum.inr) (isHermitian_submatrix G₂ hG₂ Sum.inr) hU_diag hU_noc
 
 end SignedGraphs
