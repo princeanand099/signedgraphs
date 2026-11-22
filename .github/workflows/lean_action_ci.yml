@@ -1,0 +1,79 @@
+name: Lean Action CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Republish previous ci-logs without cache spam
+        run: |
+          git fetch origin ci-logs || true
+          git show origin/ci-logs:last_build.log | grep -v -E "(Decompressing|Downloaded| unpacking |\[[0-9]+/[0-9]+\] Downloading)" > /tmp/prev_clean.log || true
+          if [ -s /tmp/prev_clean.log ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git checkout --orphan ci-logs-temp
+            git rm -rf . >/dev/null 2>&1 || true
+            cp /tmp/prev_clean.log last_build.log
+            split -l 150 -d --additional-suffix=.log /tmp/prev_clean.log part_
+            git add -f last_build.log part_*.log
+            {
+              echo "Filtered CI log for previous run"
+              echo ""
+              tail -n 400 /tmp/prev_clean.log
+            } > /tmp/commit_msg.txt
+            git commit -F /tmp/commit_msg.txt
+            git push -f origin HEAD:refs/heads/ci-logs
+            git checkout -f ${{ github.sha }}
+          fi
+
+      - name: Install elan
+        run: |
+          curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Cache and build
+        id: build
+        continue-on-error: true
+        run: |
+          lake exe cache get >/dev/null 2>&1 || true
+          set -o pipefail
+          {
+            echo "COMMIT=${{ github.sha }}"
+            echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            lake build 2>&1
+          } | tee /tmp/last_build.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Publish full build log to ci-logs branch
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ci-logs-out
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/last_build.log last_build.log
+          split -l 150 -d --additional-suffix=.log /tmp/last_build.log part_
+          git add -f last_build.log part_*.log
+          {
+            echo "CI log for ${{ github.sha }} (exit ${{ steps.build.outputs.exit_code }})"
+            echo ""
+            tail -n 400 /tmp/last_build.log
+          } > /tmp/commit_msg.txt
+          git commit -F /tmp/commit_msg.txt
+          git push -f origin HEAD:refs/heads/ci-logs
+
+      - name: Fail job if lake build failed
+        if: steps.build.outputs.exit_code != '0'
+        run: exit 1
