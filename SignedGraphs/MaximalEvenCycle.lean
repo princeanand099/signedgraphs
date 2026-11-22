@@ -144,15 +144,21 @@ private lemma mem_support_of_edges_subset {G : SimpleGraph V} {v a b : V}
       rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hx
       rcases hx with rfl | hr
       · exact ⟨w, by simp⟩
-      · clear hp_pos hp_e hadj
-        induction r with
-        | nil => simp at hr; subst hr; exact ⟨a, by simp [Sym2.eq_swap]⟩
-        | @cons u₁ u₂ u₃ h' r' ih =>
-          rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hr
-          rcases hr with rfl | hr'
-          · exact ⟨u₂, by simp⟩
-          · obtain ⟨y, hy⟩ := ih hr'
-            exact ⟨y, by simp [hy]⟩
+      · have aux : ∀ {u₁ u₂ : V} (r' : G.Walk u₁ u₂), x ∈ r'.support →
+            x = u₁ ∨ ∃ y, s(x, y) ∈ r'.edges := by
+          intro u₁ u₂ r'
+          induction r' with
+          | nil => intro h; left; simpa using h
+          | @cons u₁ u₂ u₃ h' r'' ih =>
+            intro h; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at h
+            rcases h with rfl | h'
+            · left; rfl
+            · rcases ih h' with rfl | ⟨y, hy⟩
+              · right; exact ⟨u₁, by simp [Sym2.eq_swap]⟩
+              · right; exact ⟨y, by simp [hy]⟩
+        rcases aux r hr with rfl | ⟨y, hy⟩
+        · exact ⟨a, by simp [Sym2.eq_swap]⟩
+        · exact ⟨y, by simp [hy]⟩
     rcases hex_e with ⟨y, hy⟩
     exact SimpleGraph.Walk.fst_mem_support_of_mem_edges c (hp_e _ hy)
 
