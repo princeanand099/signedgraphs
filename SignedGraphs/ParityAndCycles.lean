@@ -132,7 +132,7 @@ lemma isCycle_append_reverse_of_disjoint {G : SimpleGraph V} {u₁ u₂ : V}
     (hdisj : ∀ x ∈ q.support, x ≠ u₁ → x ≠ u₂ → x ∉ p.support)
     (hlen : 3 ≤ q.length + p.length) :
     (q.append p.reverse).IsCycle := by
-  refine ⟨⟨?_⟩, ?_, ?_⟩
+  refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
   · rw [SimpleGraph.Walk.edges_append, List.nodup_append]
     refine ⟨hq.toIsTrail.edges_nodup, hp.reverse.toIsTrail.edges_nodup, ?_⟩
     intro e heq hep

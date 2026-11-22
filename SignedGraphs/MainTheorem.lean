@@ -64,7 +64,7 @@ private lemma matrixGraph_neg_adjMatrix {n : ℕ} (G : SimpleGraph (Fin n)) [Dec
 private lemma walk_map_isCycle {V W : Type*} {G : SimpleGraph V} {H : SimpleGraph W}
     (φ : G →g H) (hφ : Function.Injective φ) {v : V} (c : G.Walk v v) (hc : c.IsCycle) :
     (c.map φ).IsCycle := by
-  refine ⟨⟨?_⟩, ?_, ?_⟩
+  refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
   · rw [SimpleGraph.Walk.edges_map]
     exact hc.toIsTrail.edges_nodup.map (Sym2.map.injective hφ)
   · intro hnil
