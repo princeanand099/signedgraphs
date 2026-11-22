@@ -458,7 +458,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     congr 1
     rw [hsumV _ (by simp)]
     refine Finset.sum_congr rfl fun z _ => ?_
-    simp [ι, z.2]
+    try simp [z.2]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
   have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
     intro x hx
