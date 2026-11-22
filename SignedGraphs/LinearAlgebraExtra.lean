@@ -512,10 +512,11 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
         simpa [Matrix.diagonal_mul, Matrix.mul_diagonal, hd u, hd x] using hb
       have h1 : (matrixSignedGraph (Matrix.diagonal d * A * Matrix.diagonal d) hB).sign s(u, x) =
           switchSign S (matrixSignedGraph A hA).sign s(emb.toHom u, emb.toHom x) := by
+        have hemb : ∀ z : V, emb.toHom z = z := fun _ => rfl
+        rw [hemb u, hemb x]
         have hBu : (Matrix.diagonal d * A * Matrix.diagonal d) u x = d u * A u x * d x := by
           simp [Matrix.diagonal_mul, Matrix.mul_diagonal]
-        simp only [emb, RelEmbedding.coe_mk, Function.Embedding.coeFn_mk, id_eq,
-          SimpleGraph.Embedding.coe_toHom, switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
+        simp only [switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
         rw [sign_ite_mul (d u * A u x) (d x) (mul_ne_zero (hd u) hux) (hd x),
             sign_ite_mul (d u) (A u x) (hd u) hux]
         have hsu : (if 0 < d u then (1 : ℤ) else -1) = if u ∈ S then -1 else 1 := by
