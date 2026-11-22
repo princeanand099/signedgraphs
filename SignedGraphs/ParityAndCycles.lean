@@ -158,9 +158,10 @@ lemma isCycle_append_reverse_of_disjoint {G : SimpleGraph V} {u₁ u₂ : V}
       · rfl
       · exact Sym2.eq_swap
       · exact absurd rfl hab
-    rw [he_eq] at heq hep
-    have hq1 := path_length_eq_one_of_edge_endpoints q hq heq
-    have hp1 := path_length_eq_one_of_edge_endpoints p hp hep
+    have heq' : s(u₁, u₂) ∈ q.edges := he_eq ▸ heq
+    have hep' : s(u₁, u₂) ∈ p.edges := he_eq ▸ hep
+    have hq1 := path_length_eq_one_of_edge_endpoints q hq heq'
+    have hp1 := path_length_eq_one_of_edge_endpoints p hp hep'
     omega
   · intro hnil
     have h0 : (q.append p.reverse).length = 0 := by rw [hnil]; rfl
