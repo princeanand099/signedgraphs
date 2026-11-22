@@ -57,10 +57,10 @@ theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
     rw [hBij]
     dsimp [d]
     by_cases hi : e.symm i ∈ T <;> by_cases hj : e.symm j ∈ T <;>
-      rcases lt_or_gt_of_ne hAne with ha | ha
+      by_cases hpos : 0 < A (e.symm i) (e.symm j)
     all_goals
-      simp [hi, hj, ha, not_lt.mpr ha.le] at hsw ⊢
-      try omega
+      simp [hi, hj, hpos] at hsw ⊢
+      try (have hneg : A (e.symm i) (e.symm j) < 0 := lt_of_le_of_ne (not_lt.mp hpos) hAne; linarith)
       try linarith
   let a : ℝ := B 0 1
   let b : ℝ := B 0 2
@@ -257,24 +257,11 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have hedges_c : cyc.edges = [s(z, u), s(u, v), s(v, z)] := rfl
     have hsupp_c : cyc.support.tail = [u, v, z] := rfl
     have hcyc : cyc.IsCycle := by
-      refine ⟨⟨⟨?_⟩, fun h => absurd (congrArg SimpleGraph.Walk.length h) (by rw [hlen_c]; decide)⟩, ?_⟩
+      refine ⟨⟨⟨?_⟩, fun h => absurd (congrArg SimpleGraph.Walk.length h) (by rw [hlen_c]; simp)⟩, ?_⟩
       · rw [hedges_c]
-        simp only [List.nodup_cons, List.nodup_nil, List.mem_cons, List.not_mem_nil,
-          or_false, and_true, not_or]
-        refine ⟨⟨?_, ?_⟩, ?_⟩
-        · intro h; rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-          · exact hzu h1
-          · exact huv h2.symm
-        · intro h; rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨_, h2⟩
-          · exact hzv h1
-          · exact huv h2
-        · intro h; rcases Sym2.eq_iff.mp h with ⟨h1, _⟩ | ⟨h1, _⟩
-          · exact huv h1
-          · exact hzu h1.symm
+        simp [Sym2.eq_iff, huv, hzu, hzv, hzu.symm, hzv.symm, huv.symm]
       · rw [hsupp_c]
-        simp only [List.nodup_cons, List.nodup_nil, List.mem_cons, List.not_mem_nil,
-          or_false, and_true, not_or]
-        exact ⟨⟨huv, hzu.symm⟩, hzv.symm⟩
+        simp [huv, hzu.symm, hzv.symm]
     have hodd : Odd cyc.length := ⟨1, rfl⟩
     have hnoc_c := hB_noc z cyc hcyc hodd
     have hsign_c : signedCycleType (matrixSignedGraph B hB.isSymm).sign cyc = 1 := by
@@ -441,7 +428,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       first
       | (exfalso; exact hxy (h1x.symm.trans h1y))
       | (exfalso; exact hxy (h2x.symm.trans h2y))
-      | (simp [h1x, h1y, h2x, h2y]; try ring)
+      | (simp [h1x, h1y, h2x, h2y, hxy, hxy.symm]; try ring)
   have hdiff_entry : ∀ w₁ w₂ : W, (A' - A_schur) w₁ w₂ =
       if w₁.1 = x ∧ w₂.1 = x then 2 * a * b / e₀
       else if w₁.1 = y ∧ w₂.1 = y then 2 * c * d₀ / e₀
@@ -454,7 +441,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       first
       | (exfalso; exact hxy (h1x.symm.trans h1y))
       | (exfalso; exact hxy (h2x.symm.trans h2y))
-      | simp [h1x, h1y, h2x, h2y]
+      | simp [h1x, h1y, h2x, h2y, hxy, hxy.symm]
   have hWeyl : signature A_schur hA_schur_H ≤ signature A' hA'_H := by
     refine signature_mono_of_posSemidef A_schur A' hA_schur_H hA'_H ?_
     rw [Matrix.posSemidef_iff_dotProduct_mulVec]
@@ -505,7 +492,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           · simp [hwx, hwy]
       simp_rw [h1]
       rw [Finset.sum_add_distrib]
-      simp only [Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+      simp only [Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
     rw [hquad]
     have h1 : 0 ≤ 2 * a * b / e₀ := div_nonneg (by nlinarith [ha_pos, hb_pos]) he₀_pos.le
     have h2 : 0 ≤ 2 * c * d₀ / e₀ := div_nonneg (by nlinarith [hc_pos, hd₀_pos]) he₀_pos.le
@@ -635,9 +622,9 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         have hP_path : P.IsPath :=
           SimpleGraph.Walk.IsPath.mk' (by rw [hPsupp]; exact hp_path.support_nodup.map Subtype.coe_injective)
         have hu_notP : u ∉ P.support := by
-          intro hm; rw [hPsupp, List.mem_map] at hm; rcases hm with ⟨w, _, hw⟩; exact w.2.1 hw.symm
+          intro hm; rw [hPsupp, List.mem_map] at hm; rcases hm with ⟨w, _, hw⟩; exact w.2.1 hw
         have hv_notP : v ∉ P.support := by
-          intro hm; rw [hPsupp, List.mem_map] at hm; rcases hm with ⟨w, _, hw⟩; exact w.2.2 hw.symm
+          intro hm; rw [hPsupp, List.mem_map] at hm; rcases hm with ⟨w, _, hw⟩; exact w.2.2 hw
         have hadj1 : (matrixSignedGraph B hB.isSymm).graph.Adj x u := ⟨hux.symm, ne_of_gt ha_pos⟩
         have hadj2 : (matrixSignedGraph B hB.isSymm).graph.Adj u v := ⟨huv, ne_of_gt he₀_pos⟩
         have hadj3 : (matrixSignedGraph B hB.isSymm).graph.Adj v y := ⟨hvy, by rw [hsym_B]; exact ne_of_gt hd₀_pos⟩
@@ -711,7 +698,8 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
               · rintro ⟨hne, hval⟩
                 refine ⟨fun h => hne (Subtype.ext h), ?_⟩
                 by_cases h : (w₁.1 = x ∧ w₂.1 = y) ∨ (w₁.1 = y ∧ w₂.1 = x)
-                · rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+                · change B w₁.1 w₂.1 ≠ 0
+                  rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
                   · rw [h1, h2]; exact ne_of_gt hBxy_pos
                   · rw [h1, h2, hsym_B y x]; exact ne_of_gt hBxy_pos
                 · simpa [matrixSignedGraph, matrixGraph, A', h] using hval }
