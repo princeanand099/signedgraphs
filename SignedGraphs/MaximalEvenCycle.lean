@@ -13,7 +13,7 @@ def IsChord {G : SimpleGraph V} {v : V} (c : G.Walk v v) (e : Sym2 V) : Prop :=
   ∃ a b : V, e = s(a, b) ∧ a ∈ c.support ∧ b ∈ c.support ∧ G.Adj a b ∧ s(a, b) ∉ c.edges
 
 private lemma shortest_path_in_set {G : SimpleGraph V} (L : Finset V)
-    (hL_conn : ∀ x ∈ L, ∀ y ∈ L, (G.induce (L : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩)
+    (hL_conn : ∀ (x : V) (hx : x ∈ L) (y : V) (hy : y ∈ L), (G.induce (L : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩)
     {u₁ u₂ : V} (hu₁ : u₁ ∉ L) (hu₂ : u₂ ∉ L) (hne : u₁ ≠ u₂)
     (x₁ x₂ : V) (hx₁ : x₁ ∈ L) (hx₂ : x₂ ∈ L) (h1 : G.Adj u₁ x₁) (h2 : G.Adj x₂ u₂) :
     ∃ (p : G.Walk u₁ u₂), p.IsPath ∧ x₁ ∈ p.support ∧
@@ -185,7 +185,7 @@ connected vertex set such that `G - D` contains an even cycle. Then there exists
 theorem maximal_even_cycle_lemma (G : SimpleGraph V)
     (h3 : ∀ A : Finset V, A.card ≤ 2 → (G.induce (Aᶜ : Set V)).Preconnected)
     (D : Finset V) (d₀ : V) (hd₀ : d₀ ∈ D)
-    (hD_conn : ∀ x ∈ D, ∀ y ∈ D, (G.induce (D : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩)
+    (hD_conn : ∀ (x : V) (hx : x ∈ D) (y : V) (hy : y ∈ D), (G.induce (D : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩)
     {v₀ : V} (c₀ : G.Walk v₀ v₀) (hc₀ : c₀.IsCycle) (heven₀ : Even c₀.length)
     (hdisj₀ : Disjoint c₀.support.toFinset D) :
     ∃ (v : V) (c : G.Walk v v), c.IsCycle ∧ Even c.length ∧ Disjoint c.support.toFinset D ∧
@@ -326,7 +326,7 @@ theorem maximal_even_cycle_lemma (G : SimpleGraph V)
         simp only [L, Finset.mem_filter, Finset.mem_univ, true_and] at hx ⊢
         rcases hx with ⟨hxC, hr⟩
         exact ⟨hyC, hr.trans (SimpleGraph.Adj.reachable (show (G.induce ((c.support.toFinset : Set V)ᶜ)).Adj ⟨x, hxC⟩ ⟨y, hyC⟩ from hadj))⟩
-    have hL_conn : ∀ x ∈ L, ∀ y ∈ L, (G.induce (L : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩ := by
+    have hL_conn : ∀ (x : V) (hx : x ∈ L) (y : V) (hy : y ∈ L), (G.induce (L : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩ := by
       intro x hx y hy
       simp only [L, Finset.mem_filter, Finset.mem_univ, true_and] at hx hy
       rcases hx with ⟨hxC, hrx⟩
