@@ -444,13 +444,53 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
     (hB : (Matrix.diagonal d * A * Matrix.diagonal d).Symmetric) :
     MatrixIsNOC (Matrix.diagonal d * A * Matrix.diagonal d) hB := by
   let B := Matrix.diagonal d * A * Matrix.diagonal d
-  have hG : matrixGraph B hB = matrixGraph A hA := by
-    ext u v
-    simp [matrixGraph, B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd u, hd v]
+  let emb : matrixGraph B hB ↪g matrixGraph A hA :=
+    { toFun := id
+      inj' := Function.injective_id
+      map_rel_iff' := by
+        intro a b
+        simp [matrixGraph, B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd a, hd b] }
   let S : Set V := {u : V | d u < 0}
   intro v c hc hodd
-  let c' : (matrixGraph A hA).Walk v v := c.copy rfl rfl (hG ▸ rfl)
-  sorry
+  let c' : (matrixGraph A hA).Walk v v := c.map emb.toHom
+  have hc' : c'.IsCycle := hc.map emb.injective
+  have hodd' : Odd c'.length := by simpa [c'] using hodd
+  have hsign : walkSignProd (matrixSign B) c = walkSignProd (switchSign S (matrixSign A)) c' := by
+    clear hc hodd hc' hodd'
+    induction c with
+    | nil => simp [c', walkSignProd]
+    | @cons u x w h p ih =>
+      simp only [c', SimpleGraph.Walk.map_cons, walkSignProd, SimpleGraph.Walk.edges_cons,
+        List.map_cons, List.prod_cons]
+      have hux : A u x ≠ 0 := h.2 |> fun hb => by
+        simpa [B, Matrix.diagonal_mul, Matrix.mul_diagonal, hd u, hd x] using hb
+      have h1 : matrixSign B s(u, x) = switchSign S (matrixSign A) s(emb u, emb x) := by
+        simp only [emb, RelEmbedding.coe_mk, Function.Embedding.coeFn_mk, id_eq,
+          switchSign, Sym2.lift_mk, matrixSign, B, Matrix.diagonal_mul, Matrix.mul_diagonal, S,
+          Set.mem_setOf_eq]
+        have hdu : d u < 0 ∨ 0 < d u := lt_or_gt_of_ne (hd u)
+        have hdx : d x < 0 ∨ 0 < d x := lt_or_gt_of_ne (hd x)
+        have hAx : A u x < 0 ∨ 0 < A u x := lt_or_gt_of_ne hux
+        rcases hdu with hu | hu <;> rcases hdx with hx | hx <;> rcases hAx with ha | ha
+        · have hpos : 0 < d u * A u x * d x := by nlinarith
+          simp [hpos, hu, hx, not_lt.mpr ha.le]
+        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
+          simp [hneg, hu, hx, ha]
+        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
+          simp [hneg, hu, not_lt.mpr hx.le, not_lt.mpr ha.le]
+        · have hpos : 0 < d u * A u x * d x := by nlinarith
+          simp [hpos, hu, not_lt.mpr hx.le, ha]
+        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
+          simp [hneg, not_lt.mpr hu.le, hx, not_lt.mpr ha.le]
+        · have hpos : 0 < d u * A u x * d x := by nlinarith
+          simp [hpos, not_lt.mpr hu.le, hx, ha]
+        · have hpos : 0 < d u * A u x * d x := by nlinarith
+          simp [hpos, not_lt.mpr hu.le, not_lt.mpr hx.le, not_lt.mpr ha.le]
+        · have hneg : ¬ (0 < d u * A u x * d x) := by nlinarith
+          simp [hneg, not_lt.mpr hu.le, not_lt.mpr hx.le, ha]
+      rw [h1, ih]
+  rw [signedCycleType, hsign, walkSignProd_switch]
+  simpa [signedCycleType, c'] using hnoc v c' hc' hodd'
 
 end MatrixHelpers
 
