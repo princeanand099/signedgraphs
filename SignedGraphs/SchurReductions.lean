@@ -61,7 +61,7 @@ theorem k4_signature_nonpos (A : Matrix V V ℝ) (hA : A.IsHermitian)
     all_goals
       simp only [hi, hj, ha, not_lt.mpr ha.le, ↓reduceIte, mul_neg, neg_mul, mul_one, one_mul,
         neg_neg] at hsw ⊢
-      first | norm_num at hsw | linarith
+      try (first | norm_num at hsw | linarith)
   let a : ℝ := B 0 1
   let b : ℝ := B 0 2
   let c : ℝ := B 1 2
@@ -173,7 +173,8 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     intro w hw
     have hi := eH.apply_symm_apply ⟨w, hw⟩
     have hval : (eH (eH.symm ⟨w, hw⟩)).1 = w := congrArg Subtype.val hi
-    fin_cases hidx : eH.symm ⟨w, hw⟩ <;> simp [hidx, he0, he1, u, v] at hval <;> simp [hval]
+    generalize eH.symm ⟨w, hw⟩ = idx at hval
+    fin_cases idx <;> simp [he0, he1, u, v] at hval <;> simp [hval]
   have hno_u : ∀ w : V, w ≠ x → w ≠ y → w ≠ u → w ≠ v → A u w = 0 := by
     intro w hwx hwy hwu hwv
     have hwG₂ : w ∈ VG₂ := by
@@ -190,7 +191,6 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       · rcases hVH_eq w hwH with rfl | rfl | rfl | rfl <;> contradiction
       · exact hwG
     exact hno_cross v hv_mem w hwG₂ hvx hvy hwx hwy
-  -- Switch signs on {v, x, y} so that A_uv, A_xu, A_yu become positive
   let d : V → ℝ := fun w =>
     if w = v then (if 0 < A u v then 1 else -1)
     else if w = x then (if 0 < A x u then 1 else -1)
@@ -236,18 +236,21 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     intro z hzu hzv hBzu hBzv
     by_contra hle
     have hneg : B z v < 0 := lt_of_le_of_ne (not_lt.mp hle) hBzv
-    let cyc : (matrixGraph B hB.isSymm).Walk z z :=
+    let cyc : (matrixSignedGraph B hB.isSymm).graph.Walk z z :=
       SimpleGraph.Walk.cons ⟨hzu, ne_of_gt hBzu⟩
         (SimpleGraph.Walk.cons ⟨huv, ne_of_gt he₀_pos⟩
           (SimpleGraph.Walk.cons ⟨hzv.symm, by rw [hsym_B]; exact hBzv⟩ SimpleGraph.Walk.nil))
     have hcyc : cyc.IsCycle := by
-      refine ⟨⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _⟩, ?_⟩
-      · simp [cyc, hzu, huv, hzv, hzu.symm, huv.symm, hzv.symm, Sym2.eq_swap]
-      · simp [cyc, hzu, huv, hzv, hzu.symm, huv.symm, hzv.symm]
+      refine ⟨⟨⟨?_⟩, fun h => by cases h⟩, ?_⟩
+      · simp [cyc, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+          hzu, huv, hzv, hzu.symm, huv.symm, hzv.symm, Sym2.eq_swap]
+      · simp [cyc, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil,
+          hzu, huv, hzv, hzu.symm, huv.symm, hzv.symm]
     have hodd : Odd cyc.length := ⟨1, rfl⟩
     have hnoc_c := hB_noc z cyc hcyc hodd
     have hsign_c : signedCycleType (matrixSignedGraph B hB.isSymm).sign cyc = 1 := by
-      simp only [signedCycleType, cyc, walkSignProd, SimpleGraph.Walk.length_cons,
+      dsimp only [cyc]
+      simp only [signedCycleType, walkSignProd, SimpleGraph.Walk.length_cons,
         SimpleGraph.Walk.length_nil, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
         List.map_cons, List.map_nil, List.prod_cons, List.prod_nil,
         matrixSignedGraph, Sym2.lift_mk, hBzu, he₀_pos, hsym_B v z, not_lt.mpr hneg.le]
@@ -270,7 +273,6 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     simp [B, D, Matrix.diagonal_transpose, Matrix.diagonal_mul, Matrix.mul_diagonal, hno_u w h1 h2 h3 h4]
   have hB_no_v : ∀ w : V, w ≠ x → w ≠ y → w ≠ u → w ≠ v → B v w = 0 := fun w h1 h2 h3 h4 => by
     simp [B, D, Matrix.diagonal_transpose, Matrix.diagonal_mul, Matrix.mul_diagonal, hno_v w h1 h2 h3 h4]
-  -- Partition V ≃ Fin 2 ⊕ W where Fin 2 = {u, v} and W = V \ {u, v}
   let W := {w : V // w ≠ u ∧ w ≠ v}
   let e : Fin 2 ⊕ W ≃ V :=
     { toFun := fun
@@ -374,11 +376,10 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     simpa [Matrix.conjTranspose_apply] using h2
   rw [signature_congr_eq' (isHermitian_congr B_blk P hB_blk)
     (isHermitian_fromBlocks A_int hAint_H A_schur hA_schur_H) hcongr]
-  rw [signature_fromBlocks]
+  rw [signature_fromBlocks A_int hAint_H A_schur hA_schur_H]
   have hs_int : signature A_int hAint_H = 0 :=
     signature_two_by_two_offdiag e₀ 0 he₀_ne hAint_H
   rw [hs_int, zero_add]
-  -- Replace A_schur by A' (Weyl monotonicity)
   let μ : ℝ := (a * d₀ + b * c) / e₀
   have hμ_pos : 0 < μ := by
     dsimp [μ]
@@ -411,7 +412,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
       try (exfalso; exact hxy (h1x.symm.trans h1y))
       try (exfalso; exact hxy (h2x.symm.trans h2y))
       simp [h1x, h1y, h2x, h2y]
-      ring
+      try ring
   have hdiff_entry : ∀ w₁ w₂ : W, (A' - A_schur) w₁ w₂ =
       if w₁.1 = x ∧ w₂.1 = x then 2 * a * b / e₀
       else if w₁.1 = y ∧ w₂.1 = y then 2 * c * d₀ / e₀
@@ -480,14 +481,13 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     have h1 : 0 ≤ 2 * a * b / e₀ := div_nonneg (by nlinarith [ha_pos, hb_pos]) he₀_pos.le
     have h2 : 0 ≤ 2 * c * d₀ / e₀ := div_nonneg (by nlinarith [hc_pos, hd₀_pos]) he₀_pos.le
     nlinarith [sq_nonneg (z x'), sq_nonneg (z y')]
-  -- Prove MatrixIsNOC A'
   have hA'_noc : MatrixIsNOC A' hA'_H.isSymm := by
     let x' : W := ⟨x, hux.symm, hvx.symm⟩
     let y' : W := ⟨y, huy.symm, hvy.symm⟩
     have hxy'_ne : x' ≠ y' := fun h => hxy (congrArg Subtype.val h)
-    have hlift_avoid : ∀ {p₁ p₂ : W} (p : (matrixGraph A' hA'_H.isSymm).Walk p₁ p₂),
+    have hlift_avoid : ∀ {p₁ p₂ : W} (p : (matrixSignedGraph A' hA'_H.isSymm).graph.Walk p₁ p₂),
         s(x', y') ∉ p.edges →
-        ∃ q : (matrixGraph B hB.isSymm).Walk p₁.1 p₂.1,
+        ∃ q : (matrixSignedGraph B hB.isSymm).graph.Walk p₁.1 p₂.1,
           q.length = p.length ∧
           walkSignProd (matrixSignedGraph B hB.isSymm).sign q =
             walkSignProd (matrixSignedGraph A' hA'_H.isSymm).sign p ∧
@@ -507,7 +507,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           · exact hne_edge (by rw [show s₁ = x' from Subtype.ext h1, show s₂ = y' from Subtype.ext h2])
           · exact hne_edge (by rw [show s₁ = y' from Subtype.ext h1, show s₂ = x' from Subtype.ext h2, Sym2.eq_swap])
         have hA'_eq_B : A' s₁ s₂ = B s₁.1 s₂.1 := by simp [A', hnot_xy]
-        have hadjB : (matrixGraph B hB.isSymm).Adj s₁.1 s₂.1 :=
+        have hadjB : (matrixSignedGraph B hB.isSymm).graph.Adj s₁.1 s₂.1 :=
           ⟨fun h => hadj.1 (Subtype.ext h), by rw [← hA'_eq_B]; exact hadj.2⟩
         obtain ⟨q', hq'len, hq'sign, hq'supp, hq'edges⟩ := ihr hnot_r
         refine ⟨SimpleGraph.Walk.cons hadjB q', by simp [hq'len], ?_, ?_, ?_⟩
@@ -523,26 +523,23 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
     · have hA'_xy_ne : B x y - μ ≠ 0 := by
         have hAdj := SimpleGraph.Walk.adj_of_mem_edges c hedge
         have h2 := hAdj.2
-        simpa [matrixGraph, A', x', y'] using h2
+        simpa [matrixSignedGraph, matrixGraph, A', x', y'] using h2
       rcases lt_or_gt_of_ne hA'_xy_ne with hneg | hpos
-      · -- Subcase B2: B x y - μ < 0; lift via positive 3-path x - u - v - y
-        have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
+      · have hx'_mem : x' ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c hedge
         let c₀ := c.rotate x' hx'_mem
-        have hc₀ : c₀.IsCycle := hc.rotate x' hx'_mem
+        have hc₀ : c₀.IsCycle := hc.rotate hx'_mem
         have hlen₀ : c₀.length = c.length := SimpleGraph.Walk.length_rotate c x' hx'_mem
-        have hodd₀ : Odd c₀.length := hlen₀.symm ▸ hodd
         have hperm₀ : c₀.edges.Perm c.edges := (SimpleGraph.Walk.edges_rotate c x' hx'_mem).perm
         have hsign₀ : walkSignProd (matrixSignedGraph A' hA'_H.isSymm).sign c₀ =
             walkSignProd (matrixSignedGraph A' hA'_H.isSymm).sign c := by
           simp only [walkSignProd]; exact (hperm₀.map _).prod_eq
         have hedge₀ : s(x', y') ∈ c₀.edges := hperm₀.mem_iff.mpr hedge
-        -- Orient c₀ so that its first edge is x' → y'
-        have hex_oriented : ∃ (c₁ : (matrixGraph A' hA'_H.isSymm).Walk x' x'),
+        have hex_oriented : ∃ (c₁ : (matrixSignedGraph A' hA'_H.isSymm).graph.Walk x' x'),
             c₁.IsCycle ∧ c₁.length = c.length ∧
             walkSignProd (matrixSignedGraph A' hA'_H.isSymm).sign c₁ =
               walkSignProd (matrixSignedGraph A' hA'_H.isSymm).sign c ∧
-            ∃ (hxy' : (matrixGraph A' hA'_H.isSymm).Adj x' y')
-              (p : (matrixGraph A' hA'_H.isSymm).Walk y' x'),
+            ∃ (hxy' : (matrixSignedGraph A' hA'_H.isSymm).graph.Adj x' y')
+              (p : (matrixSignedGraph A' hA'_H.isSymm).graph.Walk y' x'),
               c₁ = SimpleGraph.Walk.cons hxy' p := by
           cases hc₀_eq : c₀ with
           | nil => exact absurd hc₀_eq hc₀.ne_nil
@@ -550,8 +547,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
             by_cases hz₁ : z₁ = y'
             · subst hz₁
               exact ⟨c₀, hc₀, hlen₀, hsign₀, h₁, r, hc₀_eq⟩
-            · -- Then s(x', y') ∈ r.edges; since c₀.support.tail.Nodup, s(x', y') must be the LAST edge of r
-              have hr_mem : s(x', y') ∈ r.edges := by
+            · have hr_mem : s(x', y') ∈ r.edges := by
                 rw [hc₀_eq, SimpleGraph.Walk.edges_cons, List.mem_cons] at hedge₀
                 rcases hedge₀ with h | h
                 · exfalso
@@ -559,34 +555,35 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
                   · exact hz₁ h2.symm
                   · exact hxy'_ne h1
                 · exact h
-              cases hrev : c₀.reverse with
+              cases hrr : r.reverse with
               | nil =>
-                have : c₀ = SimpleGraph.Walk.nil := by
-                  have := congrArg SimpleGraph.Walk.reverse hrev; simpa using this
-                exact absurd this hc₀.ne_nil
-              | @cons _ z₂ _ h₂ r₂ =>
+                have : r = SimpleGraph.Walk.nil := by
+                  have := congrArg SimpleGraph.Walk.reverse hrr; simpa using this
+                subst this; exact absurd rfl h₁.1
+              | @cons _ z₂ _ h₂' r' =>
+                have hnot_x' : x' ∉ r'.support := by
+                  have hnd : r.reverse.support.Nodup := by
+                    rw [SimpleGraph.Walk.support_reverse, List.nodup_reverse]
+                    have htail := hc₀.support_nodup
+                    rw [hc₀_eq, SimpleGraph.Walk.support_cons, List.tail_cons] at htail
+                    exact htail
+                  rw [hrr, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+                  exact hnd.1
+                have hmem_rr : s(x', y') ∈ r.reverse.edges := by
+                  rw [SimpleGraph.Walk.edges_reverse, List.mem_reverse]; exact hr_mem
+                rw [hrr, SimpleGraph.Walk.edges_cons, List.mem_cons] at hmem_rr
                 have hz₂ : z₂ = y' := by
-                  have htail := hc₀.support_nodup
-                  rw [hc₀_eq, SimpleGraph.Walk.support_cons, List.tail_cons] at htail
-                  -- z₂ is the penultimate vertex of c₀, i.e., last vertex of r before x'
-                  have hr_rev : r.reverse = SimpleGraph.Walk.cons h₂ (r₂.takeUntil z₁ (by
-                      have := congrArg SimpleGraph.Walk.reverse hrev
-                      simp only [SimpleGraph.Walk.reverse_reverse, SimpleGraph.Walk.reverse_cons] at this
-                      rw [hc₀_eq] at this
-                      have hmem : z₁ ∈ (r₂.reverse.append (SimpleGraph.Walk.cons h₂.symm SimpleGraph.Walk.nil)).support := by
-                        rw [← this]; simp [SimpleGraph.Walk.support_cons]
-                      simp only [SimpleGraph.Walk.support_append, SimpleGraph.Walk.support_cons,
-                        SimpleGraph.Walk.support_nil, List.mem_append, List.mem_cons,
-                        List.not_mem_nil, or_false] at hmem
-                      rcases hmem with hm | hm | hm
-                      · exact SimpleGraph.Walk.mem_support_reverse.mp hm
-                      · exact hm ▸ SimpleGraph.Walk.end_mem_support r₂
-                      · exact absurd hm h₁.1.symm)) := by
-                    -- Simpler: use that x' appears only at the end of r!
-                    sorry
-                  sorry
+                  rcases hmem_rr with h | h
+                  · rcases Sym2.eq_iff.mp h with ⟨_, h2⟩ | ⟨h1, _⟩
+                    · exact h2.symm
+                    · exact absurd h1 hxy'_ne
+                  · exact absurd (SimpleGraph.Walk.fst_mem_support_of_mem_edges r' h) hnot_x'
                 subst hz₂
-                refine ⟨c₀.reverse, hc₀.reverse, by simp [hlen₀], ?_, h₂, r₂, hrev⟩
+                have hc₀_rev : c₀.reverse =
+                    SimpleGraph.Walk.cons h₂' (r'.append (SimpleGraph.Walk.cons h₁.symm SimpleGraph.Walk.nil)) := by
+                  rw [hc₀_eq, SimpleGraph.Walk.reverse_cons, hrr, SimpleGraph.Walk.cons_append]
+                refine ⟨c₀.reverse, hc₀.reverse, by simp [hlen₀], ?_, h₂',
+                  r'.append (SimpleGraph.Walk.cons h₁.symm SimpleGraph.Walk.nil), hc₀_rev⟩
                 simp [walkSignProd, SimpleGraph.Walk.edges_reverse, List.map_reverse, List.prod_reverse, hsign₀]
         rcases hex_oriented with ⟨c₁, hc₁, hlen₁, hsign₁, hxy', p, hc₁_eq⟩
         have hnot_p : s(x', y') ∉ p.edges := by
@@ -606,13 +603,13 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
           rw [hPsupp]; rintro ⟨w, _, hw⟩; exact w.2.1 hw
         have hv_notP : v ∉ P.support := by
           rw [hPsupp]; rintro ⟨w, _, hw⟩; exact w.2.2 hw
-        have hadj1 : (matrixGraph B hB.isSymm).Adj x u := ⟨hux.symm, ne_of_gt ha_pos⟩
-        have hadj2 : (matrixGraph B hB.isSymm).Adj u v := ⟨huv, ne_of_gt he₀_pos⟩
-        have hadj3 : (matrixGraph B hB.isSymm).Adj v y := ⟨hvy, by rw [hsym_B]; exact ne_of_gt hd₀_pos⟩
-        let cyc : (matrixGraph B hB.isSymm).Walk x x :=
+        have hadj1 : (matrixSignedGraph B hB.isSymm).graph.Adj x u := ⟨hux.symm, ne_of_gt ha_pos⟩
+        have hadj2 : (matrixSignedGraph B hB.isSymm).graph.Adj u v := ⟨huv, ne_of_gt he₀_pos⟩
+        have hadj3 : (matrixSignedGraph B hB.isSymm).graph.Adj v y := ⟨hvy, by rw [hsym_B]; exact ne_of_gt hd₀_pos⟩
+        let cyc : (matrixSignedGraph B hB.isSymm).graph.Walk x x :=
           SimpleGraph.Walk.cons hadj1 (SimpleGraph.Walk.cons hadj2 (SimpleGraph.Walk.cons hadj3 P))
         have hcyc : cyc.IsCycle := by
-          refine ⟨⟨⟨?_⟩, SimpleGraph.Walk.cons_ne_nil _ _⟩, ?_⟩
+          refine ⟨⟨⟨?_⟩, fun h => by cases h⟩, ?_⟩
           · rw [SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_cons,
               List.nodup_cons, List.nodup_cons, List.nodup_cons]
             refine ⟨?_, ?_, ?_, hP_path.isTrail.edges_nodup⟩
@@ -659,8 +656,7 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         rw [hdiv, pow_succ] at hnoc_cyc
         rw [signedCycleType]
         linarith
-      · -- Subcase B1: B x y - μ > 0, so B x y > 0 as well; lift directly
-        have hBxy_pos : 0 < B x y := by linarith
+      · have hBxy_pos : 0 < B x y := by linarith
         let emb : (matrixSignedGraph A' hA'_H.isSymm).graph ↪g (matrixSignedGraph B hB.isSymm).graph :=
           { toFun := Subtype.val
             inj' := Subtype.coe_injective
@@ -706,16 +702,17 @@ theorem k4_leaf_reduction (A : Matrix V V ℝ) (hA : A.IsHermitian)
         have hnoc' := hB_noc w₀.1 c' hc' (hlen'.symm ▸ hodd)
         rw [signedCycleType, ← hlen', ← hsign' c]
         exact hnoc'
-    · -- Case A: s(x', y') ∉ c.edges; lift directly via hlift_avoid
-      obtain ⟨q, hqlen, hqsign, hqsupp, hqedges⟩ := hlift_avoid c hedge
+    · obtain ⟨q, hqlen, hqsign, hqsupp, hqedges⟩ := hlift_avoid c hedge
       have hqcyc : q.IsCycle := by
         refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
         · rw [hqedges]
           exact hc.edges_nodup.map (Sym2.map.injective Subtype.coe_injective)
         · intro hqnil
-          have : c.length = 0 := by rw [← hqlen, hqnil]; rfl
-          exact hc.ne_nil (SimpleGraph.Walk.eq_nil_of_length_eq_zero this)
-        · rw [hqsupp, List.map_tail]
+          have hlen0 : c.length = 0 := by rw [← hqlen, hqnil]; rfl
+          cases c with
+          | nil => exact hc.ne_nil rfl
+          | cons _ _ => simp at hlen0
+        · rw [hqsupp, ← List.map_tail]
           exact hc.support_nodup.map Subtype.coe_injective
       have hnoc_q := hB_noc w₀.1 q hqcyc (hqlen.symm ▸ hodd)
       rw [signedCycleType, ← hqlen, ← hqsign]
