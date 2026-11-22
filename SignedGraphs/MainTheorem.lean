@@ -66,7 +66,7 @@ private lemma walk_map_isCycle {V W : Type*} {G : SimpleGraph V} {H : SimpleGrap
     (c.map φ).IsCycle := by
   refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
   · rw [SimpleGraph.Walk.edges_map]
-    exact hc.toIsTrail.edges_nodup.map (Sym2.map.injective hφ)
+    exact hc.edges_nodup.map (Sym2.map.injective hφ)
   · intro hnil
     have hlen : (c.map φ).length = 0 := by rw [hnil]; rfl
     rw [SimpleGraph.Walk.length_map] at hlen

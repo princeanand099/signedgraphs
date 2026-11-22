@@ -134,8 +134,9 @@ lemma isCycle_append_reverse_of_disjoint {G : SimpleGraph V} {u₁ u₂ : V}
     (q.append p.reverse).IsCycle := by
   refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
   · rw [SimpleGraph.Walk.edges_append, List.nodup_append]
-    refine ⟨hq.toIsTrail.edges_nodup, hp.reverse.toIsTrail.edges_nodup, ?_⟩
-    intro e heq hep
+    refine ⟨hq.isTrail.edges_nodup, hp.reverse.isTrail.edges_nodup, ?_⟩
+    intro e heq e' hep hne
+    subst hne
     rw [SimpleGraph.Walk.edges_reverse, List.mem_reverse] at hep
     rcases e with ⟨a, b⟩
     have ha_q : a ∈ q.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges q heq
@@ -181,7 +182,8 @@ lemma isCycle_append_reverse_of_disjoint {G : SimpleGraph V} {u₁ u₂ : V}
     · have hnd := hp.reverse.support_nodup
       rw [hp_cons, List.nodup_cons] at hnd
       exact hnd.2
-    · intro x hxq hxp
+    · intro x hxq y hxp hxy
+      subst hxy
       have hndq := hq.support_nodup
       rw [hq_cons, List.nodup_cons] at hndq
       have hxu₁ : x ≠ u₁ := fun h => hndq.1 (h ▸ hxq)
