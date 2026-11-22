@@ -442,7 +442,6 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     simpa [ι, hu] using this
   have hquad_ι : ∀ y : W₀ → ℝ, dotProduct (ι y) (A *ᵥ ι y) = dotProduct y (A' *ᵥ y) := by
     intro y
-    simp only [dotProduct, Matrix.mulVec, ι, A', Matrix.submatrix_apply]
     have hsumV : ∀ f : V → ℝ, f v = 0 →
         (∑ u : V, f u) = ∑ x : W₀, f x.1 := by
       intro f hfv
@@ -452,15 +451,17 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
         (fun a _ b _ h => Subtype.ext h)
         (fun u hu => ⟨⟨u, (Finset.mem_erase.mp hu).1⟩, Finset.mem_univ _, rfl⟩)
         (fun _ _ => rfl)).symm
-    rw [hsumV _ (by simp)]
+    change (∑ u : V, ι y u * ∑ w : V, A u w * ι y w) =
+      ∑ x : W₀, y x * ∑ z : W₀, A x.1 z.1 * y z
+    rw [hsumV (fun u => ι y u * ∑ w : V, A u w * ι y w) (by simp [ι])]
     refine Finset.sum_congr rfl fun x _ => ?_
-    simp only [x.2, ↓reduceDIte]
+    have hιx : ι y x.1 = y x := by simp [ι, x.2]
+    rw [hιx]
     congr 1
-    rw [hsumV _ (by simp)]
+    rw [hsumV (fun w => A x.1 w * ι y w) (by simp [ι])]
     refine Finset.sum_congr rfl fun z _ => ?_
-    split_ifs with hz
-    · exact absurd hz z.2
-    · rfl
+    have hιz : ι y z.1 = y z := by simp [ι, z.2]
+    rw [hιz]
   let proj : (V → ℝ) →ₗ[ℝ] ℝ := LinearMap.proj v
   have hker_mem : ∀ x ∈ LinearMap.ker proj, ∃ y : W₀ → ℝ, ι y = x := by
     intro x hx
