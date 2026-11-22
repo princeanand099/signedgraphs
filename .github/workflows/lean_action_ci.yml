@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Republish previous ci-logs without cache spam
+        continue-on-error: true
         run: |
           git fetch origin ci-logs || true
           git show origin/ci-logs:last_build.log | grep -v -E "(Decompressing|Downloaded| unpacking |\[[0-9]+/[0-9]+\] Downloading)" > /tmp/prev_clean.log || true
@@ -45,19 +46,21 @@ jobs:
 
       - name: Cache and build
         id: build
-        continue-on-error: true
         run: |
           lake exe cache get >/dev/null 2>&1 || true
-          set -o pipefail
+          set +e
           {
             echo "COMMIT=${{ github.sha }}"
             echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             lake build 2>&1
           } | tee /tmp/last_build.log
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          build_status=${PIPESTATUS[0]}
+          set -e
+          exit "$build_status"
 
       - name: Publish full build log to ci-logs branch
         if: always()
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -67,13 +70,9 @@ jobs:
           split -l 150 -d --additional-suffix=.log /tmp/last_build.log part_
           git add -f last_build.log part_*.log
           {
-            echo "CI log for ${{ github.sha }} (exit ${{ steps.build.outputs.exit_code }})"
+            echo "CI log for ${{ github.sha }} (build ${{ steps.build.outcome }})"
             echo ""
             tail -n 400 /tmp/last_build.log
           } > /tmp/commit_msg.txt
           git commit -F /tmp/commit_msg.txt
           git push -f origin HEAD:refs/heads/ci-logs
-
-      - name: Fail job if lake build failed
-        if: steps.build.outputs.exit_code != '0'
-        run: exit 1
