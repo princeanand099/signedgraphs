@@ -457,6 +457,15 @@ lemma matrixIsNOC_submatrix_injective {V W : Type*} [Fintype V] [DecidableEq V]
   have hnoc' := hnoc (f w) c' hc' hodd'
   simpa [signedCycleType, c', hsign c] using hnoc'
 
+private lemma sign_ite_mul (a b : ℝ) (ha : a ≠ 0) (hb : b ≠ 0) :
+    (if 0 < a * b then (1 : ℤ) else -1) =
+      (if 0 < a then 1 else -1) * (if 0 < b then 1 else -1) := by
+  rcases lt_or_gt_of_ne ha with ha | ha <;> rcases lt_or_gt_of_ne hb with hb | hb
+  · simp [mul_pos_of_neg_of_neg ha hb, not_lt.mpr ha.le, not_lt.mpr hb.le]
+  · simp [not_lt.mpr (mul_neg_of_neg_of_pos ha hb).le, not_lt.mpr ha.le, hb]
+  · simp [not_lt.mpr (mul_neg_of_pos_of_neg ha hb).le, ha, not_lt.mpr hb.le]
+  · simp [mul_pos ha hb, ha, hb]
+
 lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
     (A : Matrix V V ℝ) (hA : A.IsSymm) (hnoc : MatrixIsNOC A hA)
     (d : V → ℝ) (hd : ∀ u, d u ≠ 0)
@@ -492,31 +501,18 @@ lemma matrixIsNOC_diagonal_congr {V : Type*} [Fintype V] [DecidableEq V]
           simp [B, Matrix.diagonal_mul, Matrix.mul_diagonal]
         simp only [emb, RelEmbedding.coe_mk, Function.Embedding.coeFn_mk, id_eq,
           switchSign, Sym2.lift_mk, matrixSignedGraph, hBu]
-        rcases lt_or_gt_of_ne (hd u) with hu | hu <;>
-          rcases lt_or_gt_of_ne (hd x) with hx | hx <;>
-          rcases lt_or_gt_of_ne hux with ha | ha
-        · have hpos : 0 < d u * A u x * d x :=
-            mul_pos_of_neg_of_neg (mul_pos_of_neg_of_neg hu ha) hx
-          have hS1 : u ∈ S := hu
-          have hS2 : x ∈ S := hx
-          simp [hpos, hS1, hS2, not_lt.mpr ha.le]
-        · have hneg : ¬ (0 < d u * A u x * d x) :=
-            not_lt.mpr (mul_pos_of_neg_of_neg (mul_neg_of_neg_of_pos hu ha) hx).le
-          have hS1 : u ∈ S := hu
-          have hS2 : x ∈ S := hx
-          simp [hneg, hS1, hS2, ha]
-        · have hneg : ¬ (0 < d u * A u x * d x) :=
-            not_lt.mpr (mul_neg_of_pos_of_neg (mul_pos_of_neg_of_neg hu ha) hx).le
-          have hS1 : u ∈ S := hu
-          have hS2 : x ∉ S := not_lt.mpr hx.le
-          simp [hneg, hS1, hS2, not_lt.mpr ha.le]
-        · have hpos : 0 < d u * A u x * d x :=
-            mul_pos_of_neg_of_neg (mul_neg_of_neg_of_pos hu ha) (not_pos_iff.mp ?_) |> absurd
-          sorry
-        · sorry
-        · sorry
-        · sorry
-        · sorry
+        rw [sign_ite_mul (d u * A u x) (d x) (mul_ne_zero (hd u) hux) (hd x),
+            sign_ite_mul (d u) (A u x) (hd u) hux]
+        have hsu : (if 0 < d u then (1 : ℤ) else -1) = if u ∈ S then -1 else 1 := by
+          rcases lt_or_gt_of_ne (hd u) with hu | hu
+          · have : u ∈ S := hu; simp [this, not_lt.mpr hu.le]
+          · have : u ∉ S := not_lt.mpr hu.le; simp [this, hu]
+        have hsx : (if 0 < d x then (1 : ℤ) else -1) = if x ∈ S then -1 else 1 := by
+          rcases lt_or_gt_of_ne (hd x) with hx | hx
+          · have : x ∈ S := hx; simp [this, not_lt.mpr hx.le]
+          · have : x ∉ S := not_lt.mpr hx.le; simp [this, hx]
+        rw [hsu, hsx]
+        ring
       rw [h1, ih]
   change (-1 : ℤ) ^ (c.length / 2) * walkSignProd (matrixSignedGraph B hB).sign c = -1
   rw [hsign c, walkSignProd_switch]
