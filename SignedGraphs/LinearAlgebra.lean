@@ -12,7 +12,9 @@ open Matrix SimpleGraph
 
 namespace SignedGraphs
 
-variable {V : Type*} [Fintype V] [DecidableEq V]
+section Switching
+
+variable {V : Type*} [DecidableEq V]
 
 /-- Switching a signed graph at a vertex subset `S : Finset V`. -/
 def switchSign (S : Finset V) (σ : Sym2 V → ℤ) : Sym2 V → ℤ :=
@@ -29,7 +31,6 @@ private lemma pm_one_sq (P : Prop) [Decidable P] :
   split_ifs <;> norm_num
 
 /-- Switching multiplies the sign product of any `(u, v)`-walk by `s(u) * s(v)`. -/
-omit [Fintype V] in
 theorem walkSignProd_switch_aux (S : Finset V) (σ : Sym2 V → ℤ) {G : SimpleGraph V}
     {u v : V} (p : G.Walk u v) :
     walkSignProd (switchSign S σ) p =
@@ -59,14 +60,12 @@ theorem walkSignProd_switch_aux (S : Finset V) (σ : Sym2 V → ℤ) {G : Simple
             (σ s(u, w) * (p.edges.map σ).prod) := by rw [hsq, mul_one]
 
 /-- Switching preserves the sign product of every closed walk (cycle). -/
-omit [Fintype V] in
 theorem walkSignProd_switch (S : Finset V) (σ : Sym2 V → ℤ) {G : SimpleGraph V}
     {v : V} (c : G.Walk v v) :
     walkSignProd (switchSign S σ) c = walkSignProd σ c := by
   rw [walkSignProd_switch_aux, pm_one_sq, one_mul]
 
 /-- Switching preserves `{+1, -1}` edge values. -/
-omit [Fintype V] in
 lemma switchSign_pm_one (S : SignedGraph V) (T : Finset V) :
     ∀ e ∈ S.graph.edgeSet, switchSign T S.sign e = 1 ∨ switchSign T S.sign e = -1 := by
   intro e he
@@ -75,31 +74,36 @@ lemma switchSign_pm_one (S : SignedGraph V) (T : Finset V) :
   rcases S.sign_pm_one s(u, v) he with h | h <;> rw [h] <;> split_ifs <;> simp
 
 /-- Switching preserves the NOC property. -/
-omit [Fintype V] in
 theorem isNOC_switch (S : SignedGraph V) (T : Finset V) :
     IsNOC ⟨S.graph, switchSign T S.sign, switchSign_pm_one S T⟩ ↔ IsNOC S := by
   simp only [IsNOC, signedCycleType, walkSignProd_switch]
 
+end Switching
+
+section MatrixInequalities
+
+variable {V : Type*} [Fintype V] [DecidableEq V]
+
 /-- Congruence preserves Hermitian property for real matrices. -/
-omit [DecidableEq V] in
 lemma isHermitian_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) :
     (Pᵀ * A * P).IsHermitian := by
   change (Pᵀ * A * P)ᴴ = Pᵀ * A * P
   rw [Matrix.conjTranspose_mul, Matrix.conjTranspose_mul]
   have hP : Pᴴ = Pᵀ := Matrix.conjTranspose_eq_transpose_of_trivial P
-  have hPt : (Pᵀ)ᴴ = P := by rw [Matrix.conjTranspose_eq_transpose_of_trivial, Matrix.transpose_transpose]
+  have hPt : (Pᵀ)ᴴ = P := by
+    rw [Matrix.conjTranspose_eq_transpose_of_trivial, Matrix.transpose_transpose]
   rw [hP, hPt, hA.eq, Matrix.mul_assoc]
 
-/-- Quadratic form expansion in the orthonormal eigenbasis of a real symmetric matrix. -/
-lemma dotProduct_mulVec_eigenbasis (A : Matrix V V ℝ) (hA : A.IsHermitian) (x : V → ℝ) :
-    dotProduct x (A *ᵥ x) =
-      ∑ i : V, hA.eigenvalues i * (hA.eigenvectorBasis.repr ((WithLp.equiv 2 (V → ℝ)).symm x) i) ^ 2 := by
-  let b := hA.eigenvectorBasis
-  let xe : EuclideanSpace ℝ V := (WithLp.equiv 2 (V → ℝ)).symm x
-  have hmul : A *ᵥ x = (WithLp.equiv 2 (V → ℝ)) (∑ i : V, (hA.eigenvalues i * b.repr xe i) • b i) := by
-    have hspec := hA.spectral_theorem
-    sorry
-  sorry
+/-- Negation preserves Hermitian property. -/
+lemma isHermitian_neg (A : Matrix V V ℝ) (hA : A.IsHermitian) : (-A).IsHermitian := by
+  change (-A)ᴴ = -A
+  rw [Matrix.conjTranspose_neg, hA.eq]
+
+/-- Restriction of a Hermitian matrix to a subtype is Hermitian. -/
+lemma isHermitian_submatrix {W : Type*} (A : Matrix V V ℝ) (hA : A.IsHermitian) (f : W → V) :
+    (A.submatrix f f).IsHermitian := by
+  change (A.submatrix f f)ᴴ = A.submatrix f f
+  rw [Matrix.conjTranspose_submatrix, hA.eq]
 
 /-- Variational characterization of `posInertia`: maximum dimension of a subspace on which
 `x ↦ x ⬝ᵥ (A *ᵥ x)` is strictly positive on nonzero vectors. -/
@@ -115,14 +119,35 @@ theorem negInertia_eq_sSup (A : Matrix V V ℝ) (hA : A.IsHermitian) :
       Module.finrank ℝ W = n ∧ ∀ x ∈ W, x ≠ 0 → dotProduct x (A *ᵥ x) < 0 } := by
   sorry
 
+private lemma posSubspace_bddAbove (A : Matrix V V ℝ) :
+    BddAbove { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
+      Module.finrank ℝ W = n ∧ ∀ x ∈ W, x ≠ 0 → 0 < dotProduct x (A *ᵥ x) } := by
+  refine ⟨Fintype.card V, ?_⟩
+  rintro n ⟨W, rfl, _⟩
+  simpa using Submodule.finrank_le W
+
+private lemma negSubspace_bddAbove (A : Matrix V V ℝ) :
+    BddAbove { n : ℕ | ∃ W : Submodule ℝ (V → ℝ),
+      Module.finrank ℝ W = n ∧ ∀ x ∈ W, x ≠ 0 → dotProduct x (A *ᵥ x) < 0 } := by
+  refine ⟨Fintype.card V, ?_⟩
+  rintro n ⟨W, rfl, _⟩
+  simpa using Submodule.finrank_le W
+
 /-- Sylvester's law of inertia for signature: `s(Pᵀ * A * P) = s(A)` for invertible `P`. -/
 theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit P.det) :
     signature (Pᵀ * A * P) (isHermitian_congr A P hA) = signature A hA := by
-  let e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ) := P.toLin'.equivOfDetInvertible hP
+  let e : (V → ℝ) ≃ₗ[ℝ] (V → ℝ) :=
+    { toFun := fun x => P *ᵥ x
+      invFun := fun x => P⁻¹ *ᵥ x
+      map_add' := fun x y => Matrix.mulVec_add P x y
+      map_smul' := fun c x => Matrix.mulVec_smul P c x
+      left_inv := fun x => by simp [Matrix.mulVec_mulVec, Matrix.nonsing_inv_mul P hP]
+      right_inv := fun x => by simp [Matrix.mulVec_mulVec, Matrix.mul_nonsing_inv P hP] }
   have hquad : ∀ x : V → ℝ, dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (e x) (A *ᵥ e x) := by
     intro x
-    simp only [e, Matrix.toLin'_equivOfDetInvertible_apply, Matrix.mulVec_mulVec]
-    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.vecMul_transpose]
+    change dotProduct x ((Pᵀ * A * P) *ᵥ x) = dotProduct (P *ᵥ x) (A *ᵥ (P *ᵥ x))
+    rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
+      Matrix.vecMul_transpose]
   have hpos : posInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = posInertia A hA := by
     rw [posInertia_eq_sSup, posInertia_eq_sSup]
     congr 1; ext n; constructor
@@ -131,6 +156,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro y hy hy0
       rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
       have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+      change 0 < dotProduct (e x) (A *ᵥ e x)
       rw [← hquad x]
       exact hW x hx hx0
     · rintro ⟨W, rfl, hW⟩
@@ -138,7 +164,9 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
-      rw [hquad (e.symm y), LinearEquiv.apply_symm_apply]
+      rw [hquad (e.symm y)]
+      change 0 < dotProduct (e (e.symm y)) (A *ᵥ e (e.symm y))
+      rw [LinearEquiv.apply_symm_apply]
       exact hW y hy hy0
   have hneg : negInertia (Pᵀ * A * P) (isHermitian_congr A P hA) = negInertia A hA := by
     rw [negInertia_eq_sSup, negInertia_eq_sSup]
@@ -148,6 +176,7 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro y hy hy0
       rcases Submodule.mem_map.mp hy with ⟨x, hx, rfl⟩
       have hx0 : x ≠ 0 := fun h => hy0 (by simp [h])
+      change dotProduct (e x) (A *ᵥ e x) < 0
       rw [← hquad x]
       exact hW x hx hx0
     · rintro ⟨W, rfl, hW⟩
@@ -155,16 +184,12 @@ theorem signature_congr (A P : Matrix V V ℝ) (hA : A.IsHermitian) (hP : IsUnit
       rintro x hx hx0
       rcases Submodule.mem_map.mp hx with ⟨y, hy, rfl⟩
       have hy0 : y ≠ 0 := fun h => hx0 (by simp [h])
-      rw [hquad (e.symm y), LinearEquiv.apply_symm_apply]
+      rw [hquad (e.symm y)]
+      change dotProduct (e (e.symm y)) (A *ᵥ e (e.symm y)) < 0
+      rw [LinearEquiv.apply_symm_apply]
       exact hW y hy hy0
   unfold signature
   rw [hpos, hneg]
-
-/-- Negation preserves Hermitian property. -/
-omit [Fintype V] [DecidableEq V] in
-lemma isHermitian_neg (A : Matrix V V ℝ) (hA : A.IsHermitian) : (-A).IsHermitian := by
-  change (-A)ᴴ = -A
-  rw [Matrix.conjTranspose_neg, hA.eq]
 
 /-- Signature of `-A` is `-s(A)`. -/
 theorem signature_neg (A : Matrix V V ℝ) (hA : A.IsHermitian) :
@@ -187,13 +212,13 @@ theorem signature_eq_zero_of_bipartite (A : Matrix V V ℝ) (hA : A.IsHermitian)
   let d : V → ℝ := fun v => if f v = 0 then 1 else -1
   let D : Matrix V V ℝ := Matrix.diagonal d
   have hD_det : IsUnit D.det := by
-    rw [Matrix.det_diagonal]
-    refine IsUnit.prod_univ _ fun v _ => ?_
+    rw [Matrix.det_diagonal, isUnit_iff_ne_zero, Finset.prod_ne_zero_iff]
+    intro v _
     dsimp [d]
     split_ifs <;> norm_num
   have hDAD : Dᵀ * A * D = -A := by
     ext u v
-    simp only [D, Matrix.transpose_diagonal, Matrix.diagonal_mul, Matrix.mul_diagonal,
+    simp only [D, Matrix.diagonal_transpose, Matrix.diagonal_mul, Matrix.mul_diagonal,
       Matrix.neg_apply, d]
     by_cases huv : u = v
     · subst huv; simp [hdiag u]
@@ -201,8 +226,13 @@ theorem signature_eq_zero_of_bipartite (A : Matrix V V ℝ) (hA : A.IsHermitian)
       · simp [hAuv]
       · have hadj : (matrixGraph A hA.isSymm).Adj u v := ⟨huv, hAuv⟩
         have hne := hf hadj
-        have hfin : f u = 0 ∧ f v = 1 ∨ f u = 1 ∧ f v = 0 := by fin_cases (f u) <;> fin_cases (f v) <;> simp_all
-        rcases hfin with ⟨hu, hv⟩ | ⟨hu, hv⟩ <;> simp [hu, hv]
+        have hfu : f u = 0 ∨ f u = 1 := Fin.cases (Or.inl rfl) (fun _ => Or.inr rfl) (f u)
+        have hfv : f v = 0 ∨ f v = 1 := Fin.cases (Or.inl rfl) (fun _ => Or.inr rfl) (f v)
+        rcases hfu with hu | hu <;> rcases hfv with hv | hv
+        · exfalso; exact hne (by rw [hu, hv])
+        · simp [hu, hv]
+        · simp [hu, hv]
+        · exfalso; exact hne (by rw [hu, hv])
   have h1 : signature (-A) (isHermitian_neg A hA) = signature A hA := by
     have := signature_congr A D hA hD_det
     simpa [hDAD] using this
@@ -214,14 +244,25 @@ then `s(A) ≤ s(B)`. -/
 theorem signature_mono_of_posSemidef (A B : Matrix V V ℝ) (hA : A.IsHermitian) (hB : B.IsHermitian)
     (hAB : (B - A).PosSemidef) :
     signature A hA ≤ signature B hB := by
-  sorry
-
-/-- Restriction of a Hermitian matrix to a subtype is Hermitian. -/
-omit [Fintype V] [DecidableEq V] in
-lemma isHermitian_submatrix {W : Type*} (A : Matrix V V ℝ) (hA : A.IsHermitian) (f : W → V) :
-    (A.submatrix f f).IsHermitian := by
-  change (A.submatrix f f)ᴴ = A.submatrix f f
-  rw [Matrix.conjTranspose_submatrix, hA.eq]
+  have hquad : ∀ x : V → ℝ, dotProduct x (A *ᵥ x) ≤ dotProduct x (B *ᵥ x) := by
+    intro x
+    have hnn := hAB.dotProduct_mulVec_nonneg x
+    simp only [star_trivial, Matrix.sub_mulVec, dotProduct_sub, sub_nonneg] at hnn
+    exact hnn
+  have hpos : posInertia A hA ≤ posInertia B hB := by
+    rw [posInertia_eq_sSup, posInertia_eq_sSup]
+    refine csSup_le_csSup (posSubspace_bddAbove B) ⟨0, ⊥, rfl, fun x hx hx0 => ?_⟩ ?_
+    · exfalso; exact hx0 (Submodule.mem_bot.mp hx)
+    · rintro n ⟨W, rfl, hW⟩
+      exact ⟨W, rfl, fun x hx hx0 => lt_of_lt_of_le (hW x hx hx0) (hquad x)⟩
+  have hneg : negInertia B hB ≤ negInertia A hA := by
+    rw [negInertia_eq_sSup, negInertia_eq_sSup]
+    refine csSup_le_csSup (negSubspace_bddAbove A) ⟨0, ⊥, rfl, fun x hx hx0 => ?_⟩ ?_
+    · exfalso; exact hx0 (Submodule.mem_bot.mp hx)
+    · rintro n ⟨W, rfl, hW⟩
+      exact ⟨W, rfl, fun x hx hx0 => lt_of_le_of_lt (hquad x) (hW x hx hx0)⟩
+  unfold signature
+  omega
 
 /-- Cauchy's interlacing theorem for signature upon deleting one vertex `v`:
 `|s(A) - s(A|_{V \ {v}})| ≤ 1`. -/
@@ -229,5 +270,7 @@ theorem signature_interlacing_delete_vertex (A : Matrix V V ℝ) (hA : A.IsHermi
     |signature A hA - signature (A.submatrix (fun x : {x : V // x ≠ v} => x.1)
       (fun x : {x : V // x ≠ v} => x.1)) (isHermitian_submatrix A hA _)| ≤ 1 := by
   sorry
+
+end MatrixInequalities
 
 end SignedGraphs
