@@ -6,7 +6,7 @@ namespace SignedGraphs
 
 variable {V : Type*} [Fintype V] [DecidableEq V]
 
-set_option maxHeartbeats 1600000 in
+set_option maxHeartbeats 2400000 in
 /-- **Lemma 3.4(3)** (complete zero-sorry proof): If a 3-connected NOC signed graph contains two
 vertex-disjoint odd cycles, then it is switching-isomorphic to `(Petersen, -1)`. -/
 theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
@@ -879,13 +879,11 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           modFourWeight S.sign s(u₁, u₂) + modFourWeight S.sign s(u₁, x₁) +
           modFourWeight S.sign s(u₂, M u₂) + walkModFourWeight S.sign P2b + modFourWeight S.sign s(M x₁, x₁) := by
         simp only [CD₂, A_cd2, B_cd2, walkModFourWeight_append, walkModFourWeight_reverse]
-        simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
-          List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
-        rw [Sym2.eq_swap (a := u₂) (b := u₁)]; ring
+        simp [walkModFourWeight, Sym2.eq_swap (a := u₂) (b := u₁)]; ring
       rw [Sym2.eq_swap (a := M u₂) (b := M u₁), Sym2.eq_swap (a := M u₁) (b := u₁)] at hwQ
       have hsum : (3 : ZMod 4) + 3 + 2 * modFourWeight S.sign s(u₁, u₂) + 2 * modFourWeight S.sign s(M u₁, M u₂) =
           (3 : ZMod 4) + 3 + 2 + 2 * modFourWeight S.sign s(u₁, u₂) + 2 * modFourWeight S.sign s(M x₁, x₁) := by
-        linear_combination hwCD1 + hwCD2 - hCD1_w - hCD2_w - hP1_split_w + hP1_w + hwC1 - hP2_split_w + hP2_w + hwC2 + hwQ
+        linear_combination -hwCD1 - hwCD2 + hCD1_w + hCD2_w - hP1_split_w + hP1_w + hwC1 - hP2_split_w + hP2_w + hwC2 + hwQ
       rw [two_mul_modFourWeight, two_mul_modFourWeight, two_mul_modFourWeight] at hsum
       exact absurd hsum (by decide)
   -- Step 5: L ≥ 5 (since L = 3 would have every pair adjacent in C₂!)
@@ -918,7 +916,19 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       intro i; fin_cases i <;> exact List.mem_toFinset.mpr ((hc1_s _).mpr (by tauto))
     have hv_inj : Function.Injective v := by
       simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or, List.nodup_nil, and_true] at hnd1
-      intro i j hij; fin_cases i <;> fin_cases j <;> simp [v] at hij ⊢ <;> tauto
+      rcases hnd1 with ⟨⟨h01', h02', h03', h04'⟩, ⟨h12', h13', h14'⟩, ⟨h23', h24'⟩, h34'⟩
+      intro i j hij
+      fin_cases i <;> fin_cases j <;> simp only [v] at hij <;>
+        first | rfl | exact absurd hij h01' | exact absurd hij.symm h01' |
+          exact absurd hij h02' | exact absurd hij.symm h02' |
+          exact absurd hij h03' | exact absurd hij.symm h03' |
+          exact absurd hij h04' | exact absurd hij.symm h04' |
+          exact absurd hij h12' | exact absurd hij.symm h12' |
+          exact absurd hij h13' | exact absurd hij.symm h13' |
+          exact absurd hij h14' | exact absurd hij.symm h14' |
+          exact absurd hij h23' | exact absurd hij.symm h23' |
+          exact absurd hij h24' | exact absurd hij.symm h24' |
+          exact absurd hij h34' | exact absurd hij.symm h34'
     have hv_cov1 : ∀ x ∈ C1, ∃ i : Fin 5, x = v i := by
       intro x hx; rcases (hc1_s x).mp (List.mem_toFinset.mp hx) with rfl | rfl | rfl | rfl | rfl
       · exact ⟨0, rfl⟩
@@ -957,8 +967,18 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       · intro hadj
         have he := hc1_chordless (v i) (List.mem_toFinset.mp (hv_C1 i)) (v j) (List.mem_toFinset.mp (hv_C1 j)) hadj
         rw [hc1_e] at he
-        simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or, List.nodup_nil, and_true] at hnd1
-        fin_cases i <;> fin_cases j <;> simp [v, Sym2.eq_iff] at he ⊢ <;> tauto
+        have hv_eq : ∀ a b : Fin 5, s(v i, v j) = s(v a, v b) → (i = a ∧ j = b) ∨ (i = b ∧ j = a) := by
+          intro a b h
+          rcases Sym2.eq_iff.mp h with ⟨h1, h2⟩ | ⟨h1, h2⟩
+          · exact Or.inl ⟨hv_inj h1, hv_inj h2⟩
+          · exact Or.inr ⟨hv_inj h1, hv_inj h2⟩
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at he
+        rcases he with h | h | h | h | h
+        · rcases hv_eq 0 1 h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> decide
+        · rcases hv_eq 1 2 h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> decide
+        · rcases hv_eq 2 3 h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> decide
+        · rcases hv_eq 3 4 h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> decide
+        · rcases hv_eq 4 0 h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> decide
       · intro h
         fin_cases i <;> fin_cases j <;> simp [v] at h ⊢
         all_goals (first | exact h01 | exact h01.symm | exact h12 | exact h12.symm | exact h23 | exact h23.symm | exact h34 | exact h34.symm | exact h40 | exact h40.symm)
@@ -999,7 +1019,12 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         have hnot1 : ¬ (m.val = (i.val + 1) % 5 ∨ i.val = (m.val + 1) % 5) :=
           fun h => hM_not_adj_1 i m h hz.2
         have hcase : m = k2 ∨ m = k3 := by
-          fin_cases i <;> fin_cases m <;> simp [k2, k3] at hmi hnot1 ⊢ <;> omega
+          have hm5 := m.isLt; have hi5 := i.isLt
+          have hmi_v : m.val ≠ i.val := fun h => hmi (Fin.ext h)
+          have : m.val = (i.val + 2) % 5 ∨ m.val = (i.val + 3) % 5 := by omega
+          rcases this with h | h
+          · left; exact Fin.ext h
+          · right; exact Fin.ext h
         rcases hcase with rfl | rfl <;> simp
       have heq2 : C2.filter (fun z => G.Adj (M (v i)) z) = {M (v k2), M (v k3)} :=
         Finset.eq_of_subset_of_card_le hsub2 (by rw [Finset.card_pair hk23_ne, hdeg2_C2 i])
@@ -1011,7 +1036,12 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · have := congrArg Fin.val (hv_inj (hM_inj h)); dsimp [k2] at this; left; exact this
         · have := congrArg Fin.val (hv_inj (hM_inj h)); dsimp [k3] at this; right; omega
       · intro h
-        have : j = k2 ∨ j = k3 := by fin_cases i <;> fin_cases j <;> simp [k2, k3] at h ⊢ <;> omega
+        have : j = k2 ∨ j = k3 := by
+          have hj5 := j.isLt; have hi5 := i.isLt
+          have : j.val = (i.val + 2) % 5 ∨ j.val = (i.val + 3) % 5 := by omega
+          rcases this with h' | h'
+          · left; exact Fin.ext h'
+          · right; exact Fin.ext h'
         rcases this with rfl | rfl <;> simp
     apply petersen_switching_iso S hnoc f hf_bij
     intro i j
