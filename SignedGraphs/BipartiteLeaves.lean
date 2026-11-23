@@ -101,13 +101,21 @@ private lemma petersen_delete_edge_has_odd_cycle :
   intro u v huv
   by_cases hout : s(u, v) = s(0, 1) ∨ s(u, v) = s(1, 2) ∨ s(u, v) = s(2, 3) ∨
       s(u, v) = s(3, 4) ∨ s(u, v) = s(4, 0)
-  · refine ⟨5, 7, 9, 6, 8, by decide, by decide, by decide, by decide, by decide,
+  · have hne : ∀ (a b : Fin 10),
+        (s(a, b) ≠ s(0, 1) ∧ s(a, b) ≠ s(1, 2) ∧ s(a, b) ≠ s(2, 3) ∧
+         s(a, b) ≠ s(3, 4) ∧ s(a, b) ≠ s(4, 0)) → s(a, b) ≠ s(u, v) := by
+      intro a b h
+      rcases hout with h' | h' | h' | h' | h' <;> rw [h']
+      · exact h.1
+      · exact h.2.1
+      · exact h.2.2.1
+      · exact h.2.2.2.1
+      · exact h.2.2.2.2
+    refine ⟨5, 7, 9, 6, 8, by decide, by decide, by decide, by decide, by decide,
       by decide, by decide, by decide, by decide, by decide,
-      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    all_goals first
-      | (refine ⟨by decide, ?_⟩; left; right; left; decide)
-      | (rcases hout with h | h | h | h | h <;> rw [h] <;> decide)
-      | (unfold petersenGraph; simp [SimpleGraph.fromRel])
+      ?_, hne 5 7 (by decide), ?_, hne 7 9 (by decide), ?_, hne 9 6 (by decide),
+      ?_, hne 6 8 (by decide), ?_, hne 8 5 (by decide)⟩
+    all_goals (unfold petersenGraph; simp [SimpleGraph.fromRel])
   · push Not at hout
     refine ⟨0, 1, 2, 3, 4, by decide, by decide, by decide, by decide, by decide,
       by decide, by decide, by decide, by decide, by decide,
