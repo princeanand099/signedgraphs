@@ -1028,7 +1028,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           obtain ⟨r⟩ := hK_conn ⟨w, hwC⟩ ⟨x, Finset.disjoint_right.mp hdisj_c (by simp [D_xy])⟩
           let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g T :=
             (SimpleGraph.Embedding.induce ((c.support.toFinset : Set V)ᶜ)).toHom
-          let rp := (r.map φK).toPath
+          let rp : T.Path w x := (r.map φK).toPath
           have hrp_notC : ∀ z ∈ rp.1.support, z ∉ c.support.toFinset := by
             intro z hz
             have h1 := SimpleGraph.Walk.support_toPath_subset (r.map φK) hz
@@ -1071,7 +1071,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           obtain ⟨r⟩ := hK_conn ⟨w, hwC⟩ ⟨y, Finset.disjoint_right.mp hdisj_c (by simp [D_xy])⟩
           let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g T :=
             (SimpleGraph.Embedding.induce ((c.support.toFinset : Set V)ᶜ)).toHom
-          let rp := (r.map φK).toPath
+          let rp : T.Path w y := (r.map φK).toPath
           have hrp_notC : ∀ z ∈ rp.1.support, z ∉ c.support.toFinset := by
             intro z hz
             have h1 := SimpleGraph.Walk.support_toPath_subset (r.map φK) hz
