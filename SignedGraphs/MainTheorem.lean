@@ -23,6 +23,26 @@ private lemma signature_eq_of_eq_mat {V : Type*} [Fintype V] [DecidableEq V]
     signature A hA = signature B hB := by
   subst h; rfl
 
+private lemma walk_length_pos_of_ne {V : Type*} {G : SimpleGraph V} {u v : V}
+    (w : G.Walk u v) (h : u ≠ v) : 1 ≤ w.length := by
+  cases w with
+  | nil => exact absurd rfl h
+  | cons _ _ => simp
+
+private lemma coloring_walk_eq {W : Type*} {G : SimpleGraph W} (f : G.Coloring (Fin 2))
+    {a b : W} (w : G.Walk a b) :
+    f b = f a + Fin.ofNat 2 w.length := by
+  induction w with
+  | nil => simp
+  | @cons u v z huv r ih =>
+    have hne : f u ≠ f v := f.valid huv
+    have hstep : f v = f u + 1 := by
+      generalize hfu : f u = fu; generalize hfv : f v = fv; rw [hfu, hfv] at hne
+      fin_cases fu <;> fin_cases fv <;> simp_all
+    have hof : Fin.ofNat 2 (r.length + 1) = Fin.ofNat 2 r.length + 1 := by
+      ext; simp [Fin.val_add]
+    rw [ih, hstep, SimpleGraph.Walk.length_cons, hof, add_assoc, add_comm (1 : Fin 2)]
+
 private lemma signature_zero_of_bipartite_local {V : Type*} [Fintype V] [DecidableEq V]
     (A : Matrix V V ℝ) (hA : A.IsHermitian) (hdiag : ∀ u, A u u = 0)
     (hbip : (matrixGraph A hA.isSymm).IsBipartite) :
@@ -727,18 +747,9 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       have hinter : w₂.1 ∈ d.VH ∩ d.VG₂ := Finset.mem_inter.mpr ⟨heq ▸ w₁.2, w₂.2⟩
       rw [d.hinter] at hinter
       simp [hwx, hwy] at hinter
-    have hq_pos : 1 ≤ qG.length := by
-      cases qG with
-      | nil => exact absurd rfl d.hxy
-      | cons _ _ => simp
-    have hp1_pos : 1 ≤ p₁G.length := by
-      cases p₁G with
-      | nil => exact absurd rfl d.hxy
-      | cons _ _ => simp
-    have hp2_pos : 1 ≤ p₂G.length := by
-      cases p₂G with
-      | nil => exact absurd rfl d.hxy
-      | cons _ _ => simp
+    have hq_pos : 1 ≤ qG.length := walk_length_pos_of_ne qG d.hxy
+    have hp1_pos : 1 ≤ p₁G.length := walk_length_pos_of_ne p₁G d.hxy
+    have hp2_pos : 1 ≤ p₂G.length := walk_length_pos_of_ne p₂G d.hxy
     have hlen1 : 3 ≤ qG.length + p₁G.length := by
       have : Odd (qG.length + p₁G.length) := by simpa [qG, p₁G] using hodd1
       rcases this with ⟨k, hk⟩; omega
@@ -780,21 +791,8 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     exact hno_opp_parity q hq (Nat.not_even_iff_odd.mp hne)
   rcases hHbip with ⟨fH⟩
   rcases hG₂bip with ⟨fG₂⟩
-  have hcol_walk : ∀ {W : Type*} {G : SimpleGraph W} (f : G.Coloring (Fin 2)) {a b : W} (w : G.Walk a b),
-      f b = f a + Fin.ofNat 2 w.length := by
-    intro W G f a b w
-    induction w with
-    | nil => simp
-    | @cons u v z huv r ih =>
-      have hne : f u ≠ f v := f.valid huv
-      have hstep : f v = f u + 1 := by
-        generalize hfu : f u = fu; generalize hfv : f v = fv; rw [hfu, hfv] at hne; fin_cases fu <;> fin_cases fv <;> simp_all
-      have hof : Fin.ofNat 2 (r.length + 1) = Fin.ofNat 2 r.length + 1 := by
-        ext; simp [Fin.val_add]; omega
-      rw [ih, hstep, SimpleGraph.Walk.length_cons, hof]
-      ring
-  have hfH_xy : fH yH = fH xH + Fin.ofNat 2 p₁.length := hcol_walk fH p₁
-  have hfG₂_xy : fG₂ y₂ = fG₂ x₂ + Fin.ofNat 2 q.length := hcol_walk fG₂ q
+  have hfH_xy : fH yH = fH xH + Fin.ofNat 2 p₁.length := coloring_walk_eq fH p₁
+  have hfG₂_xy : fG₂ y₂ = fG₂ x₂ + Fin.ofNat 2 q.length := coloring_walk_eq fG₂ q
   have hlen_eq : Fin.ofNat 2 q.length = Fin.ofNat 2 p₁.length := by
     rcases hq_same_par with ⟨k, hk⟩
     ext; simp; omega
@@ -1047,7 +1045,22 @@ private theorem theorem_1_2_general :
                 have h4 : (4 : ZMod 4) = 0 := rfl
                 linear_combination (k : ZMod 4) * h4
               rw [h2len] at h2w
-              generalize hwQ_val : wQ = wv; rw [hwQ_val] at h2w; fin_cases wv <;> revert h2w <;> decide
+              generalize hwQ_val : wQ = wv; rw [hwQ_val] at h2w
+              fin_cases wv
+              · exfalso
+                have h0 : (2 : ZMod 4) * 0 = 0 := rfl
+                change (2 : ZMod 4) * 0 = 2 at h2w
+                rw [h0] at h2w
+                have hv := congrArg ZMod.val h2w
+                simp at hv
+              · exact Or.inl rfl
+              · exfalso
+                have h0 : (2 : ZMod 4) * 2 = 0 := rfl
+                change (2 : ZMod 4) * 2 = 2 at h2w
+                rw [h0] at h2w
+                have hv := congrArg ZMod.val h2w
+                simp at hv
+              · exact Or.inr rfl
             let sxy : ℤ := if wQ = 1 then 1 else -1
             have hsxy_pm : sxy = 1 ∨ sxy = -1 := by dsimp [sxy]; split_ifs <;> simp
             have hsxy_mod4 : modFourWeight (fun e : Sym2 d₁.VH =>
@@ -1139,15 +1152,15 @@ private theorem theorem_1_2_general :
                   have : pG.length + 1 = c.length := by omega
                   exact ⟨a + b, by omega⟩
                 have hlen3 : 3 ≤ QG.length + pG.length := by
-                  have h1 : 1 ≤ QG.length := by
-                    cases QG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
-                  have h2 : 1 ≤ pG.length := by
-                    cases pG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
+                  have h1 : 1 ≤ QG.length := walk_length_pos_of_ne QG d₁.hxy
+                  have h2 : 1 ≤ pG.length := walk_length_pos_of_ne pG d₁.hxy
                   rcases hsum_odd with ⟨k, hk⟩; omega
                 have hcycG : (QG.append pG.reverse).IsCycle :=
                   isCycle_append_reverse_of_disjoint pG QG hpG_path hQG_path hdisj hlen3
-                have hnocG := hS_mod4 d₁.x (QG.append pG.reverse) hcycG
-                  (by simpa [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse] using hsum_odd)
+                have hlen_app : (QG.append pG.reverse).length = QG.length + pG.length := by
+                  rw [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]
+                have hnocG : walkModFourWeight S.sign (QG.append pG.reverse) = 3 :=
+                  hS_mod4 d₁.x (QG.append pG.reverse) hcycG (hlen_app.symm ▸ hsum_odd)
                 rw [walkModFourWeight_append, walkModFourWeight_reverse, hpwt] at hnocG
                 rw [hp_wt ST.sign]
                 have h1 : modFourWeight ST.sign s(xH, yH) = wQ := hsxy_mod4
