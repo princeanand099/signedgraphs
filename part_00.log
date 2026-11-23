@@ -1,0 +1,56 @@
+COMMIT=469f0d16f03c770f94375bb0f82f95b2ef723c6a
+TIMESTAMP=2026-11-23T14:10:08Z
+=== 1. LAKE BUILD (SignedGraphs + Solution) ===
+⚠ [9047/9070] Built ChallengeDefs (4.2s)
+warning: comparator/ChallengeDefs.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+⚠ [9048/9070] Built SignedGraphs.Basic (4.7s)
+warning: SignedGraphs/Basic.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+✔ [9049/9070] Built SignedGraphs.LinearAlgebra (7.0s)
+✔ [9050/9070] Built SignedGraphs.GraphTools (7.7s)
+✔ [9051/9070] Built SignedGraphs.ParityCore (6.6s)
+✔ [9052/9070] Built SignedGraphs.LinearAlgebraExtra (8.1s)
+✔ [9053/9070] Built SignedGraphs.LocalReductions (45s)
+✔ [9054/9070] Built SignedGraphs.PetersenAlgebra (48s)
+✔ [9055/9070] Built SignedGraphs.MaximalEvenCycle (53s)
+✔ [9056/9070] Built SignedGraphs.ParityAndCycles (16s)
+✔ [9057/9070] Built SignedGraphs.PetersenSwitching (24s)
+✔ [9058/9070] Built SignedGraphs.TwoOddCycles (45s)
+✔ [9059/9070] Built SignedGraphs.Classification (15s)
+✔ [9060/9070] Built SignedGraphs.SchurReductions (109s)
+✔ [9061/9070] Built SignedGraphs.BipartiteLeaves (29s)
+✔ [9062/9070] Built SignedGraphs.SPQR (7.3s)
+✔ [9063/9070] Built SignedGraphs.MainTheorem (8.9s)
+✔ [9064/9070] Built SignedGraphs.Challenge (3.6s)
+✔ [9065/9070] Built Solution (3.5s)
+ℹ [9067/9070] Built SignedGraphs.AuditAxioms (3.4s)
+info: SignedGraphs/AuditAxioms.lean:10:0: 'SignedGraphs.theorem_1_2' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: SignedGraphs/AuditAxioms.lean:11:0: 'SignedGraphs.corollary_1_3' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: SignedGraphs/AuditAxioms.lean:12:0: 'SignedGraphs.Challenge.main_theorem_noc' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: SignedGraphs/AuditAxioms.lean:13:0: 'SignedGraphs.Challenge.ma_yang_li_conjecture' depends on axioms: [propext, Classical.choice, Quot.sound]
+✔ [9068/9070] Built SignedGraphs.SanityChecks (4.2s)
+✔ [9069/9070] Built SignedGraphs (3.2s)
+Build completed successfully (9070 jobs).
+LAKE_BUILD_EXIT=0
+=== 2. STATIC HYGIENE CHECK ===
+HYGIENE_CHECK_PASSED (0 forbidden constructs)
+=== 3. LAKE COMPARATOR ===
+Resolving dependencies
+Building Challenge
+⚠ [9047/9049] Replayed ChallengeDefs
+warning: comparator/ChallengeDefs.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+⚠ [9048/9049] Built Challenge (3.6s)
+warning: comparator/Challenge.lean:18:8: declaration uses `sorry`
+warning: comparator/Challenge.lean:28:8: declaration uses `sorry`
+Build completed successfully (9049 jobs).
+Exporting #[Quot, Quot.mk, Quot.lift, Quot.ind, SignedGraphs.Challenge.main_theorem_noc, SignedGraphs.Challenge.ma_yang_li_conjecture, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList, Char.ofNat, List, eagerReduce, Nat, String, String.mk, Char, optParam, autoParam, semiOutParam, outParam] from Challenge
+Building Solution
+⚠ [9047/9065] Replayed ChallengeDefs
+warning: comparator/ChallengeDefs.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+⚠ [9048/9065] Replayed SignedGraphs.Basic
+warning: SignedGraphs/Basic.lean: imports `Mathlib` from package `mathlib`, which is designed for use with the module system; consider adding `module` to the start of this file
+Build completed successfully (9065 jobs).
+Exporting #[Quot, Quot.mk, Quot.lift, Quot.ind, SignedGraphs.Challenge.main_theorem_noc, SignedGraphs.Challenge.ma_yang_li_conjecture, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList, Char.ofNat, List, eagerReduce, Nat, String, String.mk, Char, optParam, autoParam, semiOutParam, outParam] from Solution
+Running Lean default kernel on solution
+Lean default kernel accepts the solution
+Your solution is okay!
+LAKE_COMPARATOR_EXIT=0
