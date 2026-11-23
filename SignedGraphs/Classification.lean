@@ -595,7 +595,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                   Finset.card_le_card (Finset.union_subset (Finset.filter_subset _ _) (Finset.filter_subset _ _))
               _ = 3 := hcard_c
           have hinter : 0 < (N1 ∩ N2).card := by
-            have := Finset.card_union_add_card_inter N1 N2; dsimp only [N1, N2] at this hunion; omega
+            have := Finset.card_union_add_card_inter N1 N2; dsimp only [N1, N2] at this hunion ⊢; omega
           obtain ⟨a, ha⟩ := Finset.card_pos.mp hinter
           rw [Finset.mem_inter, Finset.mem_filter, Finset.mem_filter] at ha
           exact ⟨a, ha.1.1, ha.1.2, ha.2.2⟩
