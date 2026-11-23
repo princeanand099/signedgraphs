@@ -58,7 +58,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       intro p hpe; cases p with
       | nil => exact absurd rfl hne
       | @cons _ w _ _ r => cases r with
-        | nil => exact False.elim (hch (hpe s(x, w) (by simp)))
+        | nil => exact False.elim (hch (hpe s(x, y) (by simp)))
         | cons _ _ => simp
     have htry : ∀ (p : G.Walk x y), p.IsPath → Even p.length → 2 ≤ p.length → p.length + 1 < d₁.length →
         (∀ z ∈ p.support, z ∈ d₁.support) → False := by
@@ -101,7 +101,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     have hw₀U : w₀ ∉ U := by simp [U, hw₀1, hw₀2]
     let Q : Finset V := Finset.univ.filter fun u =>
       ∃ hu : u ∈ ((U : Set V)ᶜ), (G.induce ((U : Set V)ᶜ)).Reachable ⟨w₀, hw₀U⟩ ⟨u, hu⟩
-    have hw₀Q : w₀ ∈ Q := by simp [Q]; exact ⟨hw₀U, SimpleGraph.Reachable.refl _⟩
+    have hw₀Q : w₀ ∈ Q := by simp only [Q, Finset.mem_filter, Finset.mem_univ, true_and]; exact ⟨hw₀U, SimpleGraph.Reachable.refl _⟩
     have hQ_disj : Disjoint Q U := by
       rw [Finset.disjoint_left]; intro x hx; simp [Q] at hx; exact hx.1
     have hQ_closed : ∀ x ∈ Q, ∀ y : V, G.Adj x y → y ∈ Q ∪ U := by
@@ -148,6 +148,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         2 ≤ (d₁.support.toFinset.filter fun u => ∃ x ∈ Q, G.Adj x u).card → False := by
       intro u₁ u₂ d₁ d₂ hd₁ hd₂ ho₁ ho₂ hdj hQd1 hQd2 hge2
       let N := d₁.support.toFinset.filter fun u => ∃ x ∈ Q, G.Adj x u
+      have hN_ge2 : 2 ≤ N.card := hge2
       obtain ⟨a, haN⟩ := Finset.card_pos.mp (by omega : 0 < N.card)
       obtain ⟨b, hbN, hba⟩ := Finset.exists_mem_ne (by omega : 1 < N.card) a
       have haD : a ∈ d₁.support := List.mem_toFinset.mp (Finset.mem_filter.mp haN).1
@@ -178,7 +179,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz1
           rcases hz1 with h | h
           · exact False.elim (hba h)
-          · exact False.elim (hb_nQ (hrG_Q b h))
+          · exact False.elim (hb_nQ (hrG_Q _ h))
       have hP_int : ∀ z ∈ P.support, z ≠ a → z ≠ b → z ∈ Q := by
         intro z hz hza hzb
         dsimp only [P] at hz
@@ -233,7 +234,8 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     · exact htwo_on_one c₁ c₂ hc₁ hc₂ hodd₁ hodd₂ hdisj
         (hQ_disj.mono_right Finset.subset_union_left) (hQ_disj.mono_right Finset.subset_union_right) h1
     · exact htwo_on_one c₂ c₁ hc₂ hc₁ hodd₂ hodd₁ hdisj.symm
-        (hQ_disj.mono_right Finset.subset_union_right) (hQ_disj.mono_right Finset.subset_union_left) (by omega)
+        (hQ_disj.mono_right Finset.subset_union_right) (hQ_disj.mono_right Finset.subset_union_left)
+        (by dsimp only [C1, C2] at h1 hcard_le; omega)
   -- Step 3: Perfect matching between C₁ and C₂
   have hcross_le1 : ∀ {u₁ u₂ : V} (d₁ : G.Walk u₁ u₁) (d₂ : G.Walk u₂ u₂),
       d₁.IsCycle → d₂.IsCycle → Odd d₁.length → Odd d₂.length →
@@ -242,6 +244,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     intro u₁ u₂ d₁ d₂ hd₁ hd₂ ho₁ ho₂ hdj x hx
     by_contra hgt; push Not at hgt
     let Nx := d₂.support.toFinset.filter fun y => G.Adj x y
+    have hNx_gt : 1 < Nx.card := hgt
     obtain ⟨y₁, hy₁N⟩ := Finset.card_pos.mp (by omega : 0 < Nx.card)
     obtain ⟨y₂, hy₂N, hy21⟩ := Finset.exists_mem_ne (by omega : 1 < Nx.card) y₁
     have hy₁D : y₁ ∈ d₂.support := List.mem_toFinset.mp (Finset.mem_filter.mp hy₁N).1
@@ -311,6 +314,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       · exact Finset.mem_union_right _ (Finset.mem_filter.mpr ⟨h2, hy⟩)
     have hge := (Finset.card_le_card hsub).trans (Finset.card_union_le _ _)
     rw [SimpleGraph.card_neighborFinset_eq_degree] at hge
+    dsimp only [G] at hge hind hle1 ⊢
     omega
   have hm1 : ∀ x ∈ C1, ∃! y, y ∈ C2 ∧ G.Adj x y := by
     intro x hx
@@ -558,7 +562,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         let fQ : G.induce ((Qset : Set V)ᶜ) →g G := (SimpleGraph.Embedding.induce ((Qset : Set V)ᶜ)).toHom
         let dG : G.Walk z.1 z.1 := d.map fQ
         have hdG : dG.IsCycle := hd.map (fun _ _ h => Subtype.ext h)
-        have hdG_odd : Odd dG.length := by simpa [dG, SimpleGraph.Walk.length_map] using hodd_d
+        have hdG_odd : Odd dG.length := by rw [show dG.length = d.length from SimpleGraph.Walk.length_map fQ d]; exact hodd_d
         have hdj_Q : Disjoint Qcyc.support.toFinset dG.support.toFinset := by
           rw [hQsupp, Finset.disjoint_right]
           intro w hw
