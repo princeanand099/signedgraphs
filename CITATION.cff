@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use or reference this Lean 4 formalization, please cite it as below."
+type: software
+title: "SignedGraphs: Lean 4 Formalization of the Ma–Yang–Li Signature Conjecture"
+authors:
+  - family-names: "Anand"
+    given-names: "Prince"
+    email: "princeanand123pc@gmail.com"
+repository-code: "https://github.com/princeanand099/signedgraphs"
+license: Apache-2.0
+version: "1.0.0"
+date-released: "2026-11-23"
+keywords:
+  - lean4
+  - mathlib
+  - formal-verification
+  - spectral-graph-theory
+  - signed-graphs
+  - ma-yang-li-conjecture
+  - matrix-signature
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Anand"
+      given-names: "Prince"
+  title: "A Proof of the Ma–Yang–Li Signature Conjecture via Weighted Signed Graphs"
+  year: 2026

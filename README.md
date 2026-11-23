@@ -7,17 +7,17 @@ where $s(G) = n_+(G) - n_-(G)$ is the signature of the adjacency matrix of $G$, 
 ## Scope & Verification Status
 
 - **Proved**: All manuscript results (Theorem 1.2, Corollary 1.3, Lemmas 2.1–2.2, Theorem 3.1, Lemmas 3.2–3.4, Proposition 4.1, Lemmas 5.1–5.2, and the SPQR two-leaf theorem), public challenge statements using only core Lean and Mathlib types in their signatures (`SignedGraphs/Challenge.lean`), and non-vacuity/small-case witnesses for $n = 0, 1, 2, 3$ including non-bipartite $K_3$ (`SignedGraphs/SanityChecks.lean`).
-- **Build & Axiom Audit**: Verified green in CI log [`c21bc128`](https://github.com/princeanand099/signedgraphs/commit/c21bc1287900f4ed3a7dec02e47ec059e9652082) on commit [`78557719`](https://github.com/princeanand099/signedgraphs/commit/7855771937371ad718a0dab064092640f2490f1e) (`9067/9067` jobs; 18 modules `✔`, `SignedGraphs.AuditAxioms` `ℹ`, and Lake v4.35's standard informational `module`-system notice on `SignedGraphs/Basic.lean`). Zero `sorry`, zero `admit`, zero custom axioms, zero `native_decide`. All four headline theorems depend strictly on `[propext, Classical.choice, Quot.sound]`.
-- **Not run in CI**: Standalone `lean4checker --fresh` and `lake comparator --paranoid` are not currently configured as separate CI steps (local verification commands are given below).
+- **Build & Axiom Audit**: Verified green in CI (`9067/9067` jobs; 18 modules `✔`, `SignedGraphs.AuditAxioms` `ℹ`, plus Lake v4.35's standard informational `module`-system notice on `SignedGraphs/Basic.lean`). Zero `sorry`, zero `admit`, zero custom axioms, zero `native_decide`. All four headline theorems depend strictly on `[propext, Classical.choice, Quot.sound]`.
+- **Comparator Audit Layout**: `comparator/ChallengeDefs.lean` (40 lines, imports only `Mathlib`), `comparator/Challenge.lean` (35 lines, intentional `sorry` statements), `comparator/Solution.lean` (proofs), and `comparator.json` (`definition_names: []`, `permitted_axioms: ["propext", "Quot.sound", "Classical.choice"]`) are configured for Lean `v4.35.0`'s built-in `lake comparator --paranoid` (run via `scripts/verify.sh --paranoid`).
 
 ## Theorem-to-Lean Mapping
 
 | Paper Result | Mathematical Statement | Lean Declaration | Module | Status |
 |---|---|---|---|---|
 | **Theorem 1.2** | Real symmetric zero-diagonal NOC matrix $A \implies s(A) \le 0$ | `SignedGraphs.theorem_1_2` | `SignedGraphs/MainTheorem.lean` | Proved |
-| **Theorem 1.2 (public)** | Mathlib-only signature of Theorem 1.2 | `SignedGraphs.Challenge.main_theorem_noc` | `SignedGraphs/Challenge.lean` | Proved |
+| **Theorem 1.2 (public)** | Mathlib-only signature of Theorem 1.2 | `SignedGraphs.Challenge.main_theorem_noc` | `SignedGraphs/Challenge.lean`, `comparator/Solution.lean` | Proved |
 | **Corollary 1.3** | Every finite simple graph $G$ satisfies $-c_3(G) \le s(G) \le c_5(G)$ | `SignedGraphs.corollary_1_3` | `SignedGraphs/MainTheorem.lean` | Proved |
-| **Corollary 1.3 (public)** | Mathlib-only signature of Corollary 1.3 | `SignedGraphs.Challenge.ma_yang_li_conjecture` | `SignedGraphs/Challenge.lean` | Proved |
+| **Corollary 1.3 (public)** | Mathlib-only signature of Corollary 1.3 | `SignedGraphs.Challenge.ma_yang_li_conjecture` | `SignedGraphs/Challenge.lean`, `comparator/Solution.lean` | Proved |
 | **Lemma 2.1** | Cut-vertex reduction for NOC signature | `SignedGraphs.cut_vertex_reduction` | `SignedGraphs/LocalReductions.lean` | Proved |
 | **Lemma 2.2** | Degree-2 vertex reduction for NOC signature | `SignedGraphs.degree_two_reduction` | `SignedGraphs/LocalReductions.lean` | Proved |
 | **Theorem 3.1** | 3-connected non-bipartite NOC $\implies$ switching-equiv. to $(K_4, +1)$ or $(\text{Petersen}, -1)$ | `SignedGraphs.three_connected_non_bipartite_noc_classification` | `SignedGraphs/Classification.lean` | Proved |
@@ -33,31 +33,22 @@ where $s(G) = n_+(G) - n_-(G)$ is the signature of the adjacency matrix of $G$, 
 
 ## Check It Yourself
 
+Run the full verification script (do **not** run `lake update`, which breaks pinned reproducibility):
+
 ```bash
-# 1. Fetch precompiled Mathlib oleans (do NOT run `lake update`, which breaks pinned reproducibility)
-lake exe cache get
+# Build, static hygiene check, axiom audit, and lake comparator --paranoid (Linux with bubblewrap)
+bash scripts/verify.sh --paranoid
 
-# 2. Build all modules (including Challenge, SanityChecks, and AuditAxioms)
-lake build
-
-# 3. Verify static absence of sorry / custom axioms / native_decide / unsafe constructs
-grep -rnE '\b(sorry|sorryAx|admit|axiom|native_decide|unsafe|unsafeCast|implemented_by|extern|partial|skipKernelTC)\b' SignedGraphs/ SignedGraphs.lean
-
-# 4. Inspect axiom audit output directly
-lake env lean SignedGraphs/AuditAxioms.lean
+# Or without comparator (e.g., on macOS without bubblewrap)
+bash scripts/verify.sh --no-comparator
 ```
 
-Expected `#print axioms` output:
+Expected `#print axioms` output (`SignedGraphs/AuditAxioms.lean`):
 ```
 'SignedGraphs.theorem_1_2' depends on axioms: [propext, Classical.choice, Quot.sound]
 'SignedGraphs.corollary_1_3' depends on axioms: [propext, Classical.choice, Quot.sound]
 'SignedGraphs.Challenge.main_theorem_noc' depends on axioms: [propext, Classical.choice, Quot.sound]
 'SignedGraphs.Challenge.ma_yang_li_conjecture' depends on axioms: [propext, Classical.choice, Quot.sound]
-```
-
-To replay `.olean` files independently through `lean4checker` (if installed):
-```bash
-lake exe lean4checker --fresh SignedGraphs
 ```
 
 ## Repository Layout
@@ -67,6 +58,9 @@ lake exe lean4checker --fresh SignedGraphs
 - `SignedGraphs/SanityChecks.lean` — Non-vacuity witnesses and concrete small-case corollaries ($n = 0, 1, 2, 3$).
 - `SignedGraphs/AuditAxioms.lean` — `#print axioms` verification for all four headline theorems.
 - `SignedGraphs/*.lean` — Modular proof development (see `PROOF-PATH.md` and `PROGRESS.md`).
+- `comparator/` & `comparator.json` — Standalone `ChallengeDefs.lean`, `Challenge.lean`, `Solution.lean`, and configuration for `lake comparator --paranoid`.
+- `scripts/verify.sh` — End-to-end verification script (`lake build`, static hygiene check, `#print axioms`, `lake comparator`).
+- `CITATION.cff` — Machine-readable citation metadata.
 - `EXTERNAL-AXIOMS.md` — External/custom axiom audit (none used).
 - `ATTRIBUTION.md` — Authorship, manuscript reference, and dependency attribution.
 - `Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex` — Source manuscript.

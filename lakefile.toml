@@ -25,3 +25,15 @@ rev = "v4.35.0"
 
 [[lean_lib]]
 name = "SignedGraphs"
+
+[[lean_lib]]
+name = "ChallengeDefs"
+srcDir = "comparator"
+
+[[lean_lib]]
+name = "Challenge"
+srcDir = "comparator"
+
+[[lean_lib]]
+name = "Solution"
+srcDir = "comparator"
