@@ -125,6 +125,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
                 rw [Finset.card_image_of_injOn]
                 intro a ha b hb hab
                 dsimp only [f] at hab
+                rw [Finset.mem_coe] at ha hb
                 rw [dif_pos ha, dif_pos hb] at hab
                 exact congrArg Subtype.val (Sum.inr.inj hab)
             _ ≤ B_p.card := Finset.card_le_card (by
@@ -371,11 +372,11 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
                   ∀ z' ∈ s'.support, ∃ w ∈ s.support, ∃ hwH, z' = Sum.inr ⟨w, hwH⟩ := by
               intro a₁ b₁ s
               induction s with
-              | nil =>
+              | @nil u₀ =>
                 intro hsH
                 exact ⟨.nil, fun z' hz' => by
                   rw [SimpleGraph.Walk.support_nil, List.mem_singleton] at hz'
-                  exact ⟨a₁, SimpleGraph.Walk.start_mem_support .nil, hsH a₁ (SimpleGraph.Walk.start_mem_support .nil), hz'⟩⟩
+                  exact ⟨u₀, SimpleGraph.Walk.start_mem_support (SimpleGraph.Walk.nil : S.graph.Walk u₀ u₀), hsH u₀ (SimpleGraph.Walk.start_mem_support _), hz'⟩⟩
               | @cons x₁ y₁ d₁ hxy₁ r₁ ihr₁ =>
                 intro hsH
                 have hr₁H : ∀ w ∈ r₁.support, w ∉ c.support.toFinset := fun w hw =>
