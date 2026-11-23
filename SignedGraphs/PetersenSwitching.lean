@@ -16,7 +16,7 @@ variable {V : Type*} [Fintype V] [DecidableEq V]
 lemma odd_cycle_w3 (S : SignedGraph V) (hnoc : IsNOC S)
     {v : V} (c : S.graph.Walk v v) (hc : c.IsCycle) (hodd : Odd c.length) :
     walkModFourWeight S.sign c = 3 :=
-  hnoc v c hc hodd
+  (isNOC_iff_isNOCModFour S).mp hnoc v c hc hodd
 
 private lemma sign_five_cycle_prod_neg_one (S : SignedGraph V) (hnoc : IsNOC S)
     {a b c d e : V}
@@ -29,7 +29,7 @@ private lemma sign_five_cycle_prod_neg_one (S : SignedGraph V) (hnoc : IsNOC S)
   rcases hnd with ⟨⟨h_ab, h_ac, h_ad, h_ae⟩, ⟨h_bc, h_bd, h_be⟩, ⟨h_cd, h_ce⟩, h_de⟩
   let cyc : S.graph.Walk a a := .cons hab (.cons hbc (.cons hcd (.cons hde (.cons hea .nil))))
   have hcyc : cyc.IsCycle := by
-    refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [cyc]) ?_
+    refine ⟨⟨⟨?_⟩, by simp [cyc]⟩, ?_⟩
     · simp [cyc, Sym2.eq_iff, h_ab, h_ab.symm, h_ac, h_ac.symm, h_ad, h_ad.symm, h_ae, h_ae.symm,
         h_bc, h_bc.symm, h_bd, h_bd.symm, h_be, h_be.symm, h_cd, h_cd.symm, h_ce, h_ce.symm, h_de, h_de.symm]
     · simp [cyc, h_bc, h_bc.symm, h_bd, h_bd.symm, h_be, h_be.symm, h_ab, h_ab.symm,
