@@ -659,7 +659,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             (SimpleGraph.Embedding.induce (({z₀.1} : Finset V)ᶜ : Set V)).toHom
           have hr_not_z : z₀.1 ∉ (r.map f).support := by
             intro hm; rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
-            rcases hm with ⟨a, _, hax⟩; exact a.2 (by simp [hax])
+            rcases hm with ⟨a, _, hax⟩; exact a.2 (by simpa [f] using hax)
           obtain ⟨u, huC, qrev, hq_path, hq_sub, hq_int⟩ :=
             walk_first_hit_pc c.support.toFinset (r.map f).reverse
               ⟨v, List.mem_toFinset.mpr (SimpleGraph.Walk.start_mem_support c),
@@ -688,7 +688,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                   ∀ z' ∈ s'.support, ∃ w ∈ s.support, ∃ hwK, z' = Sum.inr ⟨w, hwK⟩ := by
               intro a₁ b₁ s
               induction s with
-              | nil => intro hsK; exact ⟨.nil, fun z' hz' => by simp at hz'; subst hz'; exact ⟨a₁, SimpleGraph.Walk.start_mem_support _, _, rfl⟩⟩
+              | nil => intro hsK; exact ⟨.nil, fun z' hz' => by rw [SimpleGraph.Walk.support_nil, List.mem_singleton] at hz'; exact ⟨a₁, SimpleGraph.Walk.start_mem_support .nil, hsK a₁ (SimpleGraph.Walk.start_mem_support .nil), hz'⟩⟩
               | @cons x₁ y₁ d₁ hxy₁ r₁ ihr₁ =>
                 intro hsK
                 obtain ⟨s', hs'⟩ := ihr₁ (fun w hw => hsK w (List.mem_cons_of_mem _ hw))
