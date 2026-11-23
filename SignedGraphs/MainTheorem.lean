@@ -1327,7 +1327,7 @@ private theorem theorem_1_2_general :
                     by_cases hi : eH i ∈ T_sw <;> by_cases hj : eH j ∈ T_sw <;>
                       simp [hi, hj, hnpos] at hsw ⊢ <;> linarith
                   · by_cases hi : eH i ∈ T_sw <;> by_cases hj : eH j ∈ T_sw <;>
-                      simp [hi, hj, hpos] at hsw ⊢ <;> linarith
+                      simp [hi, hj, hpos] at hsw ⊢
                 · by_contra hAne
                   have hGadj : G.Adj (eH i).1 (eH j).1 :=
                     ⟨fun heq => hij (eH.injective (Subtype.ext heq)), hAne⟩
