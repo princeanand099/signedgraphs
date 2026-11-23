@@ -474,9 +474,10 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four P.length).1 hP_ev]
       have hc1'_exp : walkModFourWeight S.sign c1' = walkModFourWeight S.sign P +
           (modFourWeight S.sign s(b, M b) + modFourWeight S.sign s(M b, M a) + modFourWeight S.sign s(M a, a)) := by
-        simp only [c1', q, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
-          SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-          List.sum_cons, List.sum_nil, add_zero]
+        dsimp only [c1']
+        rw [walkModFourWeight_append, walkModFourWeight_reverse]
+        simp only [q, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+          List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
         rw [Sym2.eq_swap (a := a) (b := M a), Sym2.eq_swap (a := M a) (b := M b), Sym2.eq_swap (a := M b) (b := b)]
         ring
       have h62 : (3 : ZMod 4) + 3 = 2 := by decide
@@ -557,7 +558,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         let fQ : G.induce ((Qset : Set V)ᶜ) →g G := (SimpleGraph.Embedding.induce ((Qset : Set V)ᶜ)).toHom
         let dG : G.Walk z.1 z.1 := d.map fQ
         have hdG : dG.IsCycle := hd.map (fun _ _ h => Subtype.ext h)
-        have hdG_odd : Odd dG.length := by simpa [dG] using hodd_d
+        have hdG_odd : Odd dG.length := by simpa [dG, SimpleGraph.Walk.length_map] using hodd_d
         have hdj_Q : Disjoint Qcyc.support.toFinset dG.support.toFinset := by
           rw [hQsupp, Finset.disjoint_right]
           intro w hw
@@ -567,12 +568,13 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           exact w'.2
         exact cycle_pair_obstructions_disjoint_even_odd S hconn h3 hnoc Qcyc dG hQcyc hdG ⟨2, by simp [Qcyc]⟩ hdG_odd hdj_Q
       obtain ⟨fcol⟩ := hH'_bip
-      let col : V → Bool := fun z => if hz : z ∈ ((Qset : Set V)ᶜ) then (fcol ⟨z, hz⟩ : Bool) else false
+      let col : V → Bool := fun z => if hz : z ∈ ((Qset : Set V)ᶜ) then decide (fcol ⟨z, hz⟩ = 0) else false
       have hcol_adj : ∀ x y : V, x ∉ Qset → y ∉ Qset → G.Adj x y → col x ≠ col y := by
         intro x y hx hy hxy
         have h1 : (G.induce ((Qset : Set V)ᶜ)).Adj ⟨x, hx⟩ ⟨y, hy⟩ := hxy
-        have hne := fcol.valid h1
-        simpa [col, hx, hy] using hne
+        have hne : fcol ⟨x, hx⟩ ≠ fcol ⟨y, hy⟩ := fcol.valid h1
+        have hfin2 : ∀ a b : Fin 2, a ≠ b → decide (a = 0) ≠ decide (b = 0) := by decide
+        simpa [col, hx, hy] using hfin2 _ _ hne
       obtain ⟨P₁, hP₁, hP1_len, hP1_supp, hP1_w⟩ := hcomp_path c₁ hc₁ hc1_chordless hu1C hu2C hu12_adj
       obtain ⟨P₂, hP₂, hP2_len, hP2_supp, hP2_w⟩ := hcomp_path c₂ hc₂ hc2_chordless
         (List.mem_toFinset.mp hMu1C2) (List.mem_toFinset.mp hMu2C2) hM_adj
@@ -588,8 +590,12 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       let Q₂ : G.Walk x₂ y₂ := Q₂_rev.reverse
       have hQ1_path : Q₁.IsPath := hQ1r_path.reverse
       have hQ2_path : Q₂.IsPath := hQ2r_path.reverse
-      have hQ1_len : Q₁.length = c₁.length - 3 := by simp [Q₁]; omega
-      have hQ2_len : Q₂.length = c₂.length - 3 := by simp [Q₂]; omega
+      have hQ1_len : Q₁.length = c₁.length - 3 := by
+        simp only [SimpleGraph.Walk.length_reverse] at hQ1r_len
+        simp [Q₁, SimpleGraph.Walk.length_reverse]; omega
+      have hQ2_len : Q₂.length = c₂.length - 3 := by
+        simp only [SimpleGraph.Walk.length_reverse] at hQ2r_len
+        simp [Q₂, SimpleGraph.Walk.length_reverse]; omega
       have hQ1_supp : ∀ z, z ∈ Q₁.support ↔ z ∈ C1 ∧ z ≠ u₁ ∧ z ≠ u₂ := by
         intro z; constructor
         · intro hz
@@ -658,7 +664,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         induction Q with
         | nil =>
           constructor
-          · intro _; simp
+          · intro _; simp [Finset.filter_singleton]
           · intro ho; rcases ho with ⟨k, hk⟩; simp at hk
         | @cons u v w huv r ih =>
           have hnd := hQ.support_nodup
@@ -677,7 +683,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
             · rintro (rfl | ⟨hz, hcz⟩)
               · exact ⟨Or.inl rfl, rfl⟩
               · refine ⟨Or.inr hz, ?_⟩
-                cases hu' : col u <;> cases hv' : col v <;> cases hz' : col z <;> simp_all
+                revert hne hcz; cases col u <;> cases col v <;> cases col z <;> decide
           have hfilt_ne : (SimpleGraph.Walk.cons huv r).support.toFinset.filter (fun z => col z ≠ col u) =
               r.support.toFinset.filter (fun z => col z = col v) := by
             ext z; simp only [SimpleGraph.Walk.support_cons, List.toFinset_cons, Finset.mem_filter,
@@ -686,7 +692,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
             · rintro ⟨rfl | hz, hcz⟩
               · exact absurd rfl hcz
               · refine ⟨hz, ?_⟩
-                cases hu' : col u <;> cases hv' : col v <;> cases hz' : col z <;> simp_all
+                revert hne hcz; cases col u <;> cases col v <;> cases col z <;> decide
             · rintro ⟨hz, hcz⟩
               exact ⟨Or.inr hz, by rw [hcz]; exact hne.symm⟩
           have hunf : u ∉ r.support.toFinset.filter (fun z => col z ≠ col v) := fun h => hunr (Finset.mem_filter.mp h).1
@@ -694,10 +700,12 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           constructor
           · intro hev
             have hodd_r : Odd r.length := by rcases hev with ⟨k, hk⟩; simp at hk; exact ⟨k - 1, by omega⟩
-            have := ihr.2 hodd_r; simp at this ⊢; omega
+            rcases hodd_r with ⟨m, hm⟩
+            have := ihr.2 ⟨m, hm⟩; simp at this ⊢; omega
           · intro hodd_c
             have hev_r : Even r.length := by rcases hodd_c with ⟨k, hk⟩; simp at hk; exact ⟨k, by omega⟩
-            have := ihr.1 hev_r; simp at this ⊢; omega
+            rcases hev_r with ⟨m, hm⟩
+            have := ihr.1 ⟨m, hm⟩; simp at this ⊢; omega
       have hQ1_ev : Even Q₁.length := by rcases hodd₁ with ⟨k, hk⟩; exact ⟨k - 1, by omega⟩
       have hQ2_ev : Even Q₂.length := by rcases hodd₁ with ⟨k, hk⟩; exact ⟨k - 1, by omega⟩
       have hcnt1 := (hpath_color_counts Q₁ hQ1_path hQ1_col).1 hQ1_ev
