@@ -1,14 +1,20 @@
 # Ma–Yang–Li Signature Conjecture (`signedgraphs`)
 
-Lean 4 (`v4.35.0` + Mathlib) formalization of Prince Anand's manuscript *"A Proof of the Ma–Yang–Li Signature Conjecture via Weighted Signed Graphs"* (`Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex`). The main result proves that every real symmetric zero-diagonal matrix $A$ whose underlying signed graph is negative-odd-cycle (NOC) satisfies $s(A) \le 0$ (Theorem 1.2), and deduces the 2013 Ma–Yang–Li Signature Conjecture (Corollary 1.3): for every finite simple graph $G$,
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24463191.svg)](https://doi.org/10.5281/zenodo.24463191)
+
+Lean 4 (`v4.35.0` + Mathlib) formalization of Prince Anand's manuscript [*"A Proof of the Ma–Yang–Li Signature Conjecture via Weighted Signed Graphs"*](https://doi.org/10.5281/zenodo.24463191) (`Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex`). The main result proves that every real symmetric zero-diagonal matrix $A$ whose underlying signed graph is negative-odd-cycle (NOC) satisfies $s(A) \le 0$ (Theorem 1.2), and deduces the 2013 Ma–Yang–Li Signature Conjecture (Corollary 1.3): for every finite simple graph $G$,
 $$-c_3(G) \le s(G) \le c_5(G),$$
 where $s(G) = n_+(G) - n_-(G)$ is the signature of the adjacency matrix of $G$, $c_3(G)$ is the number of simple cycles of length $\equiv 3 \pmod 4$, and $c_5(G)$ is the number of simple cycles of length $\equiv 1 \pmod 4$.
 
 ## Scope & Verification Status
 
 - **Proved**: All manuscript results (Theorem 1.2, Corollary 1.3, Lemmas 2.1–2.2, Theorem 3.1, Lemmas 3.2–3.4, Proposition 4.1, Lemmas 5.1–5.2, and the SPQR two-leaf theorem), public challenge statements using only core Lean and Mathlib types in their signatures (`SignedGraphs/Challenge.lean`), and non-vacuity/small-case witnesses for $n = 0, 1, 2, 3$ including non-bipartite $K_3$ (`SignedGraphs/SanityChecks.lean`).
-- **Build & Axiom Audit**: Verified green in CI (`9067/9067` jobs; 18 modules `✔`, `SignedGraphs.AuditAxioms` `ℹ`, plus Lake v4.35's standard informational `module`-system notice on `SignedGraphs/Basic.lean`). Zero `sorry`, zero `admit`, zero custom axioms, zero `native_decide`. All four headline theorems depend strictly on `[propext, Classical.choice, Quot.sound]`.
-- **Comparator Audit Layout**: `comparator/ChallengeDefs.lean` (40 lines, imports only `Mathlib`), `comparator/Challenge.lean` (35 lines, intentional `sorry` statements), `comparator/Solution.lean` (proofs), and `comparator.json` (`definition_names: []`, `permitted_axioms: ["propext", "Quot.sound", "Classical.choice"]`) are configured for Lean `v4.35.0`'s built-in `lake comparator --paranoid` (run via `scripts/verify.sh --paranoid`).
+- **Build, Hygiene & Comparator Audit**: Verified green end-to-end in CI log [`ad922d15`](https://github.com/princeanand099/signedgraphs/commit/ad922d159f8479e54a50e9156efd214a95e0d4d0) on commit [`b63325c8`](https://github.com/princeanand099/signedgraphs/commit/b63325c8ab10b3ff035ccfbec732b5e2f47e8759):
+  - `lake build SignedGraphs Solution`: `9070/9070` jobs succeeded (all proof/check modules `✔`, `SignedGraphs.AuditAxioms` `ℹ`, plus Lake v4.35's standard informational `module`-system notice on `Basic.lean` and `ChallengeDefs.lean`).
+  - Static anti-cheat hygiene check: `0` forbidden constructs (`sorry`, `sorryAx`, `admit`, `axiom`, `native_decide`, `unsafe`, `unsafeCast`, `implemented_by`, `extern`, `partial`, `skipKernelTC`, `local instance`).
+  - `SignedGraphs/AuditAxioms.lean`: all four headline theorems depend strictly on `[propext, Classical.choice, Quot.sound]`.
+  - Sandboxed `lake comparator` (`bwrap`, `comparator.json` with `definition_names: []`): `Lean default kernel accepts the solution` / `Your solution is okay!`.
+- **Comparator Audit Layout**: To trust the main results without reading the 18 proof modules, inspect `comparator/ChallengeDefs.lean` (40 lines, imports only `Mathlib`), `comparator/Challenge.lean` (35 lines, intentional `sorry` statements), `comparator.json` (13 lines), and the CI comparator log. For multi-kernel replay on a local Linux machine with sufficient RAM, run `bash scripts/verify.sh --paranoid`.
 
 ## Theorem-to-Lean Mapping
 
@@ -36,10 +42,13 @@ where $s(G) = n_+(G) - n_-(G)$ is the signature of the adjacency matrix of $G$, 
 Run the full verification script (do **not** run `lake update`, which breaks pinned reproducibility):
 
 ```bash
-# Build, static hygiene check, axiom audit, and lake comparator --paranoid (Linux with bubblewrap)
+# Build, static hygiene check, axiom audit, and lake comparator (Linux with bubblewrap)
+bash scripts/verify.sh
+
+# Multi-kernel paranoid replay (requires >16 GB RAM on Linux with bubblewrap)
 bash scripts/verify.sh --paranoid
 
-# Or without comparator (e.g., on macOS without bubblewrap)
+# Without comparator (e.g., on macOS without bubblewrap)
 bash scripts/verify.sh --no-comparator
 ```
 
@@ -58,9 +67,9 @@ Expected `#print axioms` output (`SignedGraphs/AuditAxioms.lean`):
 - `SignedGraphs/SanityChecks.lean` — Non-vacuity witnesses and concrete small-case corollaries ($n = 0, 1, 2, 3$).
 - `SignedGraphs/AuditAxioms.lean` — `#print axioms` verification for all four headline theorems.
 - `SignedGraphs/*.lean` — Modular proof development (see `PROOF-PATH.md` and `PROGRESS.md`).
-- `comparator/` & `comparator.json` — Standalone `ChallengeDefs.lean`, `Challenge.lean`, `Solution.lean`, and configuration for `lake comparator --paranoid`.
+- `comparator/` & `comparator.json` — Standalone `ChallengeDefs.lean`, `Challenge.lean`, `Solution.lean`, and configuration for `lake comparator`.
 - `scripts/verify.sh` — End-to-end verification script (`lake build`, static hygiene check, `#print axioms`, `lake comparator`).
-- `CITATION.cff` — Machine-readable citation metadata.
+- `CITATION.cff` — Machine-readable citation metadata (with manuscript DOI [`10.5281/zenodo.24463191`](https://doi.org/10.5281/zenodo.24463191)).
 - `EXTERNAL-AXIOMS.md` — External/custom axiom audit (none used).
 - `ATTRIBUTION.md` — Authorship, manuscript reference, and dependency attribution.
 - `Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex` — Source manuscript.
