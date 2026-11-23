@@ -564,7 +564,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                 modFourWeight S.sign s(v₂, u') + modFourWeight S.sign s(u', v₃) +
                 modFourWeight S.sign s(v₃, v₀)) +
               2 * modFourWeight S.sign s(v₀, v₂) + 2 * modFourWeight S.sign s(v₂, v₃) := by
-            rw [← hw_t1, ← hw_t2, ← hw_t3]; ring
+            linear_combination -hw_t1 - hw_t2 - hw_t3
           rw [hw_c5, h2_02, h2_23] at hsum
           exact absurd hsum (by decide)
       · -- Subcase 1c: |T| ≥ 2! Two leaves u₁ ≠ u₂ share a neighbor on c = {v₀, v₂, v₃}
@@ -735,7 +735,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
               2 * walkModFourWeight S.sign P + 2 * modFourWeight S.sign s(a, u₂) +
               2 * modFourWeight S.sign s(b, d) + 2 * modFourWeight S.sign s(d, a) +
               2 * modFourWeight S.sign s(a, b) := by
-            rw [← hwCa, ← hwCb, ← hwCabd, ← hwTabu1, hCa_exp, hCb_exp, hCabd_exp, hTabu1_exp]; ring
+            linear_combination -hwCa - hwCb - hwCabd - hwTabu1 + hCa_exp + hCb_exp + hCabd_exp + hTabu1_exp
           rw [two_mul_modFourWeight, two_mul_modFourWeight, two_mul_walkModFourWeight,
             two_mul_modFourWeight, two_mul_modFourWeight, two_mul_modFourWeight,
             two_mul_modFourWeight, (two_mul_nat_mod_four P.length).2 hP_ev] at hsum
@@ -933,7 +933,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             (modFourWeight S.sign s(u₁, a) + modFourWeight S.sign s(a, m) +
              modFourWeight S.sign s(m, b) + modFourWeight S.sign s(b, u₁)) +
             2 * walkModFourWeight S.sign L_arc := by
-          rw [← hw_c, ← hw_c', ← hSL_w, hS_w, hr_w]; ring
+          linear_combination -hw_c - hw_c' - hSL_w + hS_w + hr_w
         rw [h2L] at hsum
         -- hsum : 3 + 3 = Q + 2, so Q = 0 in ZMod 4!
         have h6 : (3 : ZMod 4) + 3 = 2 := by decide
@@ -1054,16 +1054,22 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             exact ⟨k, by simp [RL, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega⟩
           have h2RL : 2 * walkModFourWeight S.sign RL = 0 := by
             rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four RL.length).1 hRL_ev]
+          have h1_exp : walkModFourWeight S.sign C1 = walkModFourWeight S.sign RL + modFourWeight S.sign s(u₁, x) := by
+            simp only [C1, e1, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
+              SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
+              List.sum_cons, List.sum_nil, add_zero]
+          have h2_exp : walkModFourWeight S.sign C2 = walkModFourWeight S.sign RL +
+              modFourWeight S.sign s(x, m) + modFourWeight S.sign s(m, y) + modFourWeight S.sign s(y, u₁) := by
+            simp only [C2, e2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
+              SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
+              List.sum_cons, List.sum_nil, add_zero]
+            rw [Sym2.eq_swap (a := u₁) (b := y), Sym2.eq_swap (a := y) (b := m), Sym2.eq_swap (a := m) (b := x)]
+            ring
           have hsum : (3 : ZMod 4) + 3 =
               2 * walkModFourWeight S.sign RL +
               (modFourWeight S.sign s(u₁, x) + modFourWeight S.sign s(x, m) +
                modFourWeight S.sign s(m, y) + modFourWeight S.sign s(y, u₁)) := by
-            rw [← hw1, ← hw2]
-            simp only [C1, C2, e1, e2, walkModFourWeight_append, walkModFourWeight_reverse]
-            simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
-              List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
-            rw [Sym2.eq_swap (a := u₁) (b := y), Sym2.eq_swap (a := y) (b := m), Sym2.eq_swap (a := m) (b := x)]
-            ring
+            linear_combination -hw1 - hw2 + h1_exp + h2_exp
           rw [h2RL, hQ0] at hsum
           exact absurd hsum (by decide)
         --Wait: avoid the messy hy_nS in hside by passing hyC : y ∈ c.support!
@@ -1221,16 +1227,24 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           exact ⟨k + 2, by simp [C_b, p_bu2, q_bu2, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega⟩
         have hwCa := odd_cycle_weight_three S hnoc C_a hCa_cyc hCa_odd
         have hwCb := odd_cycle_weight_three S hnoc C_b hCb_cyc hCb_odd
+        have hCa_exp : walkModFourWeight S.sign C_a =
+            modFourWeight S.sign s(u₁, a) + walkModFourWeight S.sign P + modFourWeight S.sign s(a, u₂) := by
+          simp only [C_a, e_au2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
+            SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
+            List.sum_cons, List.sum_nil, add_zero]
+          rw [Sym2.eq_swap (a := a) (b := u₁)]; ring
+        have hCb_exp : walkModFourWeight S.sign C_b =
+            modFourWeight S.sign s(b, u₁) + walkModFourWeight S.sign P +
+            modFourWeight S.sign s(m, b) + modFourWeight S.sign s(a, m) + modFourWeight S.sign s(a, u₂) := by
+          simp only [C_b, p_bu2, q_bu2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
+            SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
+            List.sum_cons, List.sum_nil, add_zero]
+          rw [Sym2.eq_swap (a := b) (b := m), Sym2.eq_swap (a := m) (b := a)]; ring
         have hsum : (3 : ZMod 4) + 3 =
             2 * walkModFourWeight S.sign P + 2 * modFourWeight S.sign s(a, u₂) +
             (modFourWeight S.sign s(u₁, a) + modFourWeight S.sign s(a, m) +
              modFourWeight S.sign s(m, b) + modFourWeight S.sign s(b, u₁)) := by
-          rw [← hwCa, ← hwCb]
-          simp only [C_a, C_b, e_au2, p_bu2, q_bu2, walkModFourWeight_append, walkModFourWeight_reverse]
-          simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
-            List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
-          rw [Sym2.eq_swap (a := a) (b := u₁), Sym2.eq_swap (a := b) (b := m), Sym2.eq_swap (a := m) (b := a)]
-          ring
+          linear_combination -hwCa - hwCb + hCa_exp + hCb_exp
         rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four P.length).2 hP_ev,
           two_mul_modFourWeight, hQ_w0] at hsum
         exact absurd hsum (by decide)
