@@ -81,7 +81,9 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
       ext z; simp only [X, Y, Finset.mem_union, Finset.mem_filter]
       have := hcol2 z; constructor
       · rintro (⟨h, _⟩ | ⟨h, _⟩) <;> exact h
-      · intro h; omega
+      · intro h; by_cases h0 : col z = 0
+        · exact Or.inl ⟨h, h0⟩
+        · exact Or.inr ⟨h, by omega⟩
     -- Subcase B1 vs B2: w(C) = 0 or w(C) = 2
     rcases walkModFourWeight_even_of_even_length S.sign c hev with hw0 | hw2
     · -- Subcase B1: w(C) = 0
@@ -122,12 +124,15 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               = (c₂.support.toFinset.image f).card := by
                 rw [Finset.card_image_of_injOn]
                 intro a ha b hb hab
-                simp only [f, dif_pos ha, dif_pos hb, Sum.inr.injEq, Subtype.mk.injEq] at hab
-                exact hab
+                dsimp only [f] at hab
+                rw [dif_pos ha, dif_pos hb] at hab
+                exact congrArg Subtype.val (Sum.inr.inj hab)
             _ ≤ B_p.card := Finset.card_le_card (by
                 intro z hz
                 rcases Finset.mem_image.mp hz with ⟨a, ha, rfl⟩
-                simp [B_p, f, dif_pos ha, ha])
+                dsimp only [B_p, f]
+                rw [Finset.mem_filter, dif_pos ha]
+                exact ⟨Finset.mem_univ _, ha⟩)
         omega
       -- Let's prove |X| = |Y| cleanly first!
       have hX_eq_Y : X.card = Y.card := by
@@ -188,11 +193,15 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               by_cases hcy0 : col y = 0
               · have hcz1 : col z = 1 := by omega
                 have h1 := (ih.2 hodd_r).2 hcz1
-                simp [List.filter_cons, hcy0]; omega
+                have hcy_ne1 : ¬ (col y = 1) := by omega
+                simp only [List.filter_cons, decide_eq_true hcy0, decide_eq_false hcy_ne1,
+                  ite_true, ite_false, Bool.false_eq_true, List.length_cons]; omega
               · have hcy1 : col y = 1 := by omega
                 have hcz0 : col z = 0 := by omega
                 have h1 := (ih.2 hodd_r).1 hcz0
-                simp [List.filter_cons, hcy1]; omega
+                have hcy_ne0 : ¬ (col y = 0) := by omega
+                simp only [List.filter_cons, decide_eq_false hcy_ne0, decide_eq_true hcy1,
+                  ite_true, ite_false, Bool.false_eq_true, List.length_cons]; omega
             · intro hodd_cons
               have hev_r : Even r.length := by
                 rcases hodd_cons with ⟨k, hk⟩; simp only [SimpleGraph.Walk.length_cons] at hk
@@ -201,9 +210,13 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               have h1 := ih.1 hev_r
               constructor
               · intro hcz0; have hcy0 : col y = 0 := by omega
-                simp [List.filter_cons, hcy0]; omega
+                have hcy_ne1 : ¬ (col y = 1) := by omega
+                simp only [List.filter_cons, decide_eq_true hcy0, decide_eq_false hcy_ne1,
+                  ite_true, ite_false, Bool.false_eq_true, List.length_cons]; omega
               · intro hcz1; have hcy1 : col y = 1 := by omega
-                simp [List.filter_cons, hcy1]; omega
+                have hcy_ne0 : ¬ (col y = 0) := by omega
+                simp only [List.filter_cons, decide_eq_false hcy_ne0, decide_eq_true hcy1,
+                  ite_true, ite_false, Bool.false_eq_true, List.length_cons]; omega
         rw [hX_len, hY_len]
         exact (hwalk_bal c (fun _ h => h)).1 hev
       -- Now prove both X and Y have a neighbor in H_type!
@@ -322,7 +335,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             (SimpleGraph.Embedding.induce (({z₀.1} : Finset V)ᶜ : Set V)).toHom
           have hr_not_z : z₀.1 ∉ (r.map f).support := by
             intro hm; rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
-            rcases hm with ⟨x, _, hxz⟩; exact x.2 (by simp [hxz])
+            rcases hm with ⟨x, _, hxz⟩; exact x.2 (by simpa [f] using hxz)
           -- Take last hit of C along r.map f (first hit along reverse)
           obtain ⟨u, huC, qrev, hq_path, hq_sub, hq_int⟩ :=
             walk_first_hit_pc c.support.toFinset (r.map f).reverse
@@ -361,8 +374,8 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               | nil =>
                 intro hsH
                 exact ⟨.nil, fun z' hz' => by
-                  simp at hz'; subst hz'
-                  exact ⟨a₁, SimpleGraph.Walk.start_mem_support _, _, rfl⟩⟩
+                  rw [SimpleGraph.Walk.support_nil, List.mem_singleton] at hz'
+                  exact ⟨a₁, SimpleGraph.Walk.start_mem_support .nil, hsH a₁ (SimpleGraph.Walk.start_mem_support .nil), hz'⟩⟩
               | @cons x₁ y₁ d₁ hxy₁ r₁ ihr₁ =>
                 intro hsH
                 have hr₁H : ∀ w ∈ r₁.support, w ∉ c.support.toFinset := fun w hw =>
