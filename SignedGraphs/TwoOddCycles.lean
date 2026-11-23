@@ -1050,7 +1050,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     · simp only [f, dif_pos hi, dif_pos hj]
       rw [hv_adj_iff]
       constructor
-      · rintro ⟨h, _⟩
+      · rintro ⟨_, h⟩
         rcases h with (⟨_, _, h1⟩ | ⟨h1, _⟩ | ⟨_, h1⟩ | ⟨_, h1⟩) | (⟨_, _, h1⟩ | ⟨h1, _⟩ | ⟨_, h1⟩ | ⟨_, h1⟩)
         · exact h1
         · omega
@@ -1061,8 +1061,8 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · omega
         · omega
       · intro h
-        refine ⟨Or.inl (Or.inl ⟨hi, hj, h⟩), ?_⟩
-        intro heq; subst heq; omega
+        refine ⟨?_, Or.inl (Or.inl ⟨hi, hj, h⟩)⟩
+        intro heq; subst heq; dsimp at h; omega
     · simp only [f, dif_pos hi, dif_neg hj]
       have hcross_iff : G.Adj (v ⟨i.val, hi⟩) (M (v ⟨j.val - 5, by omega⟩)) ↔ j.val = i.val + 5 := by
         constructor
@@ -1074,9 +1074,9 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           rw [this]; exact (hM_C1 _ (hv_C1 _)).2
       rw [hcross_iff]
       constructor
-      · rintro ⟨h, _⟩
+      · rintro ⟨_, h⟩
         rcases h with (⟨_, h1, _⟩ | ⟨h1, _⟩ | ⟨_, h1⟩ | ⟨h1, _⟩) | (⟨h1, _⟩ | ⟨_, h1, _⟩ | ⟨h1, _⟩ | ⟨_, h1⟩) <;> omega
-      · intro h; refine ⟨Or.inl (Or.inr (Or.inr (Or.inl ⟨hi, h⟩))), fun heq => by subst heq; omega⟩
+      · intro h; refine ⟨fun heq => by subst heq; omega, Or.inl (Or.inr (Or.inr (Or.inl ⟨hi, h⟩)))⟩
     · simp only [f, dif_neg hi, dif_pos hj]
       have hcross_iff : G.Adj (M (v ⟨i.val - 5, by omega⟩)) (v ⟨j.val, hj⟩) ↔ i.val = j.val + 5 := by
         constructor
@@ -1088,13 +1088,13 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           rw [this]; exact (hM_C1 _ (hv_C1 _)).2.symm
       rw [hcross_iff]
       constructor
-      · rintro ⟨h, _⟩
+      · rintro ⟨_, h⟩
         rcases h with (⟨h1, _⟩ | ⟨_, h1, _⟩ | ⟨h1, _⟩ | ⟨_, h1⟩) | (⟨_, h1, _⟩ | ⟨h1, _⟩ | ⟨_, h1⟩ | ⟨h1, _⟩) <;> omega
-      · intro h; refine ⟨Or.inl (Or.inr (Or.inr (Or.inr ⟨hj, h⟩))), fun heq => by subst heq; omega⟩
+      · intro h; refine ⟨fun heq => by subst heq; omega, Or.inl (Or.inr (Or.inr (Or.inr ⟨hj, h⟩)))⟩
     · simp only [f, dif_neg hi, dif_neg hj]
       rw [hM_adj_iff]
       constructor
-      · rintro ⟨h, _⟩
+      · rintro ⟨_, h⟩
         rcases h with (⟨h1, _⟩ | ⟨_, _, h1⟩ | ⟨h1, _⟩ | ⟨_, h1⟩) | (⟨h1, _⟩ | ⟨_, _, h1⟩ | ⟨h1, _⟩ | ⟨_, h1⟩)
         · omega
         · exact h1
@@ -1105,7 +1105,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · omega
         · omega
       · intro h
-        refine ⟨Or.inl (Or.inr (Or.inl ⟨by omega, by omega, h⟩)), ?_⟩
+        refine ⟨?_, Or.inl (Or.inr (Or.inl ⟨by omega, by omega, h⟩))⟩
         intro heq; subst heq; dsimp at h; omega
   · -- L ≥ 7: minimize distance d_{C₂}(M u₁, M u₂) over edges u₁u₂ ∈ E(C₁) → contradiction!
     exfalso
@@ -1153,9 +1153,14 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     -- A_od.length ≥ 3 (since A_od is odd and ≠ 1 as ¬ G.Adj (M u₁) (M u₂))
     have hAod_ge3 : 3 ≤ A_od.length := by
       have h1 : A_od.length ≠ 1 := by
-        intro h; cases A_od with
-        | nil => simp at h
-        | cons hadj r => cases r with | nil => exact hMu1_nadj hadj | cons _ _ => simp at h
+        intro h
+        have hadj : G.Adj (M u₁) (M u₂) := by
+          generalize hMu1_eq : M u₁ = a at A_od
+          generalize hMu2_eq : M u₂ = b at A_od
+          cases A_od with
+          | nil => simp at h
+          | cons hadj r => cases r with | nil => exact hadj | cons _ _ => simp at h
+        exact hMu1_nadj hadj
       rcases hAod_od with ⟨k, hk⟩; omega
     -- Extract internal edge y₁' - y₂' on A_od: A_od = M u₁ - y₁' - y₂' -(r_od)- M u₂
     obtain ⟨y₁', hMu1y1', q_od, hAod_eq1, hqod_path, hy1'1, hy1'2, _, hqod_len, hMu1_nqod⟩ :=
@@ -1261,9 +1266,9 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       intro z hz1 hz2
       simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
         List.not_mem_nil, or_false] at hz2
-      rcases hz2 with rfl | rfl
-      · rfl
-      · exact False.elim (Finset.disjoint_left.mp hdisj hu2C1 (hAev_C2 u₂ hz1))
+      rcases hz2 with h | h
+      · exact h
+      · exact False.elim (Finset.disjoint_left.mp hdisj hu2C1 (hAev_C2 u₂ (h ▸ hz1)))
     have hq1 : q1.IsPath := SimpleGraph.Walk.IsPath.cons hq1_sub (fun hm => by
       rw [SimpleGraph.Walk.mem_support_append_iff] at hm
       rcases hm with h1 | h2
@@ -1277,7 +1282,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     have he1 : e1.IsPath := SimpleGraph.Walk.IsPath.mk' (by simp [e1, hu12_ne])
     let C₁' : G.Walk u₁ u₁ := q1.append e1.reverse
     have hC1' : C₁'.IsCycle := by
-      apply isCycle_append_reverse_of_disjoint e1 q1 he1 hq1 _ (by simp [q1, e1, SimpleGraph.Walk.length_append]; omega)
+      apply isCycle_append_reverse_of_disjoint e1 q1 he1 hq1 _ (by simp [q1, e1, SimpleGraph.Walk.length_append])
       intro z _ hz1 hz2 hze; simp [e1] at hze; rcases hze with rfl | rfl <;> contradiction
     have hC1'_odd : Odd C₁'.length := by
       rcases hAev_ev with ⟨k, hk⟩
@@ -1285,23 +1290,27 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     let q2 : G.Walk y₁ y₂ := SimpleGraph.Walk.cons (hM_C2 y₁' hy1'C2).2.symm
       (SimpleGraph.Walk.cons hy12' (SimpleGraph.Walk.cons (hM_C2 y₂' hy2'C2).2 .nil))
     have hq2 : q2.IsPath := SimpleGraph.Walk.IsPath.mk' (by
-      have h1 : y₁ ≠ y₁' := fun h => Finset.disjoint_left.mp hdisj hy1C1 (h ▸ hy1'C2)
-      have h2 : y₁ ≠ y₂' := fun h => Finset.disjoint_left.mp hdisj hy1C1 (h ▸ hy2'C2)
+      have h1 : y₁ ≠ y₁' := fun h => Finset.disjoint_left.mp hdisj hy1C1 (h.symm ▸ hy1'C2)
+      have h2 : y₁ ≠ y₂' := fun h => Finset.disjoint_left.mp hdisj hy1C1 (h.symm ▸ hy2'C2)
       have h3' : y₁' ≠ y₂ := fun h => Finset.disjoint_left.mp hdisj hy2C1 (h ▸ hy1'C2)
       have h4 : y₂' ≠ y₂ := fun h => Finset.disjoint_left.mp hdisj hy2C1 (h ▸ hy2'C2)
+      dsimp only [y₁, y₂] at h1 h2 hy12_ne h3' h4
       simp [q2, h1, h2, hy12_ne, hy2'1.symm, h3', h4])
     let C₂' : G.Walk y₁ y₁ := P.append q2.reverse
-    have hP_pos : 1 ≤ P.length := by cases P with | nil => exact absurd rfl hy12_ne | cons _ _ => simp
+    have hP_pos : 1 ≤ P.length := by
+      generalize hy1 : y₁ = a at P hy12_ne
+      generalize hy2 : y₂ = b at P hy12_ne
+      cases P with | nil => exact absurd rfl hy12_ne | cons _ _ => simp
     have hC2' : C₂'.IsCycle := by
-      apply isCycle_append_reverse_of_disjoint q2 P hq2 hP _ (by simp [q2]; omega)
+      apply isCycle_append_reverse_of_disjoint q2 P hq2 hP _ (by simp [q2])
       intro z hzP hzy1 hzy2 hzq2
       simp only [q2, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
         List.not_mem_nil, or_false] at hzq2
-      rcases hzq2 with rfl | rfl | rfl | rfl
-      · exact absurd rfl hzy1
-      · exact Finset.disjoint_left.mp hdisj (hP_int y₁' hzP).1 hy1'C2
-      · exact Finset.disjoint_left.mp hdisj (hP_int y₂' hzP).1 hy2'C2
-      · exact absurd rfl hzy2
+      rcases hzq2 with h | h | h | h
+      · exact absurd h hzy1
+      · exact Finset.disjoint_left.mp hdisj (hP_int z hzP).1 (h.symm ▸ hy1'C2)
+      · exact Finset.disjoint_left.mp hdisj (hP_int z hzP).1 (h.symm ▸ hy2'C2)
+      · exact absurd h hzy2
     have hC12'_disj : Disjoint C₁'.support.toFinset C₂'.support.toFinset := by
       rw [Finset.disjoint_left]
       intro z hz1 hz2
@@ -1331,16 +1340,16 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           · exact Or.inr (Or.inl rfl)
           · exact Or.inr (Or.inr rfl)
           · exact Or.inl (SimpleGraph.Walk.end_mem_support P)
-      rcases hz1_cases with rfl | rfl | hzA <;> rcases hz2_cases with hzP | rfl | rfl
-      · exact (hP_int u₁ hzP).2.1 rfl
-      · exact Finset.disjoint_left.mp hdisj hu1C1 hy1'C2
-      · exact Finset.disjoint_left.mp hdisj hu1C1 hy2'C2
-      · exact (hP_int u₂ hzP).2.2 rfl
-      · exact Finset.disjoint_left.mp hdisj hu2C1 hy1'C2
-      · exact Finset.disjoint_left.mp hdisj hu2C1 hy2'C2
+      rcases hz1_cases with h1 | h1 | hzA <;> rcases hz2_cases with hzP | h2 | h2
+      · exact (hP_int z hzP).2.1 h1
+      · exact Finset.disjoint_left.mp hdisj (h1.symm ▸ hu1C1) (h2.symm ▸ hy1'C2)
+      · exact Finset.disjoint_left.mp hdisj (h1.symm ▸ hu1C1) (h2.symm ▸ hy2'C2)
+      · exact (hP_int z hzP).2.2 h1
+      · exact Finset.disjoint_left.mp hdisj (h1.symm ▸ hu2C1) (h2.symm ▸ hy1'C2)
+      · exact Finset.disjoint_left.mp hdisj (h1.symm ▸ hu2C1) (h2.symm ▸ hy2'C2)
       · exact Finset.disjoint_left.mp hdisj (hP_int z hzP).1 (hAev_C2 z hzA)
-      · exact hy1'_not_Aev hzA
-      · exact hy2'_not_Aev hzA
+      · exact hy1'_not_Aev (h2 ▸ hzA)
+      · exact hy2'_not_Aev (h2 ▸ hzA)
     -- C₂' cannot be even (Lemma 3.4(1)), so C₂' is odd!
     have hC2'_odd : Odd C₂'.length := by
       by_contra hev
@@ -1391,16 +1400,24 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       -- Complementary odd path: A_ev ++ (M u₂ - y₂')!
       have hrod_len1 : r_od.length = 1 := by omega
       have hy2'Mu2 : G.Adj y₂' (M u₂) := by
+        generalize hMu2_eq : M u₂ = b at r_od
         cases r_od with | nil => simp at hrod_len1 | cons h r => cases r with | nil => exact h | cons _ _ => simp at hrod_len1
+      have hrod_supp : ∀ x ∈ r_od.support, x = y₂' ∨ x = M u₂ := by
+        generalize hMu2_eq : M u₂ = b at r_od
+        cases r_od with
+        | nil => simp at hrod_len1
+        | cons _ r' => cases r' with
+          | nil => intro x hx; simpa using hx
+          | cons _ _ => simp at hrod_len1
       let P_odd : G.Walk (M u₁) (M y₂) := A_ev.append (SimpleGraph.Walk.cons (hMy2 ▸ hy2'Mu2.symm) .nil)
       have hPodd_path : P_odd.IsPath := by
         apply isPath_append_of_disjoint_pc A_ev _ hAev (SimpleGraph.Walk.IsPath.mk' (by simp [hMy2, hy2'2.symm]))
         intro z hz1 hz2
         simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
           List.not_mem_nil, or_false] at hz2
-        rcases hz2 with rfl | rfl
-        · rfl
-        · exact False.elim (hy2'_not_Aev (hMy2 ▸ hz1))
+        rcases hz2 with h | h
+        · exact h
+        · exact False.elim (hy2'_not_Aev (hMy2 ▸ h ▸ hz1))
       have hPodd_len : P_odd.length = A_ev.length + 1 := by simp [P_odd, SimpleGraph.Walk.length_append]
       have hP2_len : P_2.length = 2 := by simp [P_2]
       have hsupp_2 : ∀ z, z ∈ P_2.support ∨ z ∈ P_odd.support ↔ z ∈ c₂.support := by
@@ -1408,43 +1425,40 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · rintro (h | h)
           · simp only [P_2, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
               List.not_mem_nil, or_false] at h
-            rcases h with rfl | rfl | rfl
-            · exact List.mem_toFinset.mp hMu1C2
-            · exact List.mem_toFinset.mp hy1'C2
-            · rw [hMy2]; exact List.mem_toFinset.mp hy2'C2
+            rcases h with h | h | h
+            · rw [h]; exact List.mem_toFinset.mp hMu1C2
+            · rw [h]; exact List.mem_toFinset.mp hy1'C2
+            · rw [h, hMy2]; exact List.mem_toFinset.mp hy2'C2
           · dsimp only [P_odd] at h; rw [SimpleGraph.Walk.mem_support_append_iff] at h
             rcases h with hA | he
             · exact (hAsupp z).mp (Or.inl hA)
-            · simp at he; rcases he with rfl | rfl
-              · exact List.mem_toFinset.mp hMu2C2
-              · rw [hMy2]; exact List.mem_toFinset.mp hy2'C2
+            · simp at he; rcases he with h | h
+              · rw [h]; exact List.mem_toFinset.mp hMu2C2
+              · rw [h, hMy2]; exact List.mem_toFinset.mp hy2'C2
         · intro hz
           rcases (hAsupp z).mpr hz with hA | hO
           · right; dsimp only [P_odd]; rw [SimpleGraph.Walk.mem_support_append_iff]; exact Or.inl hA
           · rw [hAod_eq1, hqod_eq] at hO
-            cases r_od with
-            | nil => simp at hrod_len1
-            | cons _ r' => cases r' with
-              | nil =>
-                simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
-                  List.not_mem_nil, or_false] at hO
-                rcases hO with rfl | rfl | rfl | rfl
-                · left; simp [P_2]
-                · left; simp [P_2]
-                · left; simp [P_2, hMy2]
-                · right; dsimp only [P_odd]; rw [SimpleGraph.Walk.mem_support_append_iff]; right; simp
-              | cons _ _ => simp at hrod_len1
+            simp only [SimpleGraph.Walk.support_cons, List.mem_cons] at hO
+            rcases hO with h | h | hr
+            · rw [h]; left; simp [P_2]
+            · rw [h]; left; simp [P_2]
+            · rcases hrod_supp z hr with h | h
+              · rw [h]; left; simp [P_2, hMy2]
+              · rw [h]; right; dsimp only [P_odd]; rw [SimpleGraph.Walk.mem_support_append_iff]; right; simp
       have hdisj_2 : ∀ z ∈ P_2.support, z ≠ M u₁ → z ≠ M y₂ → z ∉ P_odd.support := by
         intro z hz h1 h2 hm
         simp only [P_2, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
           List.not_mem_nil, or_false] at hz
-        rcases hz with rfl | rfl | rfl
-        · exact h1 rfl
+        rcases hz with h | h | h
+        · exact h1 h
         · dsimp only [P_odd] at hm; rw [SimpleGraph.Walk.mem_support_append_iff] at hm
           rcases hm with hA | he
-          · exact hy1'_not_Aev hA
-          · simp at he; rcases he with h | h; exact hy1'2 h; exact h2 h
-        · exact h2 rfl
+          · exact hy1'_not_Aev (h ▸ hA)
+          · simp at he; rcases he with h' | h'
+            · exact hy1'2 (h.symm.trans h')
+            · exact h2 h'
+        · exact h2 h
       have hle := hd_min u₁ y₂ (min P_2.length P_odd.length)
         ⟨he, P_2, P_odd, hP2_path, hPodd_path, by omega, ⟨1, by omega⟩,
           by rcases hAev_ev with ⟨k, hk⟩; exact ⟨k, by omega⟩, hsupp_2, hdisj_2, rfl⟩
