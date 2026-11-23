@@ -474,8 +474,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         _ = ((T.neighborFinset w.1 \ D_xy).image emb).card := by
             rw [Finset.card_image_of_injOn]
             intro a ha b hb hab
-            have ha' : a ∉ D_xy := (Finset.mem_sdiff.mp ha).2
-            have hb' : b ∉ D_xy := (Finset.mem_sdiff.mp hb).2
+            have ha' : a ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp ha)).2
+            have hb' : b ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp hb)).2
             simp only [emb, dif_pos ha', dif_pos hb', Subtype.mk.injEq] at hab
             exact hab
         _ ≤ ((T.induce ((D_xy : Set V)ᶜ)).neighborFinset w).card := by
@@ -688,7 +688,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                   ∀ z' ∈ s'.support, ∃ w ∈ s.support, ∃ hwK, z' = Sum.inr ⟨w, hwK⟩ := by
               intro a₁ b₁ s
               induction s with
-              | nil => intro hsK; exact ⟨.nil, fun z' hz' => by rw [SimpleGraph.Walk.support_nil, List.mem_singleton] at hz'; exact ⟨a₁, SimpleGraph.Walk.start_mem_support .nil, hsK a₁ (SimpleGraph.Walk.start_mem_support .nil), hz'⟩⟩
+              | @nil u₀ => intro hsK; exact ⟨.nil, fun z' hz' => by rw [SimpleGraph.Walk.support_nil, List.mem_singleton] at hz'; exact ⟨u₀, SimpleGraph.Walk.start_mem_support (SimpleGraph.Walk.nil : T.Walk u₀ u₀), hsK u₀ (SimpleGraph.Walk.start_mem_support _), hz'⟩⟩
               | @cons x₁ y₁ d₁ hxy₁ r₁ ihr₁ =>
                 intro hsK
                 obtain ⟨s', hs'⟩ := ihr₁ (fun w hw => hsK w (List.mem_cons_of_mem _ hw))
