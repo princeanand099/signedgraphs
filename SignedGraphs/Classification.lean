@@ -29,7 +29,7 @@ private lemma sign_triangle_prod_one (S : SignedGraph V) (hnoc : IsNOC S)
     refine ⟨⟨?_, by simp [cyc]⟩, ?_⟩
     · refine SimpleGraph.Walk.IsTrail.mk ?_
       simp [cyc, Sym2.eq_iff, hne_ab, hne_ab.symm, hne_bc, hne_bc.symm, hne_ca, hne_ca.symm]
-    · simp [cyc, hne_bc, hne_ca, hne_ca.symm]
+    · simp [cyc, hne_ab, hne_ab.symm, hne_bc, hne_bc.symm, hne_ca, hne_ca.symm]
   have hw := odd_cycle_weight_three S hnoc cyc hcyc ⟨1, by simp [cyc]⟩
   simp only [cyc, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
     List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero] at hw
@@ -54,7 +54,13 @@ private lemma k4_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
   have hf_bij : Function.Bijective f := by
     constructor
     · intro a b hab
-      fin_cases a <;> fin_cases b <;> simp [f] at hab ⊢ <;> contradiction
+      fin_cases a <;> fin_cases b <;> simp only [f] at hab ⊢ <;>
+        first | rfl | exact absurd hab h12 | exact absurd hab.symm h12 |
+          exact absurd hab h13 | exact absurd hab.symm h13 |
+          exact absurd hab h1u | exact absurd hab.symm h1u |
+          exact absurd hab h23 | exact absurd hab.symm h23 |
+          exact absurd hab h2u | exact absurd hab.symm h2u |
+          exact absurd hab h3u | exact absurd hab.symm h3u
     · intro x
       rcases hcov x with rfl | rfl | rfl | rfl
       · exact ⟨0, rfl⟩
@@ -68,8 +74,8 @@ private lemma k4_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
         intro x y
         simp only [k4SignedGraph, SimpleGraph.top_adj]
         constructor
-        · intro hxy; exact fun h => S.graph.ne_of_adj hxy (φ.injective h)
-        · intro hne; exact hcomplete x y (fun h => hne (by rw [h])) }
+        · intro hne; exact hcomplete x y (fun h => hne (by rw [h]))
+        · intro hxy; exact fun h => S.graph.ne_of_adj hxy (φ.injective h) }
   let T : Finset V := Finset.univ.filter fun x => x ≠ v₁ ∧ S.sign s(v₁, x) = -1
   refine ⟨e, T, ?_⟩
   intro x y hxy
@@ -90,8 +96,8 @@ private lemma k4_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
     rcases S.sign_pm_one s(x, y) hxy with hs | hs <;> simp [hs]
   · by_cases hy1 : y = v₁
     · subst hy1
-      rw [hθ x hx1, if_neg hv1_not, Sym2.eq_swap]
-      rcases S.sign_pm_one s(y, x) hxy.symm with hs | hs <;> simp [hs]
+      rw [hθ x hx1, if_neg hv1_not]
+      rcases S.sign_pm_one s(y, x) hxy.symm with hs | hs <;> simp [Sym2.eq_swap (a := x) (b := y), hs]
     · rw [hθ x hx1, hθ y hy1]
       have htri := sign_triangle_prod_one S hnoc (hcomplete v₁ x (Ne.symm hx1)) hxy (hcomplete y v₁ hy1)
       rw [Sym2.eq_swap (a := y) (b := v₁)] at htri
@@ -101,7 +107,7 @@ private lemma k4_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
 
 /-- A finite connected acyclic vertex set `T` of size `≥ 2` has two distinct leaves,
 each with at most 1 neighbor in `T`. -/
-private lemma tree_two_leaves {G : SimpleGraph V} (T : Finset V) (hcard : 2 ≤ T.card)
+private lemma tree_two_leaves {G : SimpleGraph V} [DecidableRel G.Adj] (T : Finset V) (hcard : 2 ≤ T.card)
     (hconn : ∀ (x : V) (hx : x ∈ T) (y : V) (hy : y ∈ T),
       (G.induce (T : Set V)).Reachable ⟨x, hx⟩ ⟨y, hy⟩)
     (hacyc : ∀ (v : V) (c : G.Walk v v), c.IsCycle → ¬ (∀ x ∈ c.support, x ∈ T)) :
@@ -182,11 +188,9 @@ private lemma tree_two_leaves {G : SimpleGraph V} (T : Finset V) (hcard : 2 ≤ 
           let e_uw : G.Walk u w := SimpleGraph.Walk.cons hw.2 .nil
           have he_uw : e_uw.IsPath := SimpleGraph.Walk.IsPath.mk' (by simp [e_uw, G.ne_of_adj hw.2])
           have hr1_pos : 1 ≤ r1.length := by
-            cases hr1 : r1 with
-            | nil =>
-              have : u₁ = w := by simpa [r1] using hr1
-              exact absurd this.symm hwu₁
-            | cons _ _ => simp
+            have hne_pos : ∀ {a b : V} (p : G.Walk a b), a ≠ b → 1 ≤ p.length := by
+              intro a b p hne; cases p with | nil => exact absurd rfl hne | cons _ _ => simp
+            exact hne_pos r1 hwu₁.symm
           have hcyc : ((SimpleGraph.Walk.cons huu₁ r1).append e_uw.reverse).IsCycle := by
             apply isCycle_append_reverse_of_disjoint e_uw (SimpleGraph.Walk.cons huu₁ r1) he_uw hstep _
               (by simp [e_uw, SimpleGraph.Walk.length_cons]; omega)
@@ -198,11 +202,11 @@ private lemma tree_two_leaves {G : SimpleGraph V} (T : Finset V) (hcard : 2 ≤ 
           rcases hz with h1 | h2
           · rw [SimpleGraph.Walk.support_cons, List.mem_cons] at h1
             rcases h1 with rfl | h1'
-            · exact hqT u (SimpleGraph.Walk.start_mem_support _)
+            · exact hqT _ (SimpleGraph.Walk.start_mem_support _)
             · exact hqT z (List.mem_cons_of_mem _ (SimpleGraph.Walk.support_takeUntil_subset r hwr h1'))
           · simp [e_uw] at h2
             rcases h2 with rfl | rfl
-            · exact hqT u (SimpleGraph.Walk.start_mem_support _)
+            · exact hqT _ (SimpleGraph.Walk.start_mem_support _)
             · exact hw.1
         · -- Strictly longer path w - u - u₁ - r in T!
           have hwu : w ≠ u := (G.ne_of_adj hw.2).symm
@@ -312,7 +316,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
       cases p with
       | nil => exact absurd rfl hne
       | @cons _ w _ _ r => cases r with
-        | nil => exact False.elim (hch (hpe s(x, w) (by simp)))
+        | nil => exact False.elim (hch (hpe s(x, y) (by simp)))
         | cons _ _ => simp
     have hp₁_ge2 := hge2 p₁ hp₁_e
     have hp₂_ge2 := hge2 p₂ hp₂_e
@@ -359,6 +363,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         exact Finset.mem_filter.mpr ⟨hall y, hy⟩
       have hle := Finset.card_le_card hsub
       rw [SimpleGraph.card_neighborFinset_eq_degree] at hle
+      dsimp only [G] at hle hinc
       omega
     -- Connected component of u in G - V(c)
     let compOf : V → Finset V := fun u =>
@@ -476,6 +481,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           intro u hu
           have hcu_le1 : (compOf u).card ≤ 1 := by
             have := hw_max_ge u (Finset.mem_filter.mpr ⟨Finset.mem_univ _, hu⟩)
+            dsimp only [T] at hT1
             omega
           have hcu_eq : compOf u = {u} := by
             have h1 : (compOf u).card = 1 := le_antisymm hcu_le1 (Finset.card_pos.mpr ⟨u, hcomp_mem u hu⟩)
@@ -492,7 +498,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             · exact h2
           have hcard_c : c.support.toFinset.card = 3 := by rw [cycle_support_card c hc, hc3]
           have heq : G.neighborFinset u = c.support.toFinset :=
-            Finset.eq_of_subset_of_card_le hsub (by rw [SimpleGraph.card_neighborFinset_eq_degree]; omega)
+            Finset.eq_of_subset_of_card_le hsub (by rw [SimpleGraph.card_neighborFinset_eq_degree]; dsimp only [G]; omega)
           have hmem : ∀ z, z ∈ c.support → G.Adj u z := fun z hz =>
             (SimpleGraph.mem_neighborFinset G u z).mp (heq ▸ List.mem_toFinset.mpr hz)
           exact ⟨hmem v₀ ((hc_supp v₀).mpr (Or.inl rfl)),
@@ -560,12 +566,9 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           have h2_02 := two_mul_modFourWeight S.sign s(v₀, v₂)
           have h2_23 := two_mul_modFourWeight S.sign s(v₂, v₃)
           have hsum : (3 : ZMod 4) + 3 + 3 =
-              (modFourWeight S.sign s(v₀, w_max) + modFourWeight S.sign s(w_max, v₂) +
-                modFourWeight S.sign s(v₂, u') + modFourWeight S.sign s(u', v₃) +
-                modFourWeight S.sign s(v₃, v₀)) +
-              2 * modFourWeight S.sign s(v₀, v₂) + 2 * modFourWeight S.sign s(v₂, v₃) := by
-            linear_combination -hw_t1 - hw_t2 - hw_t3
-          rw [hw_c5, h2_02, h2_23] at hsum
+              (3 : ZMod 4) + 2 * modFourWeight S.sign s(v₀, v₂) + 2 * modFourWeight S.sign s(v₂, v₃) := by
+            linear_combination -hw_t1 - hw_t2 - hw_t3 + hw_c5
+          rw [h2_02, h2_23] at hsum
           exact absurd hsum (by decide)
       · -- Subcase 1c: |T| ≥ 2! Two leaves u₁ ≠ u₂ share a neighbor on c = {v₀, v₂, v₃}
         have hT_ge2 : 2 ≤ T.card := by omega
@@ -578,6 +581,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           have hle := Finset.card_le_card (hT_nbrs u huT)
           have hu_le := hle.trans (Finset.card_union_le _ _)
           rw [SimpleGraph.card_neighborFinset_eq_degree] at hu_le
+          dsimp only [G] at hu_le hdu ⊢
           omega
         have hnc1 := hnc_ge2 u₁ hu₁T hdeg1
         have hnc2 := hnc_ge2 u₂ hu₂T hdeg2
@@ -677,11 +681,11 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             have hu2b : u₂ ≠ b := fun h => Finset.disjoint_left.mp hT_disj hu₂T (h ▸ hbC_fin)
             have hu2d : u₂ ≠ d := fun h => Finset.disjoint_left.mp hT_disj hu₂T (h ▸ hdC_fin)
             have hu2a_ne : u₂ ≠ a := fun h => Finset.disjoint_left.mp hT_disj hu₂T (h ▸ haC_fin)
-            simp [q_bu2, hdb.symm, hba.symm, hda, hu2b.symm, hu2d.symm, hu2a_ne.symm])
+            simp [q_bu2, hdb.symm, hba, hba.symm, hda, hu2b.symm, hu2d.symm, hu2a_ne.symm])
           let C_b : G.Walk b b := p_bu2.append q_bu2.reverse
           have hCb_cyc : C_b.IsCycle := by
             apply isCycle_append_reverse_of_disjoint q_bu2 p_bu2 hq_bu2 hp_bu2 _
-              (by simp [p_bu2, q_bu2]; omega)
+              (by simp [p_bu2, q_bu2])
             intro z hz hz1 hz2 hzq
             dsimp only [p_bu2] at hz
             rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
@@ -691,8 +695,8 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                 List.not_mem_nil, or_false] at hzq
               rcases hzq with rfl | rfl | rfl | rfl
               · exact absurd rfl hz1
-              · exact hP_nC d hzP hdC_fin
-              · exact hP_nC a hzP haC_fin
+              · exact hP_nC _ hzP hdC_fin
+              · exact hP_nC _ hzP haC_fin
               · exact absurd rfl hz2
           have hCb_odd : Odd C_b.length := by
             rcases hP_ev with ⟨k, hk⟩
@@ -749,6 +753,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         by_contra hgt
         push Not at hgt
         let N := c.support.toFinset.filter fun w => G.Adj u w
+        have hN_gt : 2 < N.card := hgt
         obtain ⟨x, hx⟩ := Finset.card_pos.mp (by omega : 0 < N.card)
         obtain ⟨y, hy⟩ := Finset.card_pos.mp (by rw [Finset.card_erase_of_mem hx]; omega : 0 < (N.erase x).card)
         have hyN : y ∈ N := (Finset.mem_erase.mp hy).2
@@ -796,7 +801,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                 rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                 have hdc : P2.support = z :: P2.support.tail := by cases P2 <;> simp
                 rw [hdc, List.mem_cons] at hw2
-                exact False.elim (hnd.2.2 x (SimpleGraph.Walk.start_mem_support P1) x (hw2.resolve_left hzx.symm) rfl)
+                exact False.elim (hnd.2.2 _ (SimpleGraph.Walk.start_mem_support P1) _ (hw2.resolve_left hzx.symm) rfl)
               · exact False.elim (hdisj w hwAu hwx hwy hw1)
           have hxz_2 := heven_arc_two u huC x z hxC hzC hzx.symm hux huz P1 (Ao.append P2.reverse)
             (hAu.takeUntil hzAu) hAoP2 (by simp [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega)
@@ -819,9 +824,9 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                 have hnd := hAu.support_nodup
                 rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
                 have hdc : P2.support = z :: P2.support.tail := by cases P2 <;> simp
-                have hyP2 : y ∈ P2.support := SimpleGraph.Walk.end_mem_support P2
+                have hyP2 : w ∈ P2.support := SimpleGraph.Walk.end_mem_support P2
                 rw [hdc, List.mem_cons] at hyP2
-                exact False.elim (hnd.2.2 y hw1 y (hyP2.resolve_left hzy.symm) rfl)
+                exact False.elim (hnd.2.2 _ hw1 _ (hyP2.resolve_left hzy.symm) rfl)
               · exact False.elim (hdisj w hwAu hwx hwy hw2)
           have hzy_2 := heven_arc_two u huC z y hzC hyC hzy huz huy P2 (P1.reverse.append Ao)
             (hAu.dropUntil hzAu) hP1Ao (by simp [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega)
@@ -853,9 +858,10 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         have hle2 := hle.trans (Finset.card_union_le _ _)
         have hT0 : (T.filter fun w => G.Adj w_max w).card = 0 := by
           rw [Finset.card_eq_zero, Finset.filter_eq_empty_iff]
-          intro w hw; rw [hT_eq, Finset.mem_singleton] at hw; subst hw; exact G.loopless w_max
+          intro w hw; rw [hT_eq, Finset.mem_singleton] at hw; subst hw; exact fun hadj => G.ne_of_adj hadj rfl
         have hc2 := hdeg_on_c_le2 w_max hw_max_nC
         rw [SimpleGraph.card_neighborFinset_eq_degree] at hle2
+        dsimp only [G] at hle2 hT0 hc2
         omega
       -- Pick two leaves u₁ ≠ u₂ of T
       obtain ⟨u₁, u₂, hu₁T, hu₂T, hu12, hdeg1, hdeg2⟩ :=
@@ -868,11 +874,13 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         have hu_nC : u ∉ c.support.toFinset := Finset.disjoint_left.mp hT_disj huT
         have hle2 := hdeg_on_c_le2 u hu_nC
         rw [SimpleGraph.card_neighborFinset_eq_degree] at hle
+        dsimp only [G] at hle hdu hle2 ⊢
         omega
       have hnc1 := hleaf_nc u₁ hu₁T hdeg1
       have hnc2 := hleaf_nc u₂ hu₂T hdeg2
       -- Extract the 2 neighbors a, b of u₁ on c, joined by a 2-path a - m - b on c
       let N1 := c.support.toFinset.filter fun w => G.Adj u₁ w
+      have hN1_eq : N1.card = 2 := hnc1
       obtain ⟨a, haN1⟩ := Finset.card_pos.mp (by omega : 0 < N1.card)
       obtain ⟨b, hbN1, hba⟩ := Finset.exists_mem_ne (by omega : 1 < N1.card) a
       have haC : a ∈ c.support := List.mem_toFinset.mp (Finset.mem_filter.mp haN1).1
@@ -911,7 +919,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             List.not_mem_nil, or_false] at hzr
           rcases hzr with rfl | rfl | rfl
           · exact absurd rfl hz1
-          · exact hu1_nC ((hSL_supp u₁).mp (Or.inr hzL))
+          · exact hu1_nC ((hSL_supp _).mp (Or.inr hzL))
           · exact absurd rfl hz2
         have hc'_odd : Odd (r.append L_arc.reverse).length := by
           rcases hodd with ⟨k, hk⟩
@@ -922,9 +930,9 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           simp [walkModFourWeight, hS_edges]
         have hr_w : walkModFourWeight S.sign (r.append L_arc.reverse) =
             modFourWeight S.sign s(u₁, a) + modFourWeight S.sign s(b, u₁) + walkModFourWeight S.sign L_arc := by
-          simp only [walkModFourWeight_append, walkModFourWeight_reverse, r, walkModFourWeight,
-            SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-            List.sum_cons, List.sum_nil, add_zero]
+          rw [walkModFourWeight_append, walkModFourWeight_reverse]
+          simp only [r, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+            List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
           rw [Sym2.eq_swap (a := a) (b := u₁), Sym2.eq_swap (a := u₁) (b := b)]; ring
         have hL_odd : Odd L_arc.length := by rcases hodd with ⟨k, hk⟩; exact ⟨k - 1, by omega⟩
         have h2L : 2 * walkModFourWeight S.sign L_arc = 2 := by
@@ -974,7 +982,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             List.not_mem_nil, or_false] at hz2
           rcases hz2 with rfl | rfl
           · rfl
-          · exact False.elim (hPw_nC v₃ hz1 hv₃C)
+          · exact False.elim (hPw_nC _ hz1 hv₃C)
         have hR_int : ∀ z ∈ R.support, z ≠ v₃ → z ∉ c.support := by
           intro z hz hzv3
           dsimp only [R] at hz
@@ -984,7 +992,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           · simp only [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
               List.not_mem_nil, or_false] at h2
             rcases h2 with rfl | rfl
-            · exact hPw_nC w (SimpleGraph.Walk.end_mem_support P_w)
+            · exact hPw_nC _ (SimpleGraph.Walk.end_mem_support P_w)
             · exact absurd rfl hzv3
         let L1 := L_arc.takeUntil v₃ hv3L
         let L2 := L_arc.dropUntil v₃ hv3L
@@ -1029,7 +1037,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           let C2 : G.Walk u₁ u₁ := RL.append e2.reverse
           have hC2 : C2.IsCycle := by
             apply isCycle_append_reverse_of_disjoint e2 RL he2 hRL _
-              (by simp [RL, e2, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse]; omega)
+              (by simp [RL, e2, SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse])
             intro z hzRL hz1 hz2 hze2
             simp only [e2, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
               List.not_mem_nil, or_false] at hze2
@@ -1038,10 +1046,10 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
             rcases hze2 with rfl | rfl | rfl | rfl
             · exact absurd rfl hz1
             · rcases hzRL with h1 | h2
-              · exact hR_int y h1 hv3y.symm hyC
+              · exact hR_int _ h1 hv3y.symm hyC
               · exact hyLx h2
             · rcases hzRL with h1 | h2
-              · exact hR_int m h1 hv3m.symm ((hSL_supp m).mp (Or.inl (by rw [hS_supp]; simp)))
+              · exact hR_int _ h1 hv3m.symm ((hSL_supp _).mp (Or.inl (by rw [hS_supp]; simp)))
               · exact hmLx h2
             · exact absurd rfl hz2
           have hC2_odd : Odd C2.length := by
@@ -1055,14 +1063,16 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           have h2RL : 2 * walkModFourWeight S.sign RL = 0 := by
             rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four RL.length).1 hRL_ev]
           have h1_exp : walkModFourWeight S.sign C1 = walkModFourWeight S.sign RL + modFourWeight S.sign s(u₁, x) := by
-            simp only [C1, e1, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
-              SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-              List.sum_cons, List.sum_nil, add_zero]
+            dsimp only [C1]
+            rw [walkModFourWeight_append, walkModFourWeight_reverse]
+            simp only [e1, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+              List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
           have h2_exp : walkModFourWeight S.sign C2 = walkModFourWeight S.sign RL +
               modFourWeight S.sign s(x, m) + modFourWeight S.sign s(m, y) + modFourWeight S.sign s(y, u₁) := by
-            simp only [C2, e2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
-              SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-              List.sum_cons, List.sum_nil, add_zero]
+            dsimp only [C2]
+            rw [walkModFourWeight_append, walkModFourWeight_reverse]
+            simp only [e2, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+              List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
             rw [Sym2.eq_swap (a := u₁) (b := y), Sym2.eq_swap (a := y) (b := m), Sym2.eq_swap (a := m) (b := x)]
             ring
           have hsum : (3 : ZMod 4) + 3 =
@@ -1112,6 +1122,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
       have hu2_not_m : ¬ G.Adj u₂ m := by
         intro hu2m
         let N2 := c.support.toFinset.filter fun w => G.Adj u₂ w
+        have hN2_eq : N2.card = 2 := hnc2
         have hmN2 : m ∈ N2 := Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr ((hSL_supp m).mp (Or.inl (by rw [hS_supp]; simp))), hu2m⟩
         obtain ⟨z, hzN2, hzm⟩ := Finset.exists_mem_ne (by omega : 1 < N2.card) m
         have hzC : z ∈ c.support := List.mem_toFinset.mp (Finset.mem_filter.mp hzN2).1
@@ -1133,6 +1144,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         simp [tri] at hle; omega
       have hu2a : G.Adj u₂ a := by
         let N2 := c.support.toFinset.filter fun w => G.Adj u₂ w
+        have hN2_eq : N2.card = 2 := hnc2
         have hsub : N2 ⊆ {a, b} := by
           intro z hz
           have hzC : z ∈ c.support := List.mem_toFinset.mp (Finset.mem_filter.mp hz).1
@@ -1209,7 +1221,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         let C_b : G.Walk b b := p_bu2.append q_bu2.reverse
         have hCb_cyc : C_b.IsCycle := by
           apply isCycle_append_reverse_of_disjoint q_bu2 p_bu2 hq_bu2 hp_bu2 _
-            (by simp [p_bu2, q_bu2]; omega)
+            (by simp [p_bu2, q_bu2])
           intro z hz hz1 hz2 hzq
           dsimp only [p_bu2] at hz
           rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
@@ -1219,8 +1231,8 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
               List.not_mem_nil, or_false] at hzq
             rcases hzq with rfl | rfl | rfl | rfl
             · exact absurd rfl hz1
-            · exact hP_nC m hzP hmC_fin
-            · exact hP_nC a hzP haC_fin
+            · exact hP_nC _ hzP hmC_fin
+            · exact hP_nC _ hzP haC_fin
             · exact absurd rfl hz2
         have hCb_odd : Odd C_b.length := by
           rcases hP_ev with ⟨k, hk⟩
@@ -1229,16 +1241,18 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         have hwCb := odd_cycle_weight_three S hnoc C_b hCb_cyc hCb_odd
         have hCa_exp : walkModFourWeight S.sign C_a =
             modFourWeight S.sign s(u₁, a) + walkModFourWeight S.sign P + modFourWeight S.sign s(a, u₂) := by
-          simp only [C_a, e_au2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
-            SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-            List.sum_cons, List.sum_nil, add_zero]
+          dsimp only [C_a]
+          rw [walkModFourWeight_append, walkModFourWeight_reverse]
+          simp only [e_au2, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+            List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
           rw [Sym2.eq_swap (a := a) (b := u₁)]; ring
         have hCb_exp : walkModFourWeight S.sign C_b =
             modFourWeight S.sign s(b, u₁) + walkModFourWeight S.sign P +
             modFourWeight S.sign s(m, b) + modFourWeight S.sign s(a, m) + modFourWeight S.sign s(a, u₂) := by
-          simp only [C_b, p_bu2, q_bu2, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
-            SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
-            List.sum_cons, List.sum_nil, add_zero]
+          dsimp only [C_b]
+          rw [walkModFourWeight_append, walkModFourWeight_reverse]
+          simp only [p_bu2, q_bu2, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
+            List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
           rw [Sym2.eq_swap (a := b) (b := m), Sym2.eq_swap (a := m) (b := a)]; ring
         have hsum : (3 : ZMod 4) + 3 =
             2 * walkModFourWeight S.sign P + 2 * modFourWeight S.sign s(a, u₂) +
