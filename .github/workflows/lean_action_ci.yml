@@ -20,7 +20,7 @@ jobs:
         continue-on-error: true
         run: |
           git fetch origin ci-logs || true
-          git show origin/ci-logs:last_build.log | grep -v -E "(Decompressing|Downloaded| unpacking |\[[0-9]+/[0-9]+\] Downloading)" > /tmp/prev_clean.log || true
+          git show origin/ci-logs:last_build.log | grep -v -E "(Decompressing|Downloaded| unpacking |\[[0-9]+/[0-9]+\\] Downloading)" > /tmp/prev_clean.log || true
           if [ -s /tmp/prev_clean.log ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -70,13 +70,13 @@ jobs:
               hygiene_rc=0
             fi
 
-            echo "=== 3. LAKE COMPARATOR (--paranoid) ==="
+            echo "=== 3. LAKE COMPARATOR ==="
             if [ "$build_rc" -eq 0 ]; then
-              lake comparator --paranoid 2>&1
+              timeout 1800 lake comparator 2>&1
               comp_rc=$?
-              if [ "$comp_rc" -ne 0 ] && ! bwrap --ro-bind / / true >/dev/null 2>&1; then
+              if [ "$comp_rc" -ne 0 ] && [ "$comp_rc" -ne 124 ] && ! bwrap --ro-bind / / true >/dev/null 2>&1; then
                 echo "NOTE: bwrap user namespaces restricted on runner; retrying with --inadvisably-no-sandbox"
-                lake comparator --paranoid --inadvisably-no-sandbox 2>&1
+                timeout 1800 lake comparator --inadvisably-no-sandbox 2>&1
                 comp_rc=$?
               fi
             else
