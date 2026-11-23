@@ -510,14 +510,14 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       let t1 : G.Walk v₁ v₁ := .cons hva_adj (.cons hab_adj (.cons hbv_adj .nil))
       let t2 : G.Walk (M v₁) (M v₁) := .cons hMva (.cons hMab (.cons hMbv .nil))
       have ht1 : t1.IsCycle := by
-        refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t1]) ?_
+        refine ⟨⟨⟨?_⟩, by simp [t1]⟩, ?_⟩
         · simp [t1, Sym2.eq_iff, hva, hva.symm, hab, hab.symm, hvb, hvb.symm]
         · simp [t1, hab, hab.symm, hvb, hvb.symm, hva, hva.symm]
       have ht2 : t2.IsCycle := by
         have h1 : M v₁ ≠ M a := fun h => hva (hM_inj h)
         have h2 : M a ≠ M b := fun h => hab (hM_inj h)
         have h3' : M b ≠ M v₁ := fun h => hvb.symm (hM_inj h)
-        refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t2]) ?_
+        refine ⟨⟨⟨?_⟩, by simp [t2]⟩, ?_⟩
         · simp [t2, Sym2.eq_iff, h1, h1.symm, h2, h2.symm, h3', h3'.symm]
         · simp [t2, h2, h2.symm, h3', h3'.symm, h1, h1.symm]
       have hwt1 := odd_cycle_w3 S hnoc t1 ht1 ⟨1, by simp [t1]⟩
@@ -545,7 +545,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         have h2 : u₁ ≠ M u₂ := fun h => Finset.disjoint_left.mp hdisj hu1C1 (h ▸ hMu2C2)
         have h3' : u₂ ≠ M u₁ := fun h => Finset.disjoint_left.mp hdisj hu2C1 (h ▸ hMu1C2)
         have h4 : u₂ ≠ M u₂ := fun h => Finset.disjoint_left.mp hdisj hu2C1 (h ▸ hMu2C2)
-        refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [Qcyc]) ?_
+        refine ⟨⟨⟨?_⟩, by simp [Qcyc]⟩, ?_⟩
         · simp [Qcyc, Sym2.eq_iff, hu12_ne, hu12_ne.symm, h1, h1.symm, h2, h2.symm,
             h3', h3'.symm, h4, h4.symm, hMu12_ne, hMu12_ne.symm]
         · simp [Qcyc, hu12_ne, hu12_ne.symm, h1, h1.symm, h2, h2.symm,
