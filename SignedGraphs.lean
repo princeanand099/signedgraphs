@@ -1,8 +1,14 @@
 import SignedGraphs.Basic
-import SignedGraphs.GraphTools
 import SignedGraphs.LinearAlgebra
+import SignedGraphs.LinearAlgebraExtra
+import SignedGraphs.GraphTools
+import SignedGraphs.ParityCore
+import SignedGraphs.MaximalEvenCycle
 import SignedGraphs.LocalReductions
+import SignedGraphs.PetersenAlgebra
+import SignedGraphs.PetersenSwitching
 import SignedGraphs.ParityAndCycles
+import SignedGraphs.TwoOddCycles
 import SignedGraphs.Classification
 import SignedGraphs.BipartiteLeaves
 import SignedGraphs.SchurReductions

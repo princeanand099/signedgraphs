@@ -4,7 +4,6 @@ import SignedGraphs.SPQR
 import SignedGraphs.GraphTools
 import SignedGraphs.Classification
 import SignedGraphs.BipartiteLeaves
-import SignedGraphs.Challenge
 
 /-!
 # Proofs of Theorem 1.2 and Corollary 1.3 (Section 6)
@@ -47,7 +46,7 @@ private lemma signature_zero_of_bipartite_local {V : Type*} [Fintype V] [Decidab
         have hcol : f u ≠ f v := f.valid hadj
         have hmul : d u * d v = -1 := by
           dsimp [d]
-          fin_cases hfu : f u <;> fin_cases hfv : f v <;> simp_all
+          generalize hfu : f u = fu; generalize hfv : f v = fv; rw [hfu, hfv] at hcol; fin_cases fu <;> fin_cases fv <;> simp_all
         calc
           d u * A u v * d v = (d u * d v) * A u v := by ring
           _ = -A u v := by rw [hmul]; ring
@@ -260,11 +259,12 @@ private lemma exists_path_in_G₂ {V : Type*} [Fintype V] [DecidableEq V]
     have := (Finset.mem_sdiff.mp hz_int).2
     simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at this
     exact this
+  -- Walk from z to x in G - y, exiting VG₂ \ {x, y} at x
   have hreach_x : G₂.Reachable ⟨z, hz_G₂⟩ ⟨d.x, hx_mem⟩ := by
     have hz_ny : z ∈ ({d.y}ᶜ : Set V) := hz_nxy.2
     have hx_ny : d.x ∈ ({d.y}ᶜ : Set V) := d.hxy
     obtain ⟨P⟩ := h2conn d.y ⟨z, hz_ny⟩ ⟨d.x, hx_ny⟩
-    let f := (SimpleGraph.Embedding.induce ({d.y}ᶜ : Set V)).toHom
+    let f : (G.induce ({d.y}ᶜ : Set V)) →g G := (SimpleGraph.Embedding.induce ({d.y}ᶜ : Set V)).toHom
     have hy_nP : d.y ∉ (P.map f).support := by
       intro hm
       rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
@@ -299,11 +299,12 @@ private lemma exists_path_in_G₂ {V : Type*} [Fintype V] [DecidableEq V]
       · exact hwx ▸ hx_mem
       · exact (Finset.mem_sdiff.mp (hq_in w hw hwx)).1
     exact ⟨liftWalkToInduce (d.VG₂ : Set V) q hq_G₂ hz_G₂ hx_mem⟩
+  -- Walk from z to y in G - x, exiting VG₂ \ {x, y} at y
   have hreach_y : G₂.Reachable ⟨z, hz_G₂⟩ ⟨d.y, hy_mem⟩ := by
     have hz_nx : z ∈ ({d.x}ᶜ : Set V) := hz_nxy.1
     have hy_nx : d.y ∈ ({d.x}ᶜ : Set V) := d.hxy.symm
     obtain ⟨P⟩ := h2conn d.x ⟨z, hz_nx⟩ ⟨d.y, hy_nx⟩
-    let f := (SimpleGraph.Embedding.induce ({d.x}ᶜ : Set V)).toHom
+    let f : (G.induce ({d.x}ᶜ : Set V)) →g G := (SimpleGraph.Embedding.induce ({d.x}ᶜ : Set V)).toHom
     have hx_nP : d.x ∉ (P.map f).support := by
       intro hm
       rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
@@ -418,7 +419,7 @@ private lemma two_parity_paths_of_nonbipartite_G₂ {V : Type*} [Fintype V] [Dec
       have hh_ne_v : h ∈ ({v.1}ᶜ : Set V) := fun heq => hh_nG₂ (heq ▸ v.2)
       have hb_ne_v : b.1 ∈ ({v.1}ᶜ : Set V) := fun heq => hbv (Subtype.ext heq)
       obtain ⟨P⟩ := h2conn v.1 ⟨b.1, hb_ne_v⟩ ⟨h, hh_ne_v⟩
-      let f := (SimpleGraph.Embedding.induce ({v.1}ᶜ : Set V)).toHom
+      let f : (G.induce ({v.1}ᶜ : Set V)) →g G := (SimpleGraph.Embedding.induce ({v.1}ᶜ : Set V)).toHom
       have hv_nP : v.1 ∉ (P.map f).support := by
         intro hmem
         rw [SimpleGraph.Walk.support_map, List.mem_map] at hmem
@@ -461,6 +462,7 @@ private lemma two_parity_paths_of_nonbipartite_G₂ {V : Type*} [Fintype V] [Dec
         exact hv_nP (hq_sub v.1 hv_q)
   obtain ⟨a₁, a₂, b₁, b₂, p₁, p₂, ha₁, ha₂, hb₁, hb₂, ha_ne, _, hp₁, hp₂, hdisj12, hint1, hint2⟩ :=
     two_disjoint_paths_between_sets _ G₂ A_set B_set rfl hA_card hB_card hno_cut
+  -- Trim p₁ (resp. p₂) to nil if a₁ ∈ B_set (resp. a₂ ∈ B_set) so that pᵢ meets B_set ONLY at bᵢ'
   have htrim1 : ∃ (b₁' : d.VG₂) (p₁' : G₂.Walk a₁ b₁'),
       b₁' ∈ B_set ∧ p₁'.IsPath ∧
       (∀ x ∈ p₁'.support, x ∈ p₁.support) ∧
@@ -518,6 +520,7 @@ private lemma two_parity_paths_of_nonbipartite_G₂ {V : Type*} [Fintype V] [Dec
     rcases hc_odd with ⟨k, hk⟩
     refine ⟨p₁'.length + p₂'.length + k, ?_⟩
     omega
+  -- Orient (a₁, a₂) to (x₂, y₂)
   simp only [A_set, Finset.mem_insert, Finset.mem_singleton] at ha₁ ha₂
   rcases ha₁ with rfl | rfl <;> rcases ha₂ with rfl | rfl
   · exact absurd rfl ha_ne
@@ -567,7 +570,7 @@ private lemma walk_edge_incident_end_eq_last {V : Type*} {G : SimpleGraph V} {w 
   | @cons _ u _ hau r₂ =>
     rw [hr, SimpleGraph.Walk.edges_cons, List.mem_cons] at hmem_rev
     have hnd_rev : r.reverse.support.Nodup := by
-      rw [SimpleGraph.Walk.support_reverse]; exact hnd.reverse
+      rw [SimpleGraph.Walk.support_reverse]; exact List.nodup_reverse.mpr hnd
     rw [hr, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd_rev
     rcases hmem_rev with heq | hin
     · simp only [Sym2.eq, Sym2.rel_iff', Prod.mk.injEq, Prod.swap_prod_mk] at heq
@@ -577,16 +580,21 @@ private lemma walk_edge_incident_end_eq_last {V : Type*} {G : SimpleGraph V} {w 
     · have ha_in : a ∈ r₂.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges r₂ hin
       exact absurd ha_in hnd_rev.1
 
-private lemma cycle_split_at_edge {V : Type*} {G : SimpleGraph V} {v a b : V}
+private lemma cycle_split_at_edge {V : Type*} [DecidableEq V] {G : SimpleGraph V} {v a b : V}
     (c : G.Walk v v) (hc : c.IsCycle) (he : s(a, b) ∈ c.edges) :
     ∃ p : G.Walk a b, p.IsPath ∧ s(a, b) ∉ p.edges ∧
       p.length + 1 = c.length ∧
       (∀ σ : Sym2 V → ℤ, walkModFourWeight σ c = modFourWeight σ s(a, b) + walkModFourWeight σ p) := by
   have ha : a ∈ c.support := SimpleGraph.Walk.fst_mem_support_of_mem_edges c he
-  let c' : G.Walk a a := c.rotate ha
+  let c' : G.Walk a a := c.rotate a ha
   have hc' : c'.IsCycle := hc.rotate ha
-  have hlen' : c'.length = c.length := SimpleGraph.Walk.length_rotate c ha
-  have hperm : c'.edges.Perm c.edges := SimpleGraph.Walk.edges_rotate c ha
+  have hlen' : c'.length = c.length := SimpleGraph.Walk.length_rotate c a ha
+  have hperm : c'.edges.Perm c.edges := by
+    have h1 : c = (c.takeUntil a ha).append (c.dropUntil a ha) := (SimpleGraph.Walk.take_spec c ha).symm
+    have h2 : c' = (c.dropUntil a ha).append (c.takeUntil a ha) := rfl
+    rw [h2, SimpleGraph.Walk.edges_append]
+    conv_rhs => rw [h1, SimpleGraph.Walk.edges_append]
+    exact List.perm_append_comm
   have he' : s(a, b) ∈ c'.edges := hperm.mem_iff.mpr he
   have hwt' : ∀ σ : Sym2 V → ℤ, walkModFourWeight σ c' = walkModFourWeight σ c :=
     fun σ => walkModFourWeight_rotate σ c ha
@@ -611,7 +619,8 @@ private lemma cycle_split_at_edge {V : Type*} {G : SimpleGraph V} {v a b : V}
           simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, List.map_cons, List.sum_cons,
             SimpleGraph.Walk.edges_reverse, List.map_reverse, List.sum_reverse]
       · exact absurd rfl (G.ne_of_adj haw)
-    · obtain ⟨r₂, hab, hr_rev⟩ := walk_edge_incident_end_eq_last r hc'_snd hr_mem
+    · -- s(a, b) ∈ r.edges → c'.reverse starts with edge s(a, b)
+      obtain ⟨r₂, hab, hr_rev⟩ := walk_edge_incident_end_eq_last r hc'_snd hr_mem
       let c_rev : G.Walk a a := c'.reverse
       have hc_rev : c_rev.IsCycle := hc'.reverse
       have hc_rev_eq : c_rev = SimpleGraph.Walk.cons hab (r₂.append (SimpleGraph.Walk.cons haw.symm .nil)) := by
@@ -631,7 +640,7 @@ private lemma cycle_split_at_edge {V : Type*} {G : SimpleGraph V} {v a b : V}
         rw [← hwt' σ, ← walkModFourWeight_reverse σ c']
         change walkModFourWeight σ c_rev = _
         rw [hc_rev_eq]
-        simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, List.map_cons, List.sum_cons,
+        simp only [q, walkModFourWeight, SimpleGraph.Walk.edges_cons, List.map_cons, List.sum_cons,
           SimpleGraph.Walk.edges_reverse, List.map_reverse, List.sum_reverse]
 
 /-- For an R-leaf `d` in a 2-connected non-bipartite NOC signed graph, its real subgraph `H`
@@ -673,6 +682,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
   have hT_xy : T.Adj xH yH := by
     right
     exact ⟨fun h => d.hxy (congrArg Subtype.val h), Or.inl (Or.inl ⟨rfl, rfl⟩)⟩
+  -- H embeds into S.graph via Subtype.val
   have hH_le_G : ∀ a b : d.VH, H.Adj a b → S.graph.Adj a.1 b.1 := by
     intro a b hab
     rcases hab with ⟨hTab, hne_xy⟩
@@ -681,10 +691,18 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     · exfalso
       apply hne_xy
       rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-      · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-      · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
-      · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-      · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
+      · have ha : a = xH := Subtype.ext h1
+        have hb : b = yH := Subtype.ext h2
+        rw [ha, hb]
+      · have ha : a = yH := Subtype.ext h1
+        have hb : b = xH := Subtype.ext h2
+        rw [ha, hb, Sym2.eq_swap]
+      · have ha : a = yH := Subtype.ext h1
+        have hb : b = xH := Subtype.ext h2
+        rw [ha, hb, Sym2.eq_swap]
+      · have ha : a = xH := Subtype.ext h1
+        have hb : b = yH := Subtype.ext h2
+        rw [ha, hb]
   let embH : H →g S.graph := ⟨Subtype.val, fun h => hH_le_G _ _ h⟩
   let embG₂ : G₂ →g S.graph := ⟨Subtype.val, fun h => h⟩
   let σH : Sym2 d.VH → ℤ := fun e => S.sign (e.map Subtype.val)
@@ -692,11 +710,13 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     intro e he
     rcases e with ⟨a, b⟩
     exact S.sign_pm_one s(a.1, b.1) (hH_le_G a b he)
+  -- Proposition 4.1 gives two (xH, yH)-paths p₁, p₂ in H with w(p₁) - w(p₂) = 2
   obtain ⟨p₁, p₂, hp₁, hp₂, hdiff2⟩ :=
     bipartite_r_leaf_path_diversity T hT_card hT_conn d.hT_3conn xH yH hT_xy H rfl hHbip σH hσH
   have hp_same_par : Even (p₁.length + p₂.length) := by
     have hcl := even_length_of_isBipartite hHbip (p₁.append p₂.reverse)
     simpa [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse] using hcl
+  -- Helper: any (x₂, y₂)-path q in G₂ of opposite parity to p₁ contradicts NOC
   have hno_opp_parity : ∀ (q : G₂.Walk x₂ y₂), q.IsPath → Odd (q.length + p₁.length) → False := by
     intro q hq hodd1
     have hodd2 : Odd (q.length + p₂.length) := by
@@ -754,6 +774,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       linear_combination hw1 - hw2
     rw [hdiff2] at hzero
     exact absurd hzero (by decide)
+  -- Therefore G₂ must be bipartite
   have hG₂bip : G₂.IsBipartite := by
     by_contra hG₂nb
     obtain ⟨qe, qo, hqe, hqo, he, ho⟩ := two_parity_paths_of_nonbipartite_G₂ S.graph h2conn d hG₂nb
@@ -763,6 +784,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     · apply hno_opp_parity qe hqe
       have hp1o : Odd p₁.length := Nat.not_even_iff_odd.mp hp1e
       rcases he with ⟨a, ha⟩; rcases hp1o with ⟨b, hb⟩; exact ⟨a + b, by omega⟩
+  -- And an (x₂, y₂)-path q in G₂ has the same parity as p₁, so the 2-colorings glue to S.graph!
   obtain ⟨q, hq⟩ := exists_path_in_G₂ S.graph h2conn d
   have hq_same_par : Even (q.length + p₁.length) := by
     by_contra hne
@@ -777,7 +799,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     | @cons u v z huv r ih =>
       have hne : f u ≠ f v := f.valid huv
       have hstep : f v = f u + 1 := by
-        fin_cases hfu : f u <;> fin_cases hfv : f v <;> simp_all
+        generalize hfu : f u = fu; generalize hfv : f v = fv; rw [hfu, hfv] at hne; fin_cases fu <;> fin_cases fv <;> simp_all
       rw [ih, hstep, SimpleGraph.Walk.length_cons, Nat.cast_add, Nat.cast_one]
       ring
   have hfH_xy : fH yH = fH xH + (p₁.length : Fin 2) := hcol_walk fH p₁
@@ -787,7 +809,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
     have h0 : ((q.length + p₁.length : ℕ) : Fin 2) = 0 := by
       rw [hk, ← two_mul, Nat.cast_mul]; simp
     rw [Nat.cast_add] at h0
-    fin_cases hq2 : (q.length : Fin 2) <;> fin_cases hp2 : (p₁.length : Fin 2) <;> simp_all
+    generalize hq2 : (q.length : Fin 2) = q2; generalize hp2 : (p₁.length : Fin 2) = p2; rw [hq2, hp2] at h0; fin_cases q2 <;> fin_cases p2 <;> simp_all
   let shift : Fin 2 := fH xH - fG₂ x₂
   let f : V → Fin 2 := fun v =>
     if hv : v ∈ d.VG₂ then fG₂ ⟨v, hv⟩ + shift
@@ -891,7 +913,8 @@ private theorem theorem_1_2_general :
     by_cases hconn : G.Preconnected
     · -- Step 3: Cut-vertex reduction (Lemma 2.1)
       by_cases h2conn : ∀ v : V, (G.induce ({v}ᶜ : Set V)).Preconnected
-      · have hn3 : 3 ≤ Fintype.card V := by
+      · -- Since G is non-bipartite, 3 ≤ n
+        have hn3 : 3 ≤ Fintype.card V := by
           by_contra hlt
           apply hbip
           apply isBipartite_of_no_odd_cycle
@@ -903,6 +926,7 @@ private theorem theorem_1_2_general :
               SimpleGraph.Walk.length_support] at this
             omega
           omega
+        -- Since G is 2-connected and n ≥ 3, every vertex has degree ≥ 2
         have hdeg2 : ∀ v : V, 2 ≤ G.degree v := by
           intro v
           by_contra hlt
@@ -912,7 +936,7 @@ private theorem theorem_1_2_general :
               have : 1 < Fintype.card V := by omega
               rcases Fintype.exists_pair_of_one_lt_card this with ⟨a, b, hab⟩
               by_cases hav : a = v
-              · exact ⟨b, hab.symm.trans_eq hav |> fun h => h.symm⟩
+              · exact ⟨b, fun h => hab (hav.trans h.symm)⟩
               · exact ⟨a, hav⟩
             rcases hother with ⟨w, hwv⟩
             obtain ⟨p⟩ := hconn v w
@@ -973,6 +997,7 @@ private theorem theorem_1_2_general :
           · -- Step 6: 2-connected, δ ≥ 3, not 3-connected → SPQR two R-leaves
             obtain ⟨d₁, d₂, _, hd₂_in_d₁⟩ :=
               two_r_leaves_of_two_connected_min_deg_three G hn4 hconn h2conn hdeg3 h3conn
+            -- By leaf_H_nonbipartite on d₂, H(d₂) is non-bipartite, so G₂(d₁) is non-bipartite
             have hH₂_nb := leaf_H_nonbipartite S h2conn hbip hnoc d₂
             have hH₁_nb := leaf_H_nonbipartite S h2conn hbip hnoc d₁
             let G₂₁ : SimpleGraph d₁.VG₂ := G.induce (d₁.VG₂ : Set V)
@@ -990,11 +1015,20 @@ private theorem theorem_1_2_general :
                 · exact hG
                 · exfalso; apply hne_xy
                   rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-                  · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-                  · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
-                  · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-                  · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
+                  · have ha : a = ⟨d₂.x, hx₂⟩ := Subtype.ext h1
+                    have hb : b = ⟨d₂.y, hy₂⟩ := Subtype.ext h2
+                    rw [ha, hb]
+                  · have ha : a = ⟨d₂.y, hy₂⟩ := Subtype.ext h1
+                    have hb : b = ⟨d₂.x, hx₂⟩ := Subtype.ext h2
+                    rw [ha, hb, Sym2.eq_swap]
+                  · have ha : a = ⟨d₂.y, hy₂⟩ := Subtype.ext h1
+                    have hb : b = ⟨d₂.x, hx₂⟩ := Subtype.ext h2
+                    rw [ha, hb, Sym2.eq_swap]
+                  · have ha : a = ⟨d₂.x, hx₂⟩ := Subtype.ext h1
+                    have hb : b = ⟨d₂.y, hy₂⟩ := Subtype.ext h2
+                    rw [ha, hb]
               exact f₂.valid hGab
+            -- Obtain an odd (x, y)-path Q in G₂₁
             obtain ⟨_, Q, _, hQ_path, _, hQ_odd⟩ :=
               two_parity_paths_of_nonbipartite_G₂ G h2conn d₁ hG₂₁_nb
             have hxH : d₁.x ∈ d₁.VH := (Finset.mem_inter.mp (by rw [d₁.hinter]; simp)).1
@@ -1010,6 +1044,7 @@ private theorem theorem_1_2_general :
             let QG : G.Walk d₁.x d₁.y := Q.map embG₂₁
             have hQG_path : QG.IsPath := hQ_path.map Subtype.coe_injective
             have hQG_odd : Odd QG.length := by simpa [QG] using hQ_odd
+            -- Define σ' on T₁: match S.sign on H₁, and on s(xH, yH) match walkModFourWeight S.sign QG
             let wQ : ZMod 4 := walkModFourWeight S.sign QG
             have hwQ_odd : wQ = 1 ∨ wQ = 3 := by
               have h2w : 2 * wQ = 2 * (QG.length : ZMod 4) := by
@@ -1030,7 +1065,7 @@ private theorem theorem_1_2_general :
                 have h4 : (4 : ZMod 4) = 0 := rfl
                 linear_combination (k : ZMod 4) * h4
               rw [h2len] at h2w
-              fin_cases wQ <;> simp_all
+              generalize hwQ_val : wQ = wv; rw [hwQ_val] at h2w; fin_cases wv <;> simp_all
             let sxy : ℤ := if wQ = 1 then 1 else -1
             have hsxy_pm : sxy = 1 ∨ sxy = -1 := by dsimp [sxy]; split_ifs <;> simp
             have hsxy_mod4 : modFourWeight (fun e : Sym2 d₁.VH =>
@@ -1058,6 +1093,7 @@ private theorem theorem_1_2_general :
                         · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
                         · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
                     exact S.sign_pm_one s(a.1, b.1) hGab }
+            -- Show ST is NOC
             have hST_noc : IsNOC ST := by
               rw [isNOC_iff_isNOCModFour]
               intro v c hc hc_odd
@@ -1142,6 +1178,7 @@ private theorem theorem_1_2_general :
                     exact hc.support_nodup.map Subtype.coe_injective
                 rw [← hcwt]
                 exact hS_mod4 v.1 cG hcG_cyc (hclen.symm ▸ hc_odd)
+            -- Classify the 3-connected non-bipartite NOC skeleton ST via Theorem 3.1
             have hT₁_card : 4 ≤ Fintype.card d₁.VH := by rw [Fintype.card_coe]; exact d₁.hcardH
             have hT₁_conn : T₁.Preconnected := by
               have h0 := d₁.hT_3conn ∅ (by simp)
@@ -1451,16 +1488,11 @@ theorem theorem_1_2 {n : ℕ} (A : Matrix (Fin n) (Fin n) ℝ) (hA : A.IsHermiti
 
 section Corollary13
 
-private lemma matSig_eq_signature {n : ℕ} (A : Matrix (Fin n) (Fin n) ℝ) (hA : A.IsHermitian) :
-    Challenge.matSig A hA = signature A hA := by
-  unfold Challenge.matSig signature posInertia negInertia
-  have h1 : (Finset.univ.filter fun i : Fin n => 0 < hA.eigenvalues i) =
-      @Finset.filter (Fin n) (fun i => 0 < hA.eigenvalues i) (Classical.decPred _) Finset.univ := by
-    ext i; simp
-  have h2 : (Finset.univ.filter fun i : Fin n => hA.eigenvalues i < 0) =
-      @Finset.filter (Fin n) (fun i => hA.eigenvalues i < 0) (Classical.decPred _) Finset.univ := by
-    ext i; simp
-  congr 1 <;> congr 1 <;> ext i <;> simp
+/-- Number of simple cycle edge-sets in `G` of length congruent to `r` modulo `4`. -/
+noncomputable def cycleCountMod4 {n : ℕ} (G : SimpleGraph (Fin n)) (r : ℕ) : ℕ := by
+  classical
+  exact (Finset.univ.filter fun S : Finset (Sym2 (Fin n)) =>
+    ∃ (v : Fin n) (c : G.Walk v v), c.IsCycle ∧ c.edges.toFinset = S ∧ c.length % 4 = r).card
 
 private lemma cycle_of_eq_graph {V : Type*} {G₁ G₂ : SimpleGraph V} (h : G₁ = G₂)
     {v : V} (c : G₁.Walk v v) (hc : c.IsCycle) :
@@ -1497,17 +1529,17 @@ private lemma walk_map_isCycle {V W : Type*} {G : SimpleGraph V} {H : SimpleGrap
   · rw [SimpleGraph.Walk.edges_map]
     exact hc.edges_nodup.map (Sym2.map.injective hφ)
   · intro hnil
-    have hlen : (c.map φ).length = 0 := by rw [hnil]; rfl
-    rw [SimpleGraph.Walk.length_map] at hlen
-    exact hc.ne_nil (SimpleGraph.Walk.nil_iff_length_eq.mpr hlen)
-  · rw [SimpleGraph.Walk.support_map, List.map_tail]
+    cases c with
+    | nil => exact hc.ne_nil rfl
+    | cons _ _ => simp at hnil
+  · rw [SimpleGraph.Walk.support_map, ← List.map_tail]
     exact hc.support_nodup.map hφ
 
 private lemma cycleCountMod4_comap_lt {n : ℕ} (G : SimpleGraph (Fin n))
     (r : ℕ) (v₀ : Fin n) (c₀ : G.Walk v₀ v₀) (hc₀ : c₀.IsCycle) (hr₀ : c₀.length % 4 = r)
     (e : Fin (n - 1) ≃ {x : Fin n // x ≠ v₀}) :
-    Challenge.cycleCountMod4 (G.comap (fun i => (e i).1)) r + 1 ≤
-      Challenge.cycleCountMod4 G r := by
+    cycleCountMod4 (G.comap (fun i => (e i).1)) r + 1 ≤
+      cycleCountMod4 G r := by
   classical
   let f : Fin (n - 1) → Fin n := fun i => (e i).1
   have hf : Function.Injective f := fun i j h => e.injective (Subtype.ext h)
@@ -1542,14 +1574,14 @@ private lemma cycleCountMod4_comap_lt {n : ℕ} (G : SimpleGraph (Fin n))
         rw [← heq] at hmem
         rcases Finset.mem_image.mp hmem with ⟨e', _, he'⟩
         rcases e' with ⟨a, b⟩
-        simp only [Sym2.map_pair_eq, Sym2.eq, Sym2.rel_iff', Prod.mk.injEq, Prod.swap_prod_mk] at he'
+        simp only [Sym2.map_mk, Sym2.eq, Sym2.rel_iff', Prod.mk.injEq, Prod.swap_prod_mk] at he'
         rcases he' with ⟨h1, _⟩ | ⟨_, h2⟩
         · exact hf_ne a h1
         · exact hf_ne b h2
     · simp only [s, Finset.mem_filter, Finset.mem_univ, true_and]
       refine ⟨f u', c'.map φ, walk_map_isCycle φ hf c' hc', ?_, ?_⟩
-      · rw [SimpleGraph.Walk.edges_map, List.toFinset_map, hS'_eq]
-        rfl
+      · ext e
+        simp only [F, SimpleGraph.Walk.edges_map, Finset.mem_image, List.mem_toFinset, List.mem_map, ← hS'_eq]
       · simpa [SimpleGraph.Walk.length_map] using hr'
   have hcard_le : s'.card ≤ (s.erase c₀.edges.toFinset).card := by
     rw [← Finset.card_image_of_injective s' hF_inj]
@@ -1561,12 +1593,13 @@ private lemma cycleCountMod4_comap_lt {n : ℕ} (G : SimpleGraph (Fin n))
 
 private lemma signature_adjMatrix_le_cycleCountMod4_one :
     ∀ (k : ℕ) {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj],
-      Challenge.cycleCountMod4 G 1 ≤ k →
+      cycleCountMod4 G 1 ≤ k →
       signature (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G) ≤ (k : ℤ)
   | 0, n, G, _, hk => by
-    have hk0 : Challenge.cycleCountMod4 G 1 = 0 := Nat.le_zero.mp hk
+    classical
+    have hk0 : cycleCountMod4 G 1 = 0 := Nat.le_zero.mp hk
     apply theorem_1_2 (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G)
-    · intro i; simp [SimpleGraph.adjMatrix_apply, G.loopless i]
+    · intro i; simp [SimpleGraph.adjMatrix_apply]
     · intro v c hc hodd
       have hG := matrixGraph_adjMatrix G
       obtain ⟨c', hc', hlen', _⟩ := cycle_of_eq_graph hG c hc
@@ -1578,7 +1611,7 @@ private lemma signature_adjMatrix_le_cycleCountMod4_one :
                 c''.length % 4 = 1) := by
           simp only [Finset.mem_filter, Finset.mem_univ, true_and]
           exact ⟨v, c', hc', rfl, by rw [hlen']; exact h1⟩
-        have hpos : 0 < Challenge.cycleCountMod4 G 1 := Finset.card_pos.mpr ⟨_, hmem⟩
+        have hpos : 0 < cycleCountMod4 G 1 := Finset.card_pos.mpr ⟨_, hmem⟩
         omega
       have hprod1 : walkSignProd (matrixSignedGraph (G.adjMatrix ℝ)
           (SimpleGraph.isSymm_adjMatrix G)).sign c = 1 := by
@@ -1604,10 +1637,10 @@ private lemma signature_adjMatrix_le_cycleCountMod4_one :
       exact Odd.neg_one_pow hm_odd
   | k + 1, n, G, _, hk => by
     classical
-    by_cases h0 : Challenge.cycleCountMod4 G 1 = 0
+    by_cases h0 : cycleCountMod4 G 1 = 0
     · have hle := signature_adjMatrix_le_cycleCountMod4_one 0 G (le_of_eq h0)
       omega
-    · have hpos : 0 < Challenge.cycleCountMod4 G 1 := Nat.pos_of_ne_zero h0
+    · have hpos : 0 < cycleCountMod4 G 1 := Nat.pos_of_ne_zero h0
       obtain ⟨S₀, hS₀⟩ := Finset.card_pos.mp hpos
       simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hS₀
       rcases hS₀ with ⟨v₀, c₀, hc₀, _, hlen₀⟩
@@ -1618,8 +1651,9 @@ private lemma signature_adjMatrix_le_cycleCountMod4_one :
       let e : Fin (n - 1) ≃ {x : Fin n // x ≠ v₀} :=
         (Fintype.equivFinOfCardEq hcard_sub).symm
       let G' : SimpleGraph (Fin (n - 1)) := G.comap (fun i => (e i).1)
-      have hlt : Challenge.cycleCountMod4 G' 1 ≤ k := by
+      have hlt : cycleCountMod4 G' 1 ≤ k := by
         have h := cycleCountMod4_comap_lt G 1 v₀ c₀ hc₀ hlen₀ e
+        change cycleCountMod4 (G.comap (fun i => (e i).1)) 1 ≤ k
         omega
       have hIH := signature_adjMatrix_le_cycleCountMod4_one k G' hlt
       have hinter := signature_interlacing_delete_vertex (G.adjMatrix ℝ)
@@ -1648,14 +1682,15 @@ private lemma signature_adjMatrix_le_cycleCountMod4_one :
 
 private lemma signature_neg_adjMatrix_le_cycleCountMod4_three :
     ∀ (k : ℕ) {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj],
-      Challenge.cycleCountMod4 G 3 ≤ k →
+      cycleCountMod4 G 3 ≤ k →
       signature (-(G.adjMatrix ℝ))
         (isHermitian_neg (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G)) ≤ (k : ℤ)
   | 0, n, G, _, hk => by
-    have hk0 : Challenge.cycleCountMod4 G 3 = 0 := Nat.le_zero.mp hk
+    classical
+    have hk0 : cycleCountMod4 G 3 = 0 := Nat.le_zero.mp hk
     apply theorem_1_2 (-(G.adjMatrix ℝ))
       (isHermitian_neg (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G))
-    · intro i; simp [SimpleGraph.adjMatrix_apply, G.loopless i]
+    · intro i; simp [SimpleGraph.adjMatrix_apply]
     · intro v c hc hodd
       have hG := matrixGraph_neg_adjMatrix G
       obtain ⟨c', hc', hlen', _⟩ := cycle_of_eq_graph hG c hc
@@ -1667,7 +1702,7 @@ private lemma signature_neg_adjMatrix_le_cycleCountMod4_three :
                 c''.length % 4 = 3) := by
           simp only [Finset.mem_filter, Finset.mem_univ, true_and]
           exact ⟨v, c', hc', rfl, by rw [hlen']; exact h3⟩
-        have hpos : 0 < Challenge.cycleCountMod4 G 3 := Finset.card_pos.mpr ⟨_, hmem⟩
+        have hpos : 0 < cycleCountMod4 G 3 := Finset.card_pos.mpr ⟨_, hmem⟩
         omega
       have hprod_neg : walkSignProd (matrixSignedGraph (-(G.adjMatrix ℝ))
           (isHermitian_neg (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G)).isSymm).sign c = -1 := by
@@ -1700,10 +1735,10 @@ private lemma signature_neg_adjMatrix_le_cycleCountMod4_three :
       rw [hprod_neg, show c.length / 2 = m by omega, Even.neg_one_pow hm_even, one_mul]
   | k + 1, n, G, _, hk => by
     classical
-    by_cases h0 : Challenge.cycleCountMod4 G 3 = 0
+    by_cases h0 : cycleCountMod4 G 3 = 0
     · have hle := signature_neg_adjMatrix_le_cycleCountMod4_three 0 G (le_of_eq h0)
       omega
-    · have hpos : 0 < Challenge.cycleCountMod4 G 3 := Nat.pos_of_ne_zero h0
+    · have hpos : 0 < cycleCountMod4 G 3 := Nat.pos_of_ne_zero h0
       obtain ⟨S₀, hS₀⟩ := Finset.card_pos.mp hpos
       simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hS₀
       rcases hS₀ with ⟨v₀, c₀, hc₀, _, hlen₀⟩
@@ -1714,8 +1749,9 @@ private lemma signature_neg_adjMatrix_le_cycleCountMod4_three :
       let e : Fin (n - 1) ≃ {x : Fin n // x ≠ v₀} :=
         (Fintype.equivFinOfCardEq hcard_sub).symm
       let G' : SimpleGraph (Fin (n - 1)) := G.comap (fun i => (e i).1)
-      have hlt : Challenge.cycleCountMod4 G' 3 ≤ k := by
+      have hlt : cycleCountMod4 G' 3 ≤ k := by
         have h := cycleCountMod4_comap_lt G 3 v₀ c₀ hc₀ hlen₀ e
+        change cycleCountMod4 (G.comap (fun i => (e i).1)) 3 ≤ k
         omega
       have hIH := signature_neg_adjMatrix_le_cycleCountMod4_three k G' hlt
       have hNegH := isHermitian_neg (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G)
@@ -1748,15 +1784,14 @@ end Corollary13
 /-- **Corollary 1.3 (Ma–Yang–Li Conjecture)**: Every finite simple graph `G` satisfies
 `-c₃(G) ≤ s(G) ≤ c₅(G)`. -/
 theorem corollary_1_3 {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj] :
-    -(Challenge.cycleCountMod4 G 3 : ℤ) ≤
-      Challenge.matSig (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G) ∧
-    Challenge.matSig (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G) ≤
-      (Challenge.cycleCountMod4 G 1 : ℤ) := by
-  rw [matSig_eq_signature]
+    -(cycleCountMod4 G 3 : ℤ) ≤
+      signature (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G) ∧
+    signature (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G) ≤
+      (cycleCountMod4 G 1 : ℤ) := by
   constructor
-  · have hneg := signature_neg_adjMatrix_le_cycleCountMod4_three (Challenge.cycleCountMod4 G 3) G le_rfl
+  · have hneg := signature_neg_adjMatrix_le_cycleCountMod4_three (cycleCountMod4 G 3) G le_rfl
     rw [signature_neg (G.adjMatrix ℝ) (SimpleGraph.isSymm_adjMatrix G)] at hneg
     omega
-  · exact signature_adjMatrix_le_cycleCountMod4_one (Challenge.cycleCountMod4 G 1) G le_rfl
+  · exact signature_adjMatrix_le_cycleCountMod4_one (cycleCountMod4 G 1) G le_rfl
 
 end SignedGraphs

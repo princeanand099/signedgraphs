@@ -1,4 +1,4 @@
-import SignedGraphs.MainTheorem
+import SignedGraphs.Challenge
 
 /-!
 # Axiom Audit
