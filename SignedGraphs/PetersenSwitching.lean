@@ -3,7 +3,8 @@ import SignedGraphs.ParityAndCycles
 /-!
 # Lemma 3.4(3): Two Vertex-Disjoint Odd Cycles Force `(Petersen, -1)`
 
-Helper lemmas for Lemma 3.4(3), including `petersen_switching_iso`.
+Complete formalization of Lemma 3.4(3): if a 3-connected NOC signed graph contains two
+vertex-disjoint odd cycles, then it is switching-isomorphic to `(Petersen, -1)`.
 -/
 
 open SimpleGraph
@@ -164,15 +165,15 @@ lemma petersen_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
     linarith
   have ht40 : σ' 4 0 = -1 := h5_edge 0 1 2 3 4 h01 h12 h23 h34 h40 (by decide) ht01 ht12 ht23 ht34
   have ht75 : σ' 7 5 = -1 := h5_edge 5 0 1 2 7 h05.symm h01 h12 h27 h57.symm (by decide)
-    (by rw [hσ'_sym]; exact ht05) ht01 ht12 ht27
+    ((hσ'_sym 5 0).trans ht05) ht01 ht12 ht27
   have ht97 : σ' 9 7 = -1 := h5_edge 7 2 3 4 9 h27.symm h23 h34 h49 h79.symm (by decide)
-    (by rw [hσ'_sym]; exact ht27) ht23 ht34 ht49
+    ((hσ'_sym 7 2).trans ht27) ht23 ht34 ht49
   have ht69 : σ' 6 9 = -1 := h5_edge 9 4 0 1 6 h49.symm h40 h01 h16 h96.symm (by decide)
-    (by rw [hσ'_sym]; exact ht49) ht40 ht01 ht16
+    ((hσ'_sym 9 4).trans ht49) ht40 ht01 ht16
   have ht86 : σ' 8 6 = -1 := h5_edge 6 1 2 3 8 h16.symm h12 h23 h38 h68.symm (by decide)
-    (by rw [hσ'_sym]; exact ht16) ht12 ht23 ht38
+    ((hσ'_sym 6 1).trans ht16) ht12 ht23 ht38
   have ht58 : σ' 5 8 = -1 := h5_edge 8 3 4 0 5 h38.symm h34 h40 h05 h85.symm (by decide)
-    (by rw [hσ'_sym]; exact ht38) ht34 ht40 ht05
+    ((hσ'_sym 8 3).trans ht38) ht34 ht40 ht05
   let T : Finset V := Finset.univ.filter fun x => s (φ x) = -1
   refine ⟨e, T, ?_⟩
   intro u v huv
@@ -298,5 +299,6 @@ lemma path_bipartite_parity {G : SimpleGraph V} {a b : V} (P : G.Walk a b)
     have ihr := ih (fun x y hxy => hcol x y (by simp [hxy]))
     simp only [SimpleGraph.Walk.length_cons, Nat.even_add_one]
     cases hu : col u <;> cases hv : col v <;> cases hw : col w <;> simp_all
+
 
 end SignedGraphs
