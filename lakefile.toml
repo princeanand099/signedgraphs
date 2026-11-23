@@ -13,6 +13,10 @@ linter.unusedTactic = false
 linter.unusedSimpArgs = false
 linter.style.haveILetI = false
 linter.tacticAnalysis.introMerge = false
+linter.unusedSectionVars = false
+linter.unreachableTactic = false
+linter.unnecessarySeqFocus = false
+linter.unnecessarySimpa = false
 
 [[require]]
 name = "mathlib"

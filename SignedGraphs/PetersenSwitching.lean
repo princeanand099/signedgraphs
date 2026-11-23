@@ -271,7 +271,6 @@ lemma cycle_len_eq_three_verts {G : SimpleGraph V} {v : V} (c : G.Walk v v)
 
 /-- Helper: given a path `p : G.Walk a b` of length `≥ 2`, extract the first internal vertex `x`
 with `G.Adj a x` and the remaining subpath `q : G.Walk x b` of length `p.length - 1`. -/
-omit [Fintype V] [DecidableEq V] in
 lemma path_split_first {G : SimpleGraph V} {a b : V} (p : G.Walk a b)
     (hp : p.IsPath) (h2 : 2 ≤ p.length) :
     ∃ (x : V) (hax : G.Adj a x) (q : G.Walk x b),
@@ -293,7 +292,6 @@ lemma path_split_first {G : SimpleGraph V} {a b : V} (p : G.Walk a b)
 
 /-- Helper: on a path `P : G.Walk a b` with a 2-coloring `col : V → Bool` (flipping along edges of `P`),
 `(col x = col y) ↔ Even (P.takeUntil x).length ↔ Even (P.takeUntil y).length`. -/
-omit [Fintype V] [DecidableEq V] in
 lemma path_bipartite_parity {G : SimpleGraph V} {a b : V} (P : G.Walk a b)
     (col : V → Bool) (hcol : ∀ u v, s(u, v) ∈ P.edges → col u ≠ col v) :
     (col b = col a ↔ Even P.length) := by
