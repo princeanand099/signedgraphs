@@ -190,7 +190,7 @@ private lemma tree_two_leaves {G : SimpleGraph V} [DecidableRel G.Adj] (T : Fins
           have hr1_pos : 1 ≤ r1.length := by
             have hne_pos : ∀ {a b : V} (p : G.Walk a b), a ≠ b → 1 ≤ p.length := by
               intro a b p hne; cases p with | nil => exact absurd rfl hne | cons _ _ => simp
-            exact hne_pos r1 hwu₁.symm
+            exact hne_pos r1 (Ne.symm hwu₁)
           have hcyc : ((SimpleGraph.Walk.cons huu₁ r1).append e_uw.reverse).IsCycle := by
             apply isCycle_append_reverse_of_disjoint e_uw (SimpleGraph.Walk.cons huu₁ r1) he_uw hstep _
               (by simp [e_uw, SimpleGraph.Walk.length_cons]; omega)
@@ -595,7 +595,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
                   Finset.card_le_card (Finset.union_subset (Finset.filter_subset _ _) (Finset.filter_subset _ _))
               _ = 3 := hcard_c
           have hinter : 0 < (N1 ∩ N2).card := by
-            have := Finset.card_union_add_card_inter N1 N2; omega
+            have := Finset.card_union_add_card_inter N1 N2; dsimp only [N1, N2] at this hunion; omega
           obtain ⟨a, ha⟩ := Finset.card_pos.mp hinter
           rw [Finset.mem_inter, Finset.mem_filter, Finset.mem_filter] at ha
           exact ⟨a, ha.1.1, ha.1.2, ha.2.2⟩
@@ -933,7 +933,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           rw [walkModFourWeight_append, walkModFourWeight_reverse]
           simp only [r, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
             List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
-          rw [Sym2.eq_swap (a := a) (b := u₁), Sym2.eq_swap (a := u₁) (b := b)]; ring
+          rw [Sym2.eq_swap (a := a) (b := u₁), Sym2.eq_swap (a := u₁) (b := b)]
         have hL_odd : Odd L_arc.length := by rcases hodd with ⟨k, hk⟩; exact ⟨k - 1, by omega⟩
         have h2L : 2 * walkModFourWeight S.sign L_arc = 2 := by
           rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four L_arc.length).2 hL_odd]
@@ -1106,7 +1106,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         · have h2 : Odd (R.length + L2.length + 1) := by
             rw [Nat.not_odd_iff_even] at h1
             rcases hodd with ⟨k, hk⟩; rcases h1 with ⟨j, hj⟩
-            exact ⟨R.length + k - j - 1, by omega⟩
+            exact ⟨R.length + k - j, by omega⟩
           have hQ0' : modFourWeight S.sign s(u₁, b) + modFourWeight S.sign s(b, m) +
               modFourWeight S.sign s(m, a) + modFourWeight S.sign s(a, u₁) = 0 := by
             rw [Sym2.eq_swap (a := u₁) (b := b), Sym2.eq_swap (a := b) (b := m),
@@ -1245,7 +1245,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           rw [walkModFourWeight_append, walkModFourWeight_reverse]
           simp only [e_au2, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
             List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
-          rw [Sym2.eq_swap (a := a) (b := u₁)]; ring
+          rw [Sym2.eq_swap (a := a) (b := u₁)]
         have hCb_exp : walkModFourWeight S.sign C_b =
             modFourWeight S.sign s(b, u₁) + walkModFourWeight S.sign P +
             modFourWeight S.sign s(m, b) + modFourWeight S.sign s(a, m) + modFourWeight S.sign s(a, u₂) := by
