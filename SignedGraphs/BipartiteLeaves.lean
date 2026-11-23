@@ -123,6 +123,7 @@ private lemma petersen_delete_edge_has_odd_cycle :
       ?_, Ne.symm hout.2.2.2.1, ?_, Ne.symm hout.2.2.2.2⟩
     all_goals (unfold petersenGraph; simp [SimpleGraph.fromRel])
 
+set_option maxHeartbeats 2400000 in
 /-- **Proposition 4.1 (Mod-4 path-weight diversity in bipartite R-leaves)**:
 Let `T` be a 3-connected simple graph on `V` with `xy ∈ E(T)` such that `H = T - xy`
 is bipartite, and let `σ` be any signing of `H`. Then `H` contains two simple `(x, y)`-paths
@@ -400,7 +401,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
       have hlift_e : ∀ {p q : Fin 10}, petersenGraph.Adj p q → s(p, q) ≠ s(e x, e y) →
           (T.deleteEdges {s(x, y)}).Adj (e.symm p) (e.symm q) := by
         intro p q hpq hne
-        refine SimpleGraph.deleteEdges_adj.mpr ⟨e.map_rel_iff.mp (by simpa [petersenSignedGraph] using hpq), fun h => hne ?_⟩
+        refine SimpleGraph.deleteEdges_adj.mpr ⟨e.map_rel_iff.mp (by rw [e.apply_symm_apply, e.apply_symm_apply]; exact hpq), fun h => hne ?_⟩
         rcases Sym2.eq_iff.mp (Set.mem_singleton_iff.mp h) with ⟨h1', h2'⟩ | ⟨h1', h2'⟩
         · have hp : p = e x := by rw [← h1']; simp
           have hq : q = e y := by rw [← h2']; simp
@@ -479,7 +480,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             intro a ha b hb hab
             have ha' : a ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp ha)).2
             have hb' : b ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp hb)).2
-            exact congrArg Subtype.val (by simpa [emb, dif_pos ha', dif_pos hb'] using hab)
+            simp only [emb, dif_pos ha', dif_pos hb'] at hab
+            exact congrArg Subtype.val hab
         _ ≤ ((T.induce ((D_xy : Set V)ᶜ)).neighborFinset w).card := by
             apply Finset.card_le_card
             intro z hz
@@ -490,14 +492,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
     haveI : Nonempty ((D_xy : Set V)ᶜ : Set V) := hRest_ne
     obtain ⟨v₀_sub, c₀_sub, hc₀_sub⟩ := exists_cycle_of_min_deg_two (T.induce ((D_xy : Set V)ᶜ)) hRest_deg2
     let fR : T.induce ((D_xy : Set V)ᶜ) →g T := (SimpleGraph.Embedding.induce ((D_xy : Set V)ᶜ)).toHom
-    let c₀ : T.Walk v₀_sub.1 v₀_sub.1 := c₀_sub.map fR
-    have hc₀ : c₀.IsCycle := by
-      refine ⟨⟨⟨?_⟩, ?_⟩, ?_⟩
-      · rw [SimpleGraph.Walk.edges_map]
-        exact hc₀_sub.edges_nodup.map (Sym2.map.injective Subtype.val_injective)
-      · intro hnil; cases c₀_sub with | nil => exact hc₀_sub.ne_nil rfl | cons _ _ => simp [c₀] at hnil
-      · rw [SimpleGraph.Walk.support_map, ← List.map_tail]
-        exact hc₀_sub.support_nodup.map Subtype.val_injective
+    let c₀ : T.Walk (fR v₀_sub) (fR v₀_sub) := c₀_sub.map fR
+    have hc₀ : c₀.IsCycle := hc₀_sub.map (fun _ _ h => Subtype.ext h)
     have hev₀ : Even c₀.length := even_length_of_isBipartite hT_bip c₀
     have hdisj₀ : Disjoint c₀.support.toFinset D_xy := by
       rw [Finset.disjoint_left]; intro z hz
@@ -628,7 +624,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         cases z with
         | inl i =>
           fin_cases i
-          · obtain ⟨u, huY⟩ := Finset.card_pos.mp (by omega : 0 < Y.card)
+          · obtain ⟨u, huY⟩ := Finset.card_pos.mp (by dsimp only [Y]; omega : 0 < Y.card)
             obtain ⟨w, hwC, huw⟩ := hall_nbr u (Finset.mem_filter.mp huY).1
             obtain ⟨r⟩ := hK_conn ⟨w, hwC⟩ xK
             let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g G_plus :=
@@ -639,7 +635,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             rcases hm with h1 | h2
             · exact absurd (Sum.inl.inj h1) (by decide)
             · rw [SimpleGraph.Walk.support_map, List.mem_map] at h2; rcases h2 with ⟨_, _, h⟩; exact (by cases h)
-          · obtain ⟨u, huX⟩ := Finset.card_pos.mp (by omega : 0 < X.card)
+          · obtain ⟨u, huX⟩ := Finset.card_pos.mp (by dsimp only [X]; omega : 0 < X.card)
             obtain ⟨w, hwC, huw⟩ := hall_nbr u (Finset.mem_filter.mp huX).1
             obtain ⟨r⟩ := hK_conn ⟨w, hwC⟩ xK
             let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g G_plus :=
