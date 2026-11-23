@@ -39,12 +39,13 @@ jobs:
             git checkout -f ${{ github.sha }}
           fi
 
-      - name: Install elan
+      - name: Install elan and bubblewrap
         run: |
           curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap >/dev/null 2>&1 || true
 
-      - name: Cache and build
+      - name: Cache, build, hygiene check, and lake comparator
         id: build
         run: |
           lake exe cache get >/dev/null 2>&1 || true
@@ -52,7 +53,40 @@ jobs:
           {
             echo "COMMIT=${{ github.sha }}"
             echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            lake build 2>&1
+
+            echo "=== 1. LAKE BUILD (SignedGraphs + Solution) ==="
+            lake build SignedGraphs Solution 2>&1
+            build_rc=$?
+            echo "LAKE_BUILD_EXIT=$build_rc"
+
+            echo "=== 2. STATIC HYGIENE CHECK ==="
+            hygiene_hits=$(grep -rnE '\b(sorry|sorryAx|admit|axiom|native_decide|unsafe|unsafeCast|implemented_by|extern|partial|skipKernelTC|local instance)\b' SignedGraphs.lean SignedGraphs/ comparator/ChallengeDefs.lean comparator/Solution.lean | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(--|/[-!]|/-)' | grep -vE 'AuditAxioms\.lean' || true)
+            if [ -n "$hygiene_hits" ]; then
+              echo "HYGIENE_CHECK_FAILED:"
+              echo "$hygiene_hits"
+              hygiene_rc=1
+            else
+              echo "HYGIENE_CHECK_PASSED (0 forbidden constructs)"
+              hygiene_rc=0
+            fi
+
+            echo "=== 3. LAKE COMPARATOR (--paranoid) ==="
+            if [ "$build_rc" -eq 0 ]; then
+              lake comparator --paranoid 2>&1
+              comp_rc=$?
+              if [ "$comp_rc" -ne 0 ] && ! bwrap --ro-bind / / true >/dev/null 2>&1; then
+                echo "NOTE: bwrap user namespaces restricted on runner; retrying with --inadvisably-no-sandbox"
+                lake comparator --paranoid --inadvisably-no-sandbox 2>&1
+                comp_rc=$?
+              fi
+            else
+              comp_rc=1
+            fi
+            echo "LAKE_COMPARATOR_EXIT=$comp_rc"
+
+            if [ "$build_rc" -ne 0 ] || [ "$hygiene_rc" -ne 0 ] || [ "$comp_rc" -ne 0 ]; then
+              exit 1
+            fi
           } | tee /tmp/last_build.log
           build_status=${PIPESTATUS[0]}
           set -e
