@@ -55,7 +55,7 @@ private lemma exists_cycle_of_min_deg_two {W : Type*} [Fintype W] [DecidableEq W
     exact False.elim (G.ne_of_adj haw hw_in.symm)
   | @cons _ u _ hau r =>
     have hcard_er : 0 < ((G.neighborFinset a).erase u).card := by
-      have h1 : (G.neighborFinset a).card = G.degree a := SimpleGraph.card_neighborFinset_eq_degree a
+      have h1 : (G.neighborFinset a).card = G.degree a := SimpleGraph.card_neighborFinset_eq_degree G a
       have h2 := hdeg a
       have h3 : ((G.neighborFinset a).erase u).card ≥ (G.neighborFinset a).card - 1 :=
         Finset.pred_card_le_card_erase
@@ -144,7 +144,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
   have hex_p₀ : ∃ p₀ : (T.deleteEdges {s(x, y)}).Walk x y, p₀.IsPath := by
     have hdeg_x : 3 ≤ T.degree x := min_deg_three_of_three_conn hcard h3 x
     have hcard_er : 0 < ((T.neighborFinset x).erase y).card := by
-      have h1 := SimpleGraph.card_neighborFinset_eq_degree x
+      have h1 := SimpleGraph.card_neighborFinset_eq_degree T x
       have h2 : ((T.neighborFinset x).erase y).card ≥ (T.neighborFinset x).card - 1 :=
         Finset.pred_card_le_card_erase
       omega
@@ -223,7 +223,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
       split_ifs with h1 h2
       · exact Or.inr rfl
       · exact Or.inl rfl
-      · exact hσ e (SimpleGraph.edgeSet_deleteEdges.mpr ⟨he, fun hm => h1 (Set.mem_singleton_iff.mp hm)⟩)
+      · exact hσ e (by rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨he, fun hm => h1 (Set.mem_singleton_iff.mp hm)⟩)
     let ST : SignedGraph V := ⟨T, σT, hσT_pm⟩
     have hT_nonbip : ¬ T.IsBipartite := by
       intro hTbip
@@ -252,9 +252,6 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         cycle_arcs_edges_subset c hc hx_in hy_in hxy_ne
       -- One of arc1, arc2 is the single edge s(x, y), and the other avoids s(x, y)!
       have hone : (arc1.length = 1 ∧ s(x, y) ∉ arc2.edges) ∨ (arc2.length = 1 ∧ s(x, y) ∉ arc1.edges) := by
-        -- Since s(x, y) ∈ c.edges and c = arc1 ++ arc2.reverse, s(x, y) is in arc1.edges or arc2.edges
-        -- Actually, since arc1 and arc2 are internally disjoint paths from x to y and c.edges is nodup,
-        -- one of them has length 1 (containing s(x, y)) and the other has length ≥ 2 (avoiding s(x, y))!
         have hlen_ge3 : 3 ≤ arc1.length + arc2.length := by rw [harc_len]; exact hc.three_le_length
         -- Check whether s(x, y) ∈ arc1.edges
         by_cases h1 : s(x, y) ∈ arc1.edges
@@ -265,14 +262,14 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             | @cons _ w _ hxw' q =>
               rw [SimpleGraph.Walk.edges_cons, List.mem_cons] at h1
               rcases h1 with heq | hq
-              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨h, _⟩
+              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨_, h2⟩
                 · cases q with
                   | nil => rfl
                   | cons _ q' =>
                     have hnd := harc1.support_nodup
                     simp only [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                     exact absurd (by simp [SimpleGraph.Walk.end_mem_support q']) hnd.2.1
-                · exact absurd h hxy_ne
+                · exact absurd h2.symm hxy_ne
               · have hnd := harc1.support_nodup
                 rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                 exact absurd (SimpleGraph.Walk.fst_mem_support_of_mem_edges q hq) hnd.1
@@ -283,31 +280,27 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             | @cons _ w _ hxw' q =>
               rw [SimpleGraph.Walk.edges_cons, List.mem_cons] at h2
               rcases h2 with heq | hq
-              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨h, _⟩
+              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨_, h2'⟩
                 · cases q with
                   | nil => rfl
                   | cons _ q' =>
                     have hnd := harc2.support_nodup
                     simp only [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                     exact absurd (by simp [SimpleGraph.Walk.end_mem_support q']) hnd.2.1
-                · exact absurd h hxy_ne
+                · exact absurd h2'.symm hxy_ne
               · have hnd := harc2.support_nodup
                 rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                 exact absurd (SimpleGraph.Walk.fst_mem_support_of_mem_edges q hq) hnd.1
           omega
         · right
-          -- Since s(x, y) ∈ c.edges and c = rotate... s(x, y) must be in arc2.edges!
-          -- Wait: if neither arc1 nor arc2 contains s(x, y), then c doesn't?
-          -- Prove s(x, y) ∈ arc2.edges from walkModFourWeight? No, directly from c.rotate x hx_in!
           have h2 : s(x, y) ∈ arc2.edges := by
-            -- Actually c.edges ⊆ arc1.edges ++ arc2.edges? Not returned by cycle_arcs_edges_subset,
-            -- so check arc2.length = 1 directly via: if neither has s(x, y), both transfer to H → c has even length!
             by_contra h2
-            let q1 : (T.deleteEdges {s(x, y)}).Walk x y := arc1.transfer _ (fun e he =>
-              SimpleGraph.edgeSet_deleteEdges.mpr ⟨arc1.edges_subset_edgeSet he, fun h => h1 (Set.mem_singleton_iff.mp h ▸ he)⟩)
-            let q2 : (T.deleteEdges {s(x, y)}).Walk x y := arc2.transfer _ (fun e he =>
-              SimpleGraph.edgeSet_deleteEdges.mpr ⟨arc2.edges_subset_edgeSet he, fun h => h2 (Set.mem_singleton_iff.mp h ▸ he)⟩)
+            let q1 : (T.deleteEdges {s(x, y)}).Walk x y := arc1.transfer _ (fun e he => by
+              rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨arc1.edges_subset_edgeSet he, fun h => h1 (Set.mem_singleton_iff.mp h ▸ he)⟩)
+            let q2 : (T.deleteEdges {s(x, y)}).Walk x y := arc2.transfer _ (fun e he => by
+              rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨arc2.edges_subset_edgeSet he, fun h => h2 (Set.mem_singleton_iff.mp h ▸ he)⟩)
             have hev_cH := even_length_of_isBipartite ⟨fH⟩ (q1.append q2.reverse)
+            dsimp only [q1, q2] at hev_cH
             simp only [SimpleGraph.Walk.length_append, SimpleGraph.Walk.length_reverse,
               SimpleGraph.Walk.length_transfer] at hev_cH
             rw [harc_len] at hev_cH
@@ -318,14 +311,14 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             | @cons _ w _ hxw' q =>
               rw [SimpleGraph.Walk.edges_cons, List.mem_cons] at h2
               rcases h2 with heq | hq
-              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨h, _⟩
+              · rcases Sym2.eq_iff.mp heq with ⟨_, rfl⟩ | ⟨_, h2'⟩
                 · cases q with
                   | nil => rfl
                   | cons _ q' =>
                     have hnd := harc2.support_nodup
                     simp only [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                     exact absurd (by simp [SimpleGraph.Walk.end_mem_support q']) hnd.2.1
-                · exact absurd h hxy_ne
+                · exact absurd h2'.symm hxy_ne
               · have hnd := harc2.support_nodup
                 rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
                 exact absurd (SimpleGraph.Walk.fst_mem_support_of_mem_edges q hq) hnd.1
@@ -341,8 +334,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             cases q with
             | nil => simp [walkModFourWeight, ST]
             | cons _ _ => simp at he1
-        let pH : (T.deleteEdges {s(x, y)}).Walk x y := p_arc.transfer _ (fun e he =>
-          SimpleGraph.edgeSet_deleteEdges.mpr ⟨p_arc.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
+        let pH : (T.deleteEdges {s(x, y)}).Walk x y := p_arc.transfer _ (fun e he => by
+          rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨p_arc.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
         have hpH_path : pH.IsPath := SimpleGraph.Walk.IsPath.mk' (by
           rw [SimpleGraph.Walk.support_transfer]; exact hp_arc.support_nodup)
         have hp_w : walkModFourWeight ST.sign p_arc = walkModFourWeight σ pH := by
@@ -356,7 +349,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         rw [← hsum, he_w, hp_w, hconst pH hpH_path]
         rcases hr02 with hr0 | hr2
         · simp [σT, modFourWeight, r, hr0]
-        · simp [σT, modFourWeight, r, hr2]
+        · simp [σT, modFourWeight, r, hr2]; decide
       rcases hone with ⟨h1, h2⟩ | ⟨h1, h2⟩
       · exact hcalc arc1 arc2 h1 harc2 h2 (harc_w ST.sign)
       · exact hcalc arc2 arc1 h1 harc1 h2 (by rw [add_comm]; exact harc_w ST.sign)
@@ -399,6 +392,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         SimpleGraph.Walk.cons hadj_xu (SimpleGraph.Walk.cons hadj_uw (SimpleGraph.Walk.cons hadj_wx .nil))
       have hev := even_length_of_isBipartite ⟨fH⟩ tri
       simp [tri] at hev
+      exact absurd hev (by decide)
     · -- T ≅ Petersen: petersenGraph - s(e x, e y) still has a 5-cycle!
       have hexy : petersenGraph.Adj (e x) (e y) := e.map_rel_iff.mpr hxy
       obtain ⟨a, b, c, d, g, _, _, _, _, _, _, _, _, _, _, hab, h1, hbc, h2, hcd, h3', hdg, h4', hga, h5⟩ :=
@@ -406,7 +400,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
       have hlift_e : ∀ {p q : Fin 10}, petersenGraph.Adj p q → s(p, q) ≠ s(e x, e y) →
           (T.deleteEdges {s(x, y)}).Adj (e.symm p) (e.symm q) := by
         intro p q hpq hne
-        refine SimpleGraph.deleteEdges_adj.mpr ⟨e.map_rel_iff.mp (by simpa using hpq), fun h => hne ?_⟩
+        refine SimpleGraph.deleteEdges_adj.mpr ⟨e.map_rel_iff.mp (by simpa [petersenSignedGraph] using hpq), fun h => hne ?_⟩
         rcases Sym2.eq_iff.mp (Set.mem_singleton_iff.mp h) with ⟨h1', h2'⟩ | ⟨h1', h2'⟩
         · have hp : p = e x := by rw [← h1']; simp
           have hq : q = e y := by rw [← h2']; simp
@@ -420,6 +414,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             (SimpleGraph.Walk.cons (hlift_e hga h5) .nil))))
       have hev := even_length_of_isBipartite ⟨fH⟩ c5
       simp [c5] at hev
+      exact absurd hev (by decide)
   · -- CASE 2: fH x ≠ fH y → T itself is bipartite!
     have hT_bip : T.IsBipartite := by
       refine ⟨SimpleGraph.Coloring.mk fH ?_⟩
@@ -434,8 +429,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
     let Rest := {w : V // w ∉ D_xy}
     have hRest_ne : Nonempty Rest := by
       have hlt : D_xy.card < Fintype.card V := by
-        have := Finset.card_le_two (a := x) (b := y); omega
-      obtain ⟨w, _, hw⟩ := Finset.exists_mem_notMem_of_card_lt_card (by rw [Finset.card_univ]; exact hlt)
+        have := Finset.card_le_two (a := x) (b := y); dsimp only [D_xy]; omega
+      obtain ⟨w, _, hw⟩ := Finset.exists_mem_notMem_of_card_lt_card (by simpa [Finset.card_univ] using hlt : D_xy.card < (Finset.univ : Finset V).card)
       exact ⟨⟨w, hw⟩⟩
     have hRest_deg2 : ∀ w : Rest, 2 ≤ (T.induce ((D_xy : Set V)ᶜ)).degree w := by
       intro w
@@ -484,8 +479,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             intro a ha b hb hab
             have ha' : a ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp ha)).2
             have hb' : b ∉ D_xy := (Finset.mem_sdiff.mp (Finset.mem_coe.mp hb)).2
-            simp only [emb, dif_pos ha', dif_pos hb', Subtype.mk.injEq] at hab
-            exact hab
+            exact congrArg Subtype.val (by simpa [emb, dif_pos ha', dif_pos hb'] using hab)
         _ ≤ ((T.induce ((D_xy : Set V)ᶜ)).neighborFinset w).card := by
             apply Finset.card_le_card
             intro z hz
@@ -493,6 +487,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             rw [Finset.mem_sdiff, SimpleGraph.mem_neighborFinset] at ha
             simp only [emb, dif_pos ha.2, SimpleGraph.mem_neighborFinset]
             exact ha.1
+    haveI : Nonempty ((D_xy : Set V)ᶜ : Set V) := hRest_ne
     obtain ⟨v₀_sub, c₀_sub, hc₀_sub⟩ := exists_cycle_of_min_deg_two (T.induce ((D_xy : Set V)ᶜ)) hRest_deg2
     let fR : T.induce ((D_xy : Set V)ᶜ) →g T := (SimpleGraph.Embedding.induce ((D_xy : Set V)ᶜ)).toHom
     let c₀ : T.Walk v₀_sub.1 v₀_sub.1 := c₀_sub.map fR
@@ -576,8 +571,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           · exact hLdisj y (SimpleGraph.Walk.snd_mem_support_of_mem_edges L₁ hm) (SimpleGraph.Walk.start_mem_support L₂)
           · exact Finset.disjoint_left.mp hdisj_c (List.mem_toFinset.mpr (harcC x (SimpleGraph.Walk.fst_mem_support_of_mem_edges arc hm))) (by simp [D_xy])
           · exact hLdisj x (SimpleGraph.Walk.start_mem_support L₁) (SimpleGraph.Walk.fst_mem_support_of_mem_edges L₂ hm)
-        let PH : (T.deleteEdges {s(x, y)}).Walk x y := PT.transfer _ (fun e he =>
-          SimpleGraph.edgeSet_deleteEdges.mpr ⟨PT.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
+        let PH : (T.deleteEdges {s(x, y)}).Walk x y := PT.transfer _ (fun e he => by
+          rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨PT.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
         refine ⟨PH, SimpleGraph.Walk.IsPath.mk' (by rw [SimpleGraph.Walk.support_transfer]; exact h2.support_nodup), ?_⟩
         have htr : walkModFourWeight σ PH = walkModFourWeight σ PT := by
           simp [PH, walkModFourWeight, SimpleGraph.Walk.edges_transfer]
@@ -1186,8 +1181,8 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             · exact hyL (SimpleGraph.Walk.snd_mem_support_of_mem_edges L h)
             · exact Finset.disjoint_left.mp hdisj_c (hAC x (SimpleGraph.Walk.fst_mem_support_of_mem_edges A h)) (by simp [D_xy])
             · exact hxR (SimpleGraph.Walk.fst_mem_support_of_mem_edges R h)
-          let PH : (T.deleteEdges {s(x, y)}).Walk x y := PT.transfer _ (fun e he =>
-            SimpleGraph.edgeSet_deleteEdges.mpr ⟨PT.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
+          let PH : (T.deleteEdges {s(x, y)}).Walk x y := PT.transfer _ (fun e he => by
+            rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨PT.edges_subset_edgeSet he, fun h => hnot_xy (Set.mem_singleton_iff.mp h ▸ he)⟩)
           have hPH_path : PH.IsPath := SimpleGraph.Walk.IsPath.mk' (by
             rw [SimpleGraph.Walk.support_transfer]; exact h2.support_nodup)
           have htr : walkModFourWeight σ PH = walkModFourWeight σ PT := by
