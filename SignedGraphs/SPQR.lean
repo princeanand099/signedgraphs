@@ -80,6 +80,7 @@ private lemma component_card_ge_two (G : SimpleGraph V) [DecidableRel G.Adj]
   have hu3 := hdeg u
   omega
 
+omit [Fintype V] in
 private lemma walk_exits_set {G : SimpleGraph V} (S : Finset V) {u v : V}
     (p : G.Walk u v) (hu : u ∈ S) (hv : v ∉ S) :
     ∃ a ∈ S, ∃ b ∉ S, G.Adj a b ∧ b ∈ p.support := by

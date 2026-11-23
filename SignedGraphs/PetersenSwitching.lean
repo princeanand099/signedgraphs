@@ -13,6 +13,7 @@ namespace SignedGraphs
 
 variable {V : Type*} [Fintype V] [DecidableEq V]
 
+omit [Fintype V] [DecidableEq V] in
 lemma odd_cycle_w3 (S : SignedGraph V) (hnoc : IsNOC S)
     {v : V} (c : S.graph.Walk v v) (hc : c.IsCycle) (hodd : Odd c.length) :
     walkModFourWeight S.sign c = 3 :=
@@ -210,6 +211,7 @@ lemma petersen_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
       | exact ht58 | exact (hσ'_sym 8 5).trans ht58
   simpa [σ', sg, hfφ] using hgoal
 
+omit [Fintype V] [DecidableEq V] in
 lemma cycle_len_eq_five_vertices {G : SimpleGraph V} {v : V} (c : G.Walk v v)
     (hc : c.IsCycle) (h5 : c.length = 5) :
     ∃ v1 v2 v3 v4 : V, [v, v1, v2, v3, v4].Nodup ∧
@@ -246,6 +248,7 @@ lemma cycle_len_eq_five_vertices {G : SimpleGraph V} {v : V} (c : G.Walk v v)
               · intro e; simp [or_comm, or_left_comm, or_assoc]
             | cons _ _ => simp at h5
 
+omit [Fintype V] [DecidableEq V] in
 lemma cycle_len_eq_three_verts {G : SimpleGraph V} {v : V} (c : G.Walk v v)
     (hc : c.IsCycle) (h3 : c.length = 3) :
     ∃ v1 v2 : V, v ≠ v1 ∧ v ≠ v2 ∧ v1 ≠ v2 ∧
@@ -268,6 +271,7 @@ lemma cycle_len_eq_three_verts {G : SimpleGraph V} {v : V} (c : G.Walk v v)
 
 /-- Helper: given a path `p : G.Walk a b` of length `≥ 2`, extract the first internal vertex `x`
 with `G.Adj a x` and the remaining subpath `q : G.Walk x b` of length `p.length - 1`. -/
+omit [Fintype V] [DecidableEq V] in
 lemma path_split_first {G : SimpleGraph V} {a b : V} (p : G.Walk a b)
     (hp : p.IsPath) (h2 : 2 ≤ p.length) :
     ∃ (x : V) (hax : G.Adj a x) (q : G.Walk x b),
@@ -289,6 +293,7 @@ lemma path_split_first {G : SimpleGraph V} {a b : V} (p : G.Walk a b)
 
 /-- Helper: on a path `P : G.Walk a b` with a 2-coloring `col : V → Bool` (flipping along edges of `P`),
 `(col x = col y) ↔ Even (P.takeUntil x).length ↔ Even (P.takeUntil y).length`. -/
+omit [Fintype V] [DecidableEq V] in
 lemma path_bipartite_parity {G : SimpleGraph V} {a b : V} (P : G.Walk a b)
     (col : V → Bool) (hcol : ∀ u v, s(u, v) ∈ P.edges → col u ≠ col v) :
     (col b = col a ↔ Even P.length) := by
