@@ -101,9 +101,10 @@ private def liftWalkToInduce {V : Type*} {G : SimpleGraph V} (S : Set V) :
       (ha : a ∈ S) → (hb : b ∈ S) →
       (G.induce S).Walk ⟨a, ha⟩ ⟨b, hb⟩
   | _, _, .nil, _, _, _ => .nil
-  | _, _, .cons hadj r, hsub, _, hb =>
-    let hv : _ ∈ S := hsub _ (by simp [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.start_mem_support])
-    .cons hadj (liftWalkToInduce S r (fun x hx => hsub x (by simp [SimpleGraph.Walk.support_cons, hx])) hv hb)
+  | a, _, .cons (v := v) hadj r, hsub, ha, hb =>
+    let hv : v ∈ S := hsub v (by simp [SimpleGraph.Walk.support_cons, SimpleGraph.Walk.start_mem_support])
+    .cons (v := ⟨v, hv⟩) (show (G.induce S).Adj ⟨a, ha⟩ ⟨v, hv⟩ from hadj)
+      (liftWalkToInduce S r (fun x hx => hsub x (by simp [SimpleGraph.Walk.support_cons, hx])) hv hb)
 
 private lemma liftWalkToInduce_mem_support {V : Type*} {G : SimpleGraph V} (S : Set V)
     {a b : V} (p : G.Walk a b) (hsub : ∀ x ∈ p.support, x ∈ S) (ha : a ∈ S) (hb : b ∈ S)
@@ -150,32 +151,23 @@ private def pRotPow : ℕ → (petersenGraph ≃g petersenGraph)
   | 0 => SimpleGraph.Iso.refl
   | k + 1 => (pRotPow k).trans pRot
 
+private def pEdgeAut (a b : Fin 10) : petersenGraph ≃g petersenGraph :=
+  let rotBase (k : ℕ) := pRotPow ((5 - k % 5) % 5)
+  if a.val < 5 then
+    if b.val < 5 then
+      if b.val = (a.val + 1) % 5 then rotBase a.val
+      else (rotBase b.val).trans pRefl
+    else (rotBase a.val).trans pSpoke
+  else
+    if b.val < 5 then ((rotBase b.val).trans pSpoke).trans pRefl
+    else if (b.val - 5) = ((a.val - 5) + 2) % 5 then (rotBase (a.val - 5)).trans pInner
+    else ((rotBase (b.val - 5)).trans pInner).trans pRefl
+
 private lemma petersenGraph_edge_transitive (a b : Fin 10) (hab : petersenGraph.Adj a b) :
     ∃ φ : petersenGraph ≃g petersenGraph, φ a = 0 ∧ φ b = 1 := by
-  let rotBase (k : ℕ) : petersenGraph ≃g petersenGraph := pRotPow ((5 - k % 5) % 5)
-  by_cases ha : a.val < 5
-  · by_cases hb : b.val < 5
-    · by_cases h1 : b.val = (a.val + 1) % 5
-      · refine ⟨rotBase a.val, ?_, ?_⟩ <;>
-        (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun,
-          SimpleGraph.Iso.refl])
-      · refine ⟨(rotBase b.val).trans pRefl, ?_, ?_⟩ <;>
-        (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun, pRefl, pReflFun,
-          SimpleGraph.Iso.refl, petersenGraph_adj_decide])
-    · refine ⟨(rotBase a.val).trans pSpoke, ?_, ?_⟩ <;>
-      (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun, pSpoke, pSpokeFun,
-        SimpleGraph.Iso.refl, petersenGraph_adj_decide])
-  · by_cases hb : b.val < 5
-    · refine ⟨((rotBase b.val).trans pSpoke).trans pRefl, ?_, ?_⟩ <;>
-      (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun, pSpoke, pSpokeFun,
-        pRefl, pReflFun, SimpleGraph.Iso.refl, petersenGraph_adj_decide])
-    · by_cases h1 : (b.val - 5) = ((a.val - 5) + 2) % 5
-      · refine ⟨(rotBase (a.val - 5)).trans pInner, ?_, ?_⟩ <;>
-        (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun, pInner, pInnerFun,
-          SimpleGraph.Iso.refl, petersenGraph_adj_decide])
-      · refine ⟨((rotBase (b.val - 5)).trans pInner).trans pRefl, ?_, ?_⟩ <;>
-        (fin_cases a <;> fin_cases b <;> simp_all [rotBase, pRotPow, pRot, pRotFun, pInner, pInnerFun,
-          pRefl, pReflFun, SimpleGraph.Iso.refl, petersenGraph_adj_decide])
+  refine ⟨pEdgeAut a b, ?_⟩
+  revert a b hab
+  decide
 
 private lemma k4_pair_equiv (a b : Fin 4) (hab : a ≠ b) :
     ∃ φ : Fin 4 ≃ Fin 4, φ a = 0 ∧ φ b = 1 := by
@@ -190,7 +182,7 @@ private lemma k4_pair_equiv (a b : Fin 4) (hab : a ≠ b) :
     exact Equiv.swap_apply_of_ne_of_ne hb₁.symm (by decide)
   · simp only [Equiv.trans_apply, φ₂, Equiv.swap_apply_left]
 
-private lemma path_concat_three_isPath {V : Type*} {G : SimpleGraph V} {a₁ b₁ b₂ a₂ : V}
+private lemma path_concat_three_isPath {V : Type*} [DecidableEq V] {G : SimpleGraph V} {a₁ b₁ b₂ a₂ : V}
     (p₁ : G.Walk a₁ b₁) (r : G.Walk b₁ b₂) (p₂ : G.Walk a₂ b₂)
     (hp₁ : p₁.IsPath) (hr : r.IsPath) (hp₂ : p₂.IsPath)
     (hdisj12 : Disjoint p₁.support.toFinset p₂.support.toFinset)
@@ -269,7 +261,7 @@ private lemma exists_path_in_G₂ {V : Type*} [Fintype V] [DecidableEq V]
       intro hm
       rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
       rcases hm with ⟨w, _, hw⟩
-      exact w.2 hw.symm
+      exact w.2 (Set.mem_singleton_iff.mpr hw)
     have hx_nint : d.x ∉ d.VG₂ \ {d.x, d.y} := fun hm => (Finset.mem_sdiff.mp hm).2 (by simp)
     obtain ⟨u, v, hu_int, hv_nint, huv, q, hq_sub, hq_in⟩ :=
       walk_exits_finset_last (d.VG₂ \ {d.x, d.y}) (P.map f) hz_int hx_nint
@@ -309,7 +301,7 @@ private lemma exists_path_in_G₂ {V : Type*} [Fintype V] [DecidableEq V]
       intro hm
       rw [SimpleGraph.Walk.support_map, List.mem_map] at hm
       rcases hm with ⟨w, _, hw⟩
-      exact w.2 hw.symm
+      exact w.2 (Set.mem_singleton_iff.mpr hw)
     have hy_nint : d.y ∉ d.VG₂ \ {d.x, d.y} := fun hm => (Finset.mem_sdiff.mp hm).2 (by simp)
     obtain ⟨u, v, hu_int, hv_nint, huv, q, hq_sub, hq_in⟩ :=
       walk_exits_finset_last (d.VG₂ \ {d.x, d.y}) (P.map f) hz_int hy_nint
@@ -424,7 +416,7 @@ private lemma two_parity_paths_of_nonbipartite_G₂ {V : Type*} [Fintype V] [Dec
         intro hmem
         rw [SimpleGraph.Walk.support_map, List.mem_map] at hmem
         rcases hmem with ⟨w, _, hw⟩
-        exact w.2 hw.symm
+        exact w.2 (Set.mem_singleton_iff.mpr hw)
       have hh_nint : h ∉ d.VG₂ \ {d.x, d.y} := fun hm => hh_nG₂ (Finset.mem_sdiff.mp hm).1
       obtain ⟨u, a₀, hu_int, ha₀_nint, hua₀, q, hq_sub, hq_in⟩ :=
         walk_exits_finset_last (d.VG₂ \ {d.x, d.y}) (P.map f) hb_int hh_nint
@@ -669,6 +661,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       SimpleGraph.fromRel (fun a b : d.VH => (a.1 = d.x ∧ b.1 = d.y) ∨ (a.1 = d.y ∧ b.1 = d.x))
   let H : SimpleGraph d.VH := T.deleteEdges {s(xH, yH)}
   let G₂ : SimpleGraph d.VG₂ := S.graph.induce (d.VG₂ : Set V)
+  dsimp only
   intro hHbip
   have hT_card : 4 ≤ Fintype.card d.VH := by
     rw [Fintype.card_coe]; exact d.hcardH
@@ -685,24 +678,18 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
   -- H embeds into S.graph via Subtype.val
   have hH_le_G : ∀ a b : d.VH, H.Adj a b → S.graph.Adj a.1 b.1 := by
     intro a b hab
+    rw [SimpleGraph.deleteEdges_adj] at hab
     rcases hab with ⟨hTab, hne_xy⟩
     rcases hTab with hG | hrel
     · exact hG
     · exfalso
       apply hne_xy
+      rw [Set.mem_singleton_iff]
       rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-      · have ha : a = xH := Subtype.ext h1
-        have hb : b = yH := Subtype.ext h2
-        rw [ha, hb]
-      · have ha : a = yH := Subtype.ext h1
-        have hb : b = xH := Subtype.ext h2
-        rw [ha, hb, Sym2.eq_swap]
-      · have ha : a = yH := Subtype.ext h1
-        have hb : b = xH := Subtype.ext h2
-        rw [ha, hb, Sym2.eq_swap]
-      · have ha : a = xH := Subtype.ext h1
-        have hb : b = yH := Subtype.ext h2
-        rw [ha, hb]
+      · rw [show a = xH from Subtype.ext h1, show b = yH from Subtype.ext h2]
+      · rw [show a = yH from Subtype.ext h1, show b = xH from Subtype.ext h2, Sym2.eq_swap]
+      · rw [show a = yH from Subtype.ext h2, show b = xH from Subtype.ext h1, Sym2.eq_swap]
+      · rw [show a = xH from Subtype.ext h2, show b = yH from Subtype.ext h1]
   let embH : H →g S.graph := ⟨Subtype.val, fun h => hH_le_G _ _ h⟩
   let embG₂ : G₂ →g S.graph := ⟨Subtype.val, fun h => h⟩
   let σH : Sym2 d.VH → ℤ := fun e => S.sign (e.map Subtype.val)
@@ -735,19 +722,21 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       rw [SimpleGraph.Walk.support_map, List.mem_map] at hwq hwp
       rcases hwq with ⟨w₂, _, rfl⟩
       rcases hwp with ⟨w₁, _, heq⟩
+      change w₁.1 = w₂.1 at heq
+      change w₂.1 ≠ d.x at hwx; change w₂.1 ≠ d.y at hwy
       have hinter : w₂.1 ∈ d.VH ∩ d.VG₂ := Finset.mem_inter.mpr ⟨heq ▸ w₁.2, w₂.2⟩
       rw [d.hinter] at hinter
       simp [hwx, hwy] at hinter
     have hq_pos : 1 ≤ qG.length := by
-      cases h : qG with
+      cases qG with
       | nil => exact absurd rfl d.hxy
       | cons _ _ => simp
     have hp1_pos : 1 ≤ p₁G.length := by
-      cases h : p₁G with
+      cases p₁G with
       | nil => exact absurd rfl d.hxy
       | cons _ _ => simp
     have hp2_pos : 1 ≤ p₂G.length := by
-      cases h : p₂G with
+      cases p₂G with
       | nil => exact absurd rfl d.hxy
       | cons _ _ => simp
     have hlen1 : 3 ≤ qG.length + p₁G.length := by
@@ -792,7 +781,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
   rcases hHbip with ⟨fH⟩
   rcases hG₂bip with ⟨fG₂⟩
   have hcol_walk : ∀ {W : Type*} {G : SimpleGraph W} (f : G.Coloring (Fin 2)) {a b : W} (w : G.Walk a b),
-      f b = f a + (w.length : Fin 2) := by
+      f b = f a + Fin.ofNat 2 w.length := by
     intro W G f a b w
     induction w with
     | nil => simp
@@ -800,16 +789,15 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       have hne : f u ≠ f v := f.valid huv
       have hstep : f v = f u + 1 := by
         generalize hfu : f u = fu; generalize hfv : f v = fv; rw [hfu, hfv] at hne; fin_cases fu <;> fin_cases fv <;> simp_all
-      rw [ih, hstep, SimpleGraph.Walk.length_cons, Nat.cast_add, Nat.cast_one]
+      have hof : Fin.ofNat 2 (r.length + 1) = Fin.ofNat 2 r.length + 1 := by
+        ext; simp [Fin.val_add]; omega
+      rw [ih, hstep, SimpleGraph.Walk.length_cons, hof]
       ring
-  have hfH_xy : fH yH = fH xH + (p₁.length : Fin 2) := hcol_walk fH p₁
-  have hfG₂_xy : fG₂ y₂ = fG₂ x₂ + (q.length : Fin 2) := hcol_walk fG₂ q
-  have hlen_eq : (q.length : Fin 2) = (p₁.length : Fin 2) := by
+  have hfH_xy : fH yH = fH xH + Fin.ofNat 2 p₁.length := hcol_walk fH p₁
+  have hfG₂_xy : fG₂ y₂ = fG₂ x₂ + Fin.ofNat 2 q.length := hcol_walk fG₂ q
+  have hlen_eq : Fin.ofNat 2 q.length = Fin.ofNat 2 p₁.length := by
     rcases hq_same_par with ⟨k, hk⟩
-    have h0 : ((q.length + p₁.length : ℕ) : Fin 2) = 0 := by
-      rw [hk, ← two_mul, Nat.cast_mul]; simp
-    rw [Nat.cast_add] at h0
-    generalize hq2 : (q.length : Fin 2) = q2; generalize hp2 : (p₁.length : Fin 2) = p2; rw [hq2, hp2] at h0; fin_cases q2 <;> fin_cases p2 <;> simp_all
+    ext; simp; omega
   let shift : Fin 2 := fH xH - fG₂ x₂
   let f : V → Fin 2 := fun v =>
     if hv : v ∈ d.VG₂ then fG₂ ⟨v, hv⟩ + shift
@@ -1009,24 +997,18 @@ private theorem theorem_1_2_general :
               let hy₂ : d₂.y ∈ (d₂.VH : Set V) := (Finset.mem_inter.mp (by rw [d₂.hinter]; simp)).1
               refine ⟨SimpleGraph.Coloring.mk (fun u : d₂.VH => f₂ ⟨u.1, hd₂_in_d₁ u.2⟩) ?_⟩
               intro a b hab
+              rw [SimpleGraph.deleteEdges_adj] at hab
               rcases hab with ⟨hTab, hne_xy⟩
               have hGab : G.Adj a.1 b.1 := by
                 rcases hTab with hG | hrel
                 · exact hG
                 · exfalso; apply hne_xy
+                  rw [Set.mem_singleton_iff]
                   rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-                  · have ha : a = ⟨d₂.x, hx₂⟩ := Subtype.ext h1
-                    have hb : b = ⟨d₂.y, hy₂⟩ := Subtype.ext h2
-                    rw [ha, hb]
-                  · have ha : a = ⟨d₂.y, hy₂⟩ := Subtype.ext h1
-                    have hb : b = ⟨d₂.x, hx₂⟩ := Subtype.ext h2
-                    rw [ha, hb, Sym2.eq_swap]
-                  · have ha : a = ⟨d₂.y, hy₂⟩ := Subtype.ext h1
-                    have hb : b = ⟨d₂.x, hx₂⟩ := Subtype.ext h2
-                    rw [ha, hb, Sym2.eq_swap]
-                  · have ha : a = ⟨d₂.x, hx₂⟩ := Subtype.ext h1
-                    have hb : b = ⟨d₂.y, hy₂⟩ := Subtype.ext h2
-                    rw [ha, hb]
+                  · rw [show a = ⟨d₂.x, hx₂⟩ from Subtype.ext h1, show b = ⟨d₂.y, hy₂⟩ from Subtype.ext h2]
+                  · rw [show a = ⟨d₂.y, hy₂⟩ from Subtype.ext h1, show b = ⟨d₂.x, hx₂⟩ from Subtype.ext h2, Sym2.eq_swap]
+                  · rw [show a = ⟨d₂.y, hy₂⟩ from Subtype.ext h2, show b = ⟨d₂.x, hx₂⟩ from Subtype.ext h1, Sym2.eq_swap]
+                  · rw [show a = ⟨d₂.x, hx₂⟩ from Subtype.ext h2, show b = ⟨d₂.y, hy₂⟩ from Subtype.ext h1]
               exact f₂.valid hGab
             -- Obtain an odd (x, y)-path Q in G₂₁
             obtain ⟨_, Q, _, hQ_path, _, hQ_odd⟩ :=
@@ -1065,7 +1047,7 @@ private theorem theorem_1_2_general :
                 have h4 : (4 : ZMod 4) = 0 := rfl
                 linear_combination (k : ZMod 4) * h4
               rw [h2len] at h2w
-              generalize hwQ_val : wQ = wv; rw [hwQ_val] at h2w; fin_cases wv <;> simp_all
+              generalize hwQ_val : wQ = wv; rw [hwQ_val] at h2w; fin_cases wv <;> revert h2w <;> decide
             let sxy : ℤ := if wQ = 1 then 1 else -1
             have hsxy_pm : sxy = 1 ∨ sxy = -1 := by dsimp [sxy]; split_ifs <;> simp
             have hsxy_mod4 : modFourWeight (fun e : Sym2 d₁.VH =>
@@ -1074,7 +1056,7 @@ private theorem theorem_1_2_general :
               rcases hwQ_odd with h1 | h3
               · simp [h1]
               · have hne : wQ ≠ 1 := by rw [h3]; decide
-                simp [hne, h3]
+                simp [hne, h3]; decide
             let ST : SignedGraph d₁.VH :=
               { graph := T₁
                 sign := fun e => if e = s(xH, yH) then sxy else S.sign (e.map Subtype.val)
@@ -1088,10 +1070,10 @@ private theorem theorem_1_2_general :
                       · exact hG
                       · exfalso; apply hxye
                         rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-                        · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-                        · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
-                        · rw [Sym2.eq_swap]; exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h1) (Subtype.ext h2)
-                        · exact congrArg₂ (fun u v => s(u, v)) (Subtype.ext h2) (Subtype.ext h1)
+                        · rw [show a = xH from Subtype.ext h1, show b = yH from Subtype.ext h2]
+                        · rw [show a = yH from Subtype.ext h1, show b = xH from Subtype.ext h2, Sym2.eq_swap]
+                        · rw [show a = yH from Subtype.ext h2, show b = xH from Subtype.ext h1, Sym2.eq_swap]
+                        · rw [show a = xH from Subtype.ext h2, show b = yH from Subtype.ext h1]
                     exact S.sign_pm_one s(a.1, b.1) hGab }
             -- Show ST is NOC
             have hST_noc : IsNOC ST := by
@@ -1116,11 +1098,12 @@ private theorem theorem_1_2_general :
                     rcases huv with hG | hrel
                     · exact hG
                     · exfalso; apply hnot.1
+                      apply Eq.symm
                       rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-                      · exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h1) (Subtype.ext h2)
-                      · rw [Sym2.eq_swap]; exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h2) (Subtype.ext h1)
-                      · rw [Sym2.eq_swap]; exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h1) (Subtype.ext h2)
-                      · exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h2) (Subtype.ext h1)
+                      · rw [show u = xH from Subtype.ext h1, show v = yH from Subtype.ext h2]
+                      · rw [show u = yH from Subtype.ext h1, show v = xH from Subtype.ext h2, Sym2.eq_swap]
+                      · rw [show u = yH from Subtype.ext h2, show v = xH from Subtype.ext h1, Sym2.eq_swap]
+                      · rw [show u = xH from Subtype.ext h2, show v = yH from Subtype.ext h1]
                   obtain ⟨rG, hrlen, hrsupp, hredges, hrwt⟩ := ihr hnot.2
                   refine ⟨SimpleGraph.Walk.cons hGuv rG, by simp [hrlen], by simp [hrsupp],
                     by simp [hredges], ?_⟩
@@ -1135,6 +1118,7 @@ private theorem theorem_1_2_general :
               by_cases huse : s(xH, yH) ∈ c.edges
               · obtain ⟨p, hp_path, hp_noxy, hp_len, hp_wt⟩ := cycle_split_at_edge c hc huse
                 obtain ⟨pG, hplen, hpsupp, _, hpwt⟩ := hlift p hp_noxy
+                change G.Walk d₁.x d₁.y at pG
                 have hpG_path : pG.IsPath := by
                   rw [SimpleGraph.Walk.isPath_def, hpsupp]
                   exact hp_path.support_nodup.map Subtype.coe_injective
@@ -1144,6 +1128,8 @@ private theorem theorem_1_2_general :
                   rw [hpsupp, List.mem_map] at hwp
                   rcases hwQ with ⟨w₂, _, rfl⟩
                   rcases hwp with ⟨w₁, _, heq⟩
+                  change w₁.1 = w₂.1 at heq
+                  change w₂.1 ≠ d₁.x at hwx; change w₂.1 ≠ d₁.y at hwy
                   have hinter : w₂.1 ∈ d₁.VH ∩ d₁.VG₂ := Finset.mem_inter.mpr ⟨heq ▸ w₁.2, w₂.2⟩
                   rw [d₁.hinter] at hinter
                   simp [hwx, hwy] at hinter
@@ -1154,9 +1140,9 @@ private theorem theorem_1_2_general :
                   exact ⟨a + b, by omega⟩
                 have hlen3 : 3 ≤ QG.length + pG.length := by
                   have h1 : 1 ≤ QG.length := by
-                    cases h : QG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
+                    cases QG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
                   have h2 : 1 ≤ pG.length := by
-                    cases h : pG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
+                    cases pG with | nil => exact absurd rfl d₁.hxy | cons _ _ => simp
                   rcases hsum_odd with ⟨k, hk⟩; omega
                 have hcycG : (QG.append pG.reverse).IsCycle :=
                   isCycle_append_reverse_of_disjoint pG QG hpG_path hQG_path hdisj hlen3
@@ -1173,7 +1159,7 @@ private theorem theorem_1_2_general :
                   · rw [hcedges]; exact hc.edges_nodup.map (Sym2.map.injective Subtype.coe_injective)
                   · intro hnil
                     have : c.length = 0 := by rw [← hclen, hnil]; rfl
-                    exact hc.ne_nil (SimpleGraph.Walk.nil_iff_length_eq.mpr this)
+                    cases c with | nil => exact hc.ne_nil rfl | cons _ _ => simp at this
                   · rw [hcsupp, ← List.map_tail]
                     exact hc.support_nodup.map Subtype.coe_injective
                 rw [← hcwt]
@@ -1266,12 +1252,14 @@ private theorem theorem_1_2_general :
               have he0 : (eH 0).1 = d₁.x := by
                 have : eH 0 = xH := by
                   apply eIso.injective
-                  simp [eH, eIso, hφ0]
+                  change eIso (eIso.symm 0) = φ (e xH)
+                  rw [eIso.apply_symm_apply, hφ0]
                 exact congrArg Subtype.val this
               have he1 : (eH 1).1 = d₁.y := by
                 have : eH 1 = yH := by
                   apply eIso.injective
-                  simp [eH, eIso, hφ1]
+                  change eIso (eIso.symm 1) = φ (e yH)
+                  rw [eIso.apply_symm_apply, hφ1]
                 exact congrArg Subtype.val this
               let T_V : Finset V := T_sw.map ⟨Subtype.val, Subtype.coe_injective⟩
               have hTV_mem : ∀ u : d₁.VH, u.1 ∈ T_V ↔ u ∈ T_sw := by
@@ -1302,16 +1290,16 @@ private theorem theorem_1_2_general :
                     · exact hG
                     · exfalso; apply hne_xy
                       rcases hrel.2 with (⟨h1, h2⟩ | ⟨h1, h2⟩) | (⟨h1, h2⟩ | ⟨h1, h2⟩)
-                      · exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h1) (Subtype.ext h2)
-                      · rw [Sym2.eq_swap]; exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h2) (Subtype.ext h1)
-                      · rw [Sym2.eq_swap]; exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h1) (Subtype.ext h2)
-                      · exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h2) (Subtype.ext h1)
+                      · rw [show eH i = xH from Subtype.ext h1, show eH j = yH from Subtype.ext h2]
+                      · rw [show eH i = yH from Subtype.ext h1, show eH j = xH from Subtype.ext h2, Sym2.eq_swap]
+                      · rw [show eH i = yH from Subtype.ext h2, show eH j = xH from Subtype.ext h1, Sym2.eq_swap]
+                      · rw [show eH i = xH from Subtype.ext h2, show eH j = yH from Subtype.ext h1]
                   have hsw := hT_sw (eH i) (eH j) hTadj
                   simp only [ST, hne_xy, ↓reduceIte, petersenSignedGraph, Sym2.map_mk] at hsw
                   have hsign_eq : S.sign s((eH i).1, (eH j).1) =
                       if 0 < A (eH i).1 (eH j).1 then 1 else -1 := rfl
                   rw [hsign_eq] at hsw
-                  rw [hTV_mem (eH i), hTV_mem (eH j)]
+                  simp only [hTV_mem]
                   have hAne : A (eH i).1 (eH j).1 ≠ 0 := hGadj.2
                   rcases lt_or_gt_of_ne hAne with hneg | hpos
                   · have hnpos : ¬ 0 < A (eH i).1 (eH j).1 := not_lt.mpr hneg.le
