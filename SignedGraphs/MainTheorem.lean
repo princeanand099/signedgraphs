@@ -1291,10 +1291,12 @@ private theorem theorem_1_2_general :
                       eH.injective (Subtype.ext ((congrArg Subtype.val h2).trans he1.symm))⟩
                   · right; exact ⟨eH.injective (Subtype.ext ((congrArg Subtype.val h1).trans he1.symm)),
                       eH.injective (Subtype.ext ((congrArg Subtype.val h2).trans he0.symm))⟩
-                split_ifs with hp_adj
+                by_cases hp_adj : petersenGraph.Adj i j <;> simp only [hp_adj, ↓reduceIte]
                 · have hTadj : T₁.Adj (eH i) (eH j) := by
                     rw [← eIso.map_rel_iff]
-                    simpa [eH] using hp_adj
+                    change petersenGraph.Adj (eIso (eIso.symm i)) (eIso (eIso.symm j))
+                    rw [eIso.apply_symm_apply, eIso.apply_symm_apply]
+                    exact hp_adj
                   have hGadj : G.Adj (eH i).1 (eH j).1 := by
                     rcases hTadj with hG | hrel
                     · exact hG
@@ -1305,20 +1307,26 @@ private theorem theorem_1_2_general :
                       · rw [Sym2.eq_swap]; exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h1) (Subtype.ext h2)
                       · exact congrArg₂ (fun p q => s(p, q)) (Subtype.ext h2) (Subtype.ext h1)
                   have hsw := hT_sw (eH i) (eH j) hTadj
-                  simp only [ST, hne_xy, ↓reduceIte, petersenSignedGraph] at hsw
+                  simp only [ST, hne_xy, ↓reduceIte, petersenSignedGraph, Sym2.map_mk] at hsw
                   have hsign_eq : S.sign s((eH i).1, (eH j).1) =
                       if 0 < A (eH i).1 (eH j).1 then 1 else -1 := rfl
                   rw [hsign_eq] at hsw
                   rw [hTV_mem (eH i), hTV_mem (eH j)]
                   have hAne : A (eH i).1 (eH j).1 ≠ 0 := hGadj.2
-                  by_cases hi : eH i ∈ T_sw <;> by_cases hj : eH j ∈ T_sw <;>
-                    by_cases hpos : 0 < A (eH i).1 (eH j).1 <;>
-                    simp_all <;> linarith [lt_or_gt_of_ne hAne]
+                  rcases lt_or_gt_of_ne hAne with hneg | hpos
+                  · have hnpos : ¬ 0 < A (eH i).1 (eH j).1 := not_lt.mpr hneg.le
+                    by_cases hi : eH i ∈ T_sw <;> by_cases hj : eH j ∈ T_sw <;>
+                      simp [hi, hj, hnpos] at hsw ⊢ <;> linarith
+                  · by_cases hi : eH i ∈ T_sw <;> by_cases hj : eH j ∈ T_sw <;>
+                      simp [hi, hj, hpos] at hsw ⊢ <;> linarith
                 · by_contra hAne
                   have hGadj : G.Adj (eH i).1 (eH j).1 :=
                     ⟨fun heq => hij (eH.injective (Subtype.ext heq)), hAne⟩
                   have hTadj : T₁.Adj (eH i) (eH j) := Or.inl hGadj
-                  exact hp_adj (by simpa [eH] using eIso.map_rel_iff.mpr hTadj)
+                  have h1 : petersenGraph.Adj (eIso (eIso.symm i)) (eIso (eIso.symm j)) :=
+                    eIso.map_rel_iff.mpr hTadj
+                  rw [eIso.apply_symm_apply, eIso.apply_symm_apply] at h1
+                  exact hp_adj h1
               exact petersen_leaf_reduction A hA hdiag hnoc d₁.x d₁.y d₁.hxy d₁.VH d₁.VG₂
                 d₁.hunion d₁.hinter hcardH hno_cross_A
                 ⟨eH, T_V, he0, he1, hH_edges⟩
@@ -1371,7 +1379,7 @@ private theorem theorem_1_2_general :
           ext w; simp only [V₁, V₂, Finset.mem_inter, Finset.mem_insert, Finset.mem_sdiff,
             Finset.mem_erase, Finset.mem_univ, and_true, Finset.mem_singleton]
           constructor
-          · rintro ⟨rfl | h1, rfl | ⟨_, h2⟩⟩ <;> tauto
+          · rintro ⟨h1 | h1, h2 | ⟨_, h2⟩⟩ <;> tauto
           · rintro rfl; exact ⟨Or.inl rfl, Or.inl rfl⟩
         have hcard₁ : V₁.card < Fintype.card V := by
           rw [← Finset.card_univ]
@@ -1582,6 +1590,7 @@ private lemma cycleCountMod4_comap_lt {n : ℕ} (G : SimpleGraph (Fin n))
       refine ⟨f u', c'.map φ, walk_map_isCycle φ hf c' hc', ?_, ?_⟩
       · ext e
         simp only [F, SimpleGraph.Walk.edges_map, Finset.mem_image, List.mem_toFinset, List.mem_map, ← hS'_eq]
+        rfl
       · simpa [SimpleGraph.Walk.length_map] using hr'
   have hcard_le : s'.card ≤ (s.erase c₀.edges.toFinset).card := by
     rw [← Finset.card_image_of_injective s' hF_inj]
