@@ -622,7 +622,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g G_plus :=
               { toFun := Sum.inr, map_rel' := fun h => h }
             refine ⟨Sum.inl 1, by simp [A_p], Sum.inr xK, by simp [B_p],
-              SimpleGraph.Walk.cons ⟨u, huY, huw⟩ (r.map φK), ?_⟩
+              SimpleGraph.Walk.cons (Exists.intro u ⟨huY, huw⟩) (r.map φK), ?_⟩
             intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
             rcases hm with h1 | h2
             · exact absurd (Sum.inl.inj h1) (by decide)
@@ -633,7 +633,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             let φK : T.induce ((c.support.toFinset : Set V)ᶜ) →g G_plus :=
               { toFun := Sum.inr, map_rel' := fun h => h }
             refine ⟨Sum.inl 0, by simp [A_p], Sum.inr xK, by simp [B_p],
-              SimpleGraph.Walk.cons ⟨u, huX, huw⟩ (r.map φK), ?_⟩
+              SimpleGraph.Walk.cons (Exists.intro u ⟨huX, huw⟩) (r.map φK), ?_⟩
             intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
             rcases hm with h1 | h2
             · exact absurd (Sum.inl.inj h1) (by decide)
@@ -699,11 +699,11 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             have hcol_u := hcol2 u
             by_cases hcu0 : col u = 0
             · refine ⟨Sum.inl 0, by simp [A_p], _, hb₀_in_Bp,
-                SimpleGraph.Walk.cons ⟨u, Finset.mem_filter.mpr ⟨huC, hcu0⟩, huw₁⟩ s', ?_⟩
+                SimpleGraph.Walk.cons (Exists.intro u ⟨Finset.mem_filter.mpr ⟨huC, hcu0⟩, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2; exact (by cases h1); exact hz₀_not_s' h2
             · refine ⟨Sum.inl 1, by simp [A_p], _, hb₀_in_Bp,
-                SimpleGraph.Walk.cons ⟨u, Finset.mem_filter.mpr ⟨huC, by omega⟩, huw₁⟩ s', ?_⟩
+                SimpleGraph.Walk.cons (Exists.intro u ⟨Finset.mem_filter.mpr ⟨huC, by omega⟩, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2; exact (by cases h1); exact hz₀_not_s' h2
       obtain ⟨a₁, a₂, b₁, b₂, p₁, p₂, ha₁, ha₂, hb₁, hb₂, ha12, hb12, hp₁, hp₂, hp_disj, hp₁_int, hp₂_int⟩ :=
@@ -734,10 +734,10 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             cases z with
             | inl j =>
               exfalso
-              have hnd := hp.support_nodup; rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+              have hnd := hp.support_nodup; rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
               have hzj : Sum.inl j ≠ Sum.inl i := fun h => hnd.1 (h ▸ hz)
               have hzb : Sum.inl j ≠ b := fun h => by subst h; simp [B_p] at hb
-              exact (hp_int (Sum.inl j) (by rw [hp_eq]; exact List.mem_cons_of_mem _ hz) hzj hzb).1
+              exact (hp_int (Sum.inl j) (List.mem_cons_of_mem _ hz) hzj hzb).1
                 (by fin_cases j <;> simp [A_p])
             | inr w => exact ⟨w, rfl⟩
           have hproj_q : ∀ {zs ze : Fin 2 ⊕ K_type} (r : G_plus.Walk zs ze),
@@ -768,7 +768,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                 rw [heq_sub] at hmem; exact hnd.1 hmem
           obtain ⟨wb, hwb⟩ := hq_inr b (SimpleGraph.Walk.end_mem_support q)
           have hq_path : q.IsPath := by
-            have hnd := hp.support_nodup; rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+            have hnd := hp.support_nodup; rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
             exact SimpleGraph.Walk.IsPath.mk' hnd.2
           obtain ⟨Q, hQ_sub, hQ_path⟩ := hproj_q q hq_inr w₁ wb rfl hwb
           have huC : u ∈ c.support.toFinset := by
@@ -781,7 +781,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           · intro z hz hzu
             rw [SimpleGraph.Walk.support_reverse, List.mem_reverse, SimpleGraph.Walk.support_cons, List.mem_cons] at hz
             rcases hQ_sub z (hz.resolve_left hzu) with ⟨hK, hm⟩
-            exact ⟨hK, by rw [hp_eq]; exact List.mem_cons_of_mem _ hm⟩
+            exact ⟨hK, List.mem_cons_of_mem _ hm⟩
           · intro z hz _ hzu
             rw [SimpleGraph.Walk.support_reverse, List.mem_reverse, SimpleGraph.Walk.support_cons, List.mem_cons] at hz
             rcases hQ_sub z (hz.resolve_left hzu) with ⟨hK, _⟩
@@ -870,12 +870,12 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
               ∀ z ∈ p.support, z ≠ w → z ≠ u → z ∉ c.support := by
             intro u w p hpint z hz hzw hzu hzC
             have hinc : ∃ t, G_P.Adj z t := by
-              have aux : ∀ {a b : V} (hab : G_P.Adj a b) (r : G_P.Walk b w), z ∈ r.support → ∃ t, G_P.Adj z t := by
-                intro a b hab r
+              have aux : ∀ {a b c₀ : V} (r : G_P.Walk b c₀), G_P.Adj a b → z ∈ r.support → ∃ t, G_P.Adj z t := by
+                intro a b c₀ r
                 induction r generalizing a with
-                | nil => intro hr; simp at hr; subst hr; exact ⟨a, hab.symm⟩
+                | nil => intro hab hr; simp at hr; subst hr; exact ⟨a, hab.symm⟩
                 | @cons a₂ b₂ _ hab₂ r₂ ihr₂ =>
-                  intro hr; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hr
+                  intro _ hr; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hr
                   rcases hr with rfl | hr₂
                   · exact ⟨b₂, hab₂⟩
                   · exact ihr₂ hab₂ hr₂
@@ -883,7 +883,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
               | nil => simp at hz; exact absurd hz hzu
               | @cons _ b₁ _ hab₁ r₁ =>
                 rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
-                exact aux hab₁ r₁ (hz.resolve_left hzu)
+                exact aux r₁ hab₁ (hz.resolve_left hzu)
             rcases hinc with ⟨t, hzt⟩
             have hzC' : z ∈ c.support.toFinset := List.mem_toFinset.mpr hzC
             rcases hzt.2 with ⟨h, _⟩ | ⟨h, _⟩ | ⟨_, h⟩

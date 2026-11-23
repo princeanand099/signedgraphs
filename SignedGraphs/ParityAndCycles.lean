@@ -384,14 +384,14 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             by_cases hcu0 : col u = 0
             · have huX : u ∈ X := Finset.mem_filter.mpr ⟨huC, hcu0⟩
               refine ⟨Sum.inl 0, by simp [A_p], Sum.inr ⟨b₀, hq'_H b₀ (SimpleGraph.Walk.end_mem_support q')⟩,
-                by simp [B_p, hb₀C₂], SimpleGraph.Walk.cons ⟨u, huX, huw₁⟩ s', ?_⟩
+                by simp [B_p, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huX, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2
               · exact (by cases h1)
               · exact hz₀_not_s' h2
             · have huY : u ∈ Y := Finset.mem_filter.mpr ⟨huC, by omega⟩
               refine ⟨Sum.inl 1, by simp [A_p], Sum.inr ⟨b₀, hq'_H b₀ (SimpleGraph.Walk.end_mem_support q')⟩,
-                by simp [B_p, hb₀C₂], SimpleGraph.Walk.cons ⟨u, huY, huw₁⟩ s', ?_⟩
+                by simp [B_p, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huY, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2
               · exact (by cases h1)
@@ -416,11 +416,11 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
       -- Helper to project a G_plus path starting at Sum.inl i and ending in B_p to a S.graph path!
       have hproj : ∀ (i : Fin 2) (b : Fin 2 ⊕ H_type) (p : G_plus.Walk (Sum.inl i) b),
           b ∈ B_p → p.IsPath → (∀ z ∈ p.support, z ≠ Sum.inl i → z ≠ b → z ∉ A_p ∧ z ∉ B_p) →
-          ∃ (u w : V) (P : S.graph.Walk u w),
-            (i = 0 → u ∈ X) ∧ (i = 1 → u ∈ Y) ∧ w ∈ c₂.support ∧ Sum.inr ⟨w, Finset.disjoint_right.mp hdisj_c (List.mem_toFinset.mpr (by assumption))⟩ = b ∧
+          ∃ (u : V) (wb : H_type) (P : S.graph.Walk u wb.1),
+            (i = 0 → u ∈ X) ∧ (i = 1 → u ∈ Y) ∧ wb.1 ∈ c₂.support ∧ Sum.inr wb = b ∧
             P.IsPath ∧
             (∀ z ∈ P.support, z ≠ u → ∃ hH : z ∉ c.support.toFinset, Sum.inr ⟨z, hH⟩ ∈ p.support) ∧
-            (∀ z ∈ P.support, z ≠ u → z ≠ w → z ∉ c.support ∧ z ∉ c₂.support) := by
+            (∀ z ∈ P.support, z ≠ u → z ≠ wb.1 → z ∉ c.support ∧ z ∉ c₂.support) := by
         intro i b p hb hp hp_int
         cases hp_eq : p with
         | nil => simp [B_p] at hb
@@ -437,26 +437,23 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             · rcases hadj1 with ⟨y, hyY, hyw⟩
               exact ⟨y, fun h => absurd h (by decide), fun _ => hyY, hyw⟩
           rcases hu_ex with ⟨u, hu0, hu1, huw₁⟩
-          -- All vertices of q are Sum.inr _ because none of them is in A_p!
           have hq_inr : ∀ z ∈ q.support, ∃ w : H_type, z = Sum.inr w := by
             intro z hz
             cases z with
             | inl j =>
               exfalso
               have hnd := hp.support_nodup
-              rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+              rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
               have hzj : Sum.inl j ≠ Sum.inl i := fun h => hnd.1 (h ▸ hz)
               have hzb : Sum.inl j ≠ b := by
                 intro h; subst h; simp [B_p] at hb
               have hjA : Sum.inl j ∈ A_p := by fin_cases j <;> simp [A_p]
-              exact (hp_int (Sum.inl j) (by rw [hp_eq]; exact List.mem_cons_of_mem _ hz) hzj hzb).1 hjA
+              exact (hp_int (Sum.inl j) (List.mem_cons_of_mem _ hz) hzj hzb).1 hjA
             | inr w => exact ⟨w, rfl⟩
-          -- Project q to S.graph
           have hproj_q : ∀ {z_s z_e : Fin 2 ⊕ H_type} (r : G_plus.Walk z_s z_e),
               (∀ z ∈ r.support, ∃ w : H_type, z = Sum.inr w) →
               ∀ (ws we : H_type), z_s = Sum.inr ws → z_e = Sum.inr we →
               ∃ R : S.graph.Walk ws.1 we.1,
-                R.support.map (fun x => x) = R.support ∧
                 (∀ x ∈ R.support, ∃ hH : x ∉ c.support.toFinset, Sum.inr ⟨x, hH⟩ ∈ r.support) ∧
                 (r.IsPath → R.IsPath) := by
             intro z_s z_e r
@@ -465,7 +462,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               intro _ ws we h1 h2
               have heq : ws = we := Sum.inr.inj (h1.symm.trans h2)
               subst heq
-              exact ⟨.nil, rfl, fun x hx => by
+              exact ⟨.nil, fun x hx => by
                 simp at hx; subst hx; exact ⟨ws.2, by rw [← h1]; simp⟩, fun _ => SimpleGraph.Walk.IsPath.nil⟩
             | @cons z_a z_b z_c hab' r' ihr' =>
               intro hall ws we h1 h2
@@ -474,8 +471,8 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               subst hzb
               have hr'_all : ∀ z ∈ r'.support, ∃ w : H_type, z = Sum.inr w := fun z hz =>
                 hall z (List.mem_cons_of_mem _ hz)
-              obtain ⟨R', _, hR'_sub, hR'_path⟩ := ihr' hr'_all wb we rfl h2
-              refine ⟨SimpleGraph.Walk.cons hab' R', rfl, ?_, ?_⟩
+              obtain ⟨R', hR'_sub, hR'_path⟩ := ihr' hr'_all wb we rfl h2
+              refine ⟨SimpleGraph.Walk.cons hab' R', ?_, ?_⟩
               · intro x hx
                 rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hx
                 rcases hx with rfl | hx'
@@ -494,11 +491,11 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
           obtain ⟨wb, hwb⟩ := hq_inr b (SimpleGraph.Walk.end_mem_support q)
           have hq_path : q.IsPath := by
             have hnd := hp.support_nodup
-            rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+            rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
             exact SimpleGraph.Walk.IsPath.mk' hnd.2
-          obtain ⟨Q, _, hQ_sub, hQ_path⟩ := hproj_q q hq_inr w₁ wb rfl hwb
+          obtain ⟨Q, hQ_sub, hQ_path⟩ := hproj_q q hq_inr w₁ wb rfl hwb
           have hwbC₂ : wb.1 ∈ c₂.support := by
-            rw [hwb] at hb; simp [B_p] at hb; exact List.mem_toFinset.mp hb
+            rw [hwb] at hb; simp [B_p] at hb; exact hb
           have huC : u ∈ c.support.toFinset := by
             fin_cases i
             · exact (Finset.mem_filter.mp (hu0 rfl)).1
@@ -508,11 +505,11 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             intro hm
             rcases hQ_sub u hm with ⟨hH, _⟩
             exact hH huC
-          refine ⟨u, wb.1, SimpleGraph.Walk.cons huw₁ Q, hu0, hu1, hwbC₂, hwb.symm, hP_path, ?_, ?_⟩
+          refine ⟨u, wb, SimpleGraph.Walk.cons huw₁ Q, hu0, hu1, hwbC₂, hwb.symm, hP_path, ?_, ?_⟩
           · intro z hz hzu
             rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
             rcases hQ_sub z (hz.resolve_left hzu) with ⟨hH, hm⟩
-            exact ⟨hH, by rw [hp_eq]; exact List.mem_cons_of_mem _ hm⟩
+            exact ⟨hH, List.mem_cons_of_mem _ hm⟩
           · intro z hz hzu hzw
             rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
             rcases hQ_sub z (hz.resolve_left hzu) with ⟨hH, hm⟩
@@ -521,12 +518,14 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               rw [hwb]; intro h'; exact hzw (congrArg Subtype.val (Sum.inr.inj h'))
             have hz_in_B : (Sum.inr ⟨z, hH⟩ : Fin 2 ⊕ H_type) ∈ B_p := by
               simp [B_p, h]
-            exact (hp_int (Sum.inr ⟨z, hH⟩) (by rw [hp_eq]; exact List.mem_cons_of_mem _ hm)
+            exact (hp_int (Sum.inr ⟨z, hH⟩) (List.mem_cons_of_mem _ hm)
               (fun h' => by cases h') hz_ne_b).2 hz_in_B
-      obtain ⟨uX, wX, PX, huX0, _, hwXC₂, hwbX, hPX, hPX_sub, hPX_int⟩ :=
+      obtain ⟨uX, wbX, PX, huX0, _, hwXC₂, hwbX, hPX, hPX_sub, hPX_int⟩ :=
         hproj 0 bX pX hbX hpX hpX_int
-      obtain ⟨uY, wY, PY, _, huY1, hwYC₂, hwbY, hPY, hPY_sub, hPY_int⟩ :=
+      obtain ⟨uY, wbY, PY, _, huY1, hwYC₂, hwbY, hPY, hPY_sub, hPY_int⟩ :=
         hproj 1 bY pY hbY hpY hpY_int
+      let wX := wbX.1
+      let wY := wbY.1
       have huX : uX ∈ X := huX0 rfl
       have huY : uY ∈ Y := huY1 rfl
       have huXY : uX ≠ uY := fun h => Finset.disjoint_left.mp hXY_disj huX (h ▸ huY)
@@ -608,12 +607,12 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             intro hzC
             -- Since z ∈ p.support and z ≠ u, z is incident to some edge of p in G_P
             have hinc : ∃ y, G_P.Adj z y := by
-              have aux : ∀ {a b : V} (hab : G_P.Adj a b) (r : G_P.Walk b w), z ∈ r.support → ∃ y, G_P.Adj z y := by
-                intro a b hab r
+              have aux : ∀ {a b c₀ : V} (r : G_P.Walk b c₀), G_P.Adj a b → z ∈ r.support → ∃ y, G_P.Adj z y := by
+                intro a b c₀ r
                 induction r generalizing a with
-                | nil => intro hr; simp at hr; subst hr; exact ⟨a, hab.symm⟩
+                | nil => intro hab hr; simp at hr; subst hr; exact ⟨a, hab.symm⟩
                 | @cons a₂ b₂ _ hab₂ r₂ ihr₂ =>
-                  intro hr; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hr
+                  intro _ hr; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hr
                   rcases hr with rfl | hr₂
                   · exact ⟨b₂, hab₂⟩
                   · exact ihr₂ hab₂ hr₂
@@ -621,7 +620,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               | nil => simp at hz; exact absurd hz hzu
               | @cons _ b₁ _ hab₁ r₁ =>
                 rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
-                exact aux hab₁ r₁ (hz.resolve_left hzu)
+                exact aux r₁ hab₁ (hz.resolve_left hzu)
             rcases hinc with ⟨y, hzy⟩
             have hz_not_P : z ∉ P := (hpint z hz hzu hzw).1
             have hzC' : z ∈ c.support.toFinset := List.mem_toFinset.mpr hzC
