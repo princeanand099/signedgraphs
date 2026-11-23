@@ -26,14 +26,14 @@ private lemma sign_five_cycle_prod_neg_one (S : SignedGraph V) (hnoc : IsNOC S)
     S.sign s(a, b) * S.sign s(b, c) * S.sign s(c, d) * S.sign s(d, e) * S.sign s(e, a) = -1 := by
   simp only [List.nodup_cons, List.mem_cons, List.not_mem_nil, or_false, not_or, List.nodup_nil,
     and_true] at hnd
-  rcases hnd with ⟨⟨h_ab, h_ac, h_ad, h_ae⟩, ⟨h_bc, h_bd, h_be⟩, ⟨h_cd, h_ce⟩, h_de⟩
+  rcases hnd with ⟨⟨h_ab, h_ac, h_ad, h_ae⟩, ⟨h_bc, h_bd, h_be⟩, ⟨h_cd, h_ce⟩, ⟨h_de, _⟩⟩
   let cyc : S.graph.Walk a a := .cons hab (.cons hbc (.cons hcd (.cons hde (.cons hea .nil))))
   have hcyc : cyc.IsCycle := by
     refine ⟨⟨⟨?_⟩, by simp [cyc]⟩, ?_⟩
-    · simp [cyc, Sym2.eq_iff, h_ab, h_ab.symm, h_ac, h_ac.symm, h_ad, h_ad.symm, h_ae, h_ae.symm,
-        h_bc, h_bc.symm, h_bd, h_bd.symm, h_be, h_be.symm, h_cd, h_cd.symm, h_ce, h_ce.symm, h_de, h_de.symm]
-    · simp [cyc, h_bc, h_bc.symm, h_bd, h_bd.symm, h_be, h_be.symm, h_ab, h_ab.symm,
-        h_cd, h_cd.symm, h_ce, h_ce.symm, h_ac, h_ac.symm, h_de, h_de.symm, h_ad, h_ad.symm, h_ae, h_ae.symm]
+    · simp [cyc, Sym2.eq_iff, h_ab, Ne.symm h_ab, h_ac, Ne.symm h_ac, h_ad, Ne.symm h_ad, h_ae, Ne.symm h_ae,
+        h_bc, Ne.symm h_bc, h_bd, Ne.symm h_bd, h_be, Ne.symm h_be, h_cd, Ne.symm h_cd, h_ce, Ne.symm h_ce, h_de, Ne.symm h_de]
+    · simp [cyc, h_bc, Ne.symm h_bc, h_bd, Ne.symm h_bd, h_be, Ne.symm h_be, h_ab, Ne.symm h_ab,
+        h_cd, Ne.symm h_cd, h_ce, Ne.symm h_ce, h_ac, Ne.symm h_ac, h_de, Ne.symm h_de, h_ad, Ne.symm h_ad, h_ae, Ne.symm h_ae]
   have hw := odd_cycle_w3 S hnoc cyc hcyc ⟨2, by simp [cyc]⟩
   simp only [cyc, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
     List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero] at hw
