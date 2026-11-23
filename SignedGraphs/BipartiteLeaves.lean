@@ -253,6 +253,9 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
         cycle_arcs_edges_subset c hc hx_in hy_in hxy_ne
       -- One of arc1, arc2 is the single edge s(x, y), and the other avoids s(x, y)!
       have hone : (arc1.length = 1 ∧ s(x, y) ∉ arc2.edges) ∨ (arc2.length = 1 ∧ s(x, y) ∉ arc1.edges) := by
+        -- Since s(x, y) ∈ c.edges and c = arc1 ++ arc2.reverse, s(x, y) is in arc1.edges or arc2.edges
+        -- Actually, since arc1 and arc2 are internally disjoint paths from x to y and c.edges is nodup,
+        -- one of them has length 1 (containing s(x, y)) and the other has length ≥ 2 (avoiding s(x, y))!
         have hlen_ge3 : 3 ≤ arc1.length + arc2.length := by rw [harc_len]; exact hc.three_le_length
         -- Check whether s(x, y) ∈ arc1.edges
         by_cases h1 : s(x, y) ∈ arc1.edges
@@ -294,7 +297,12 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                 exact absurd (SimpleGraph.Walk.fst_mem_support_of_mem_edges q hq) hnd.1
           omega
         · right
+          -- Since s(x, y) ∈ c.edges and c = rotate... s(x, y) must be in arc2.edges!
+          -- Wait: if neither arc1 nor arc2 contains s(x, y), then c doesn't?
+          -- Prove s(x, y) ∈ arc2.edges from walkModFourWeight? No, directly from c.rotate x hx_in!
           have h2 : s(x, y) ∈ arc2.edges := by
+            -- Actually c.edges ⊆ arc1.edges ++ arc2.edges? Not returned by cycle_arcs_edges_subset,
+            -- so check arc2.length = 1 directly via: if neither has s(x, y), both transfer to H → c has even length!
             by_contra h2
             let q1 : (T.deleteEdges {s(x, y)}).Walk x y := arc1.transfer _ (fun e he => by
               rw [SimpleGraph.edgeSet_deleteEdges]; exact ⟨arc1.edges_subset_edgeSet he, fun h => h1 (Set.mem_singleton_iff.mp h ▸ he)⟩)
@@ -1031,12 +1039,14 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           have hy_not_q : y ∉ q.support := by
             intro hyq
             have hy_rp : y ∈ rp.1.support := by
+              dsimp only [q] at hyq
               rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hyq
               exact hyq.resolve_left (fun h => Finset.disjoint_left.mp hdisj_c haC (by simp [D_xy, h]))
             let qy : T.Walk a y := SimpleGraph.Walk.cons haw (rp.1.takeUntil y hy_rp)
             have hx_in_qy : x ∈ qy.support := hx_sep a haC hca y (by simp [D_xy]) qy (fun z hz => by
               simp only [qy, SimpleGraph.Walk.support_cons, List.tail_cons] at hz
               exact hrp_notC z (SimpleGraph.Walk.support_takeUntil_subset rp.1 hy_rp hz))
+            dsimp only [qy] at hx_in_qy
             rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hx_in_qy
             have hx_in_take : x ∈ (rp.1.takeUntil y hy_rp).support :=
               hx_in_qy.resolve_left (fun h => Finset.disjoint_left.mp hdisj_c haC (by simp [D_xy, h]))
@@ -1050,7 +1060,9 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             exact hnd.2.2 x hx_in_take x (hx_drop.resolve_left hxy_ne) rfl
           refine ⟨q.reverse, hq_path.reverse, fun hm => hy_not_q (by simpa [SimpleGraph.Walk.support_reverse] using hm), ?_⟩
           intro z hz hza
-          rw [SimpleGraph.Walk.support_reverse, List.mem_reverse, SimpleGraph.Walk.support_cons, List.mem_cons] at hz
+          rw [SimpleGraph.Walk.support_reverse, List.mem_reverse] at hz
+          dsimp only [q] at hz
+          rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
           exact hrp_notC z (hz.resolve_left hza)
         have hex_R : ∀ b ∈ c.support.toFinset, col b = cY →
             ∃ R : T.Walk b y, R.IsPath ∧ x ∉ R.support ∧ (∀ z ∈ R.support, z ≠ b → z ∉ c.support.toFinset) := by
@@ -1070,12 +1082,14 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
           have hx_not_q : x ∉ q.support := by
             intro hxq
             have hx_rp : x ∈ rp.1.support := by
+              dsimp only [q] at hxq
               rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hxq
               exact hxq.resolve_left (fun h => Finset.disjoint_left.mp hdisj_c hbC (by simp [D_xy, h]))
             let qx : T.Walk b x := SimpleGraph.Walk.cons hbw (rp.1.takeUntil x hx_rp)
             have hy_in_qx : y ∈ qx.support := hy_sep b hbC hcb x (by simp [D_xy]) qx (fun z hz => by
               simp only [qx, SimpleGraph.Walk.support_cons, List.tail_cons] at hz
               exact hrp_notC z (SimpleGraph.Walk.support_takeUntil_subset rp.1 hx_rp hz))
+            dsimp only [qx] at hy_in_qx
             rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hy_in_qx
             have hy_in_take : y ∈ (rp.1.takeUntil x hx_rp).support :=
               hy_in_qx.resolve_left (fun h => Finset.disjoint_left.mp hdisj_c hbC (by simp [D_xy, h]))
@@ -1089,6 +1103,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
             exact hnd.2.2 y hy_in_take y (hy_drop.resolve_left hxy_ne.symm) rfl
           refine ⟨q, hq_path, hx_not_q, ?_⟩
           intro z hz hzb
+          dsimp only [q] at hz
           rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hz
           exact hrp_notC z (hz.resolve_left hzb)
         -- Any L (x → a) and R (b → y) are automatically vertex-disjoint!
@@ -1134,7 +1149,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                 have hspec := SimpleGraph.Walk.take_spec R hzR
                 have hnd := hR.support_nodup
                 rw [← hspec, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
-                exact hnd.2.2 b (SimpleGraph.Walk.start_mem_support _) b hw2 rfl
+                exact hnd.2.2 w (SimpleGraph.Walk.start_mem_support _) w hw2 rfl
               exact hR_K w hwR hwb')
           dsimp only [q] at hx_in_q
           rw [SimpleGraph.Walk.mem_support_append_iff] at hx_in_q
@@ -1221,6 +1236,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                   modFourWeight σ s(u₂, u₃) + walkModFourWeight σ r = 2 := by
                 have h1 := hw2; rw [hc_eq] at h1
                 simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, List.map_cons, List.sum_cons] at h1
+                unfold walkModFourWeight
                 linear_combination h1
               have hr_odd : Odd r.length := by
                 rw [hc_eq] at hev; simp only [SimpleGraph.Walk.length_cons] at hev
@@ -1261,7 +1277,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                   have hwA1 : walkModFourWeight σ A₁ = modFourWeight σ s(v, u₁) := by simp [A₁, walkModFourWeight]
                   have hwA2 : walkModFourWeight σ A₂ = modFourWeight σ s(u₁, u₂) := by simp [A₂, walkModFourWeight]
                   have hwA3 : walkModFourWeight σ A₃ = modFourWeight σ s(u₂, u₃) := by simp [A₃, walkModFourWeight]
-                  linear_combination -hw_c_split + hwA1 + hwA2 + hwA3 + hP1 + hP3 - hP2 - hP4 + h2A2 + h2r - h4z
+                  linear_combination -hw_c_split - hwA1 - hwA2 - hwA3 + hP1 + hP3 - hP2 - hP4 + h2A2 + h2r + h4z
                 exact absurd hcontra (by decide)
               · have hcvY : col v = cY := by omega
                 have hcu2Y : col u₂ = cY := by omega
@@ -1287,7 +1303,7 @@ theorem bipartite_r_leaf_path_diversity (T : SimpleGraph V)
                   have hwA1 : walkModFourWeight σ A₁ = modFourWeight σ s(v, u₁) := by simp [A₁, walkModFourWeight]
                   have hwA2 : walkModFourWeight σ A₂ = modFourWeight σ s(u₁, u₂) := by simp [A₂, walkModFourWeight]
                   have hwA3 : walkModFourWeight σ A₃ = modFourWeight σ s(u₂, u₃) := by simp [A₃, walkModFourWeight]
-                  linear_combination -hw_c_split + hwA1 + hwA2 + hwA3 + hP1 + hP3 - hP2 - hP4 + h2A2 + h2r - h4z
+                  linear_combination -hw_c_split - hwA1 - hwA2 - hwA3 + hP1 + hP3 - hP2 - hP4 + h2A2 + h2r + h4z
                 exact absurd hcontra (by decide)
       simp only [S_cut, Finset.mem_insert, Finset.mem_singleton] at hxS hyS
       rcases hxS with rfl | rfl <;> rcases hyS with h | h
