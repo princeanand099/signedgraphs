@@ -1154,13 +1154,10 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     have hAod_ge3 : 3 ≤ A_od.length := by
       have h1 : A_od.length ≠ 1 := by
         intro h
-        have hadj : G.Adj (M u₁) (M u₂) := by
-          generalize hMu1_eq : M u₁ = a at A_od
-          generalize hMu2_eq : M u₂ = b at A_od
-          cases A_od with
-          | nil => simp at h
-          | cons hadj r => cases r with | nil => exact hadj | cons _ _ => simp at h
-        exact hMu1_nadj hadj
+        have hlen1 : ∀ {a b : V} (p : G.Walk a b), p.length = 1 → G.Adj a b := by
+          intro a b p hp
+          cases p with | nil => simp at hp | cons hadj r => cases r with | nil => exact hadj | cons _ _ => simp at hp
+        exact hMu1_nadj (hlen1 A_od h)
       rcases hAod_od with ⟨k, hk⟩; omega
     -- Extract internal edge y₁' - y₂' on A_od: A_od = M u₁ - y₁' - y₂' -(r_od)- M u₂
     obtain ⟨y₁', hMu1y1', q_od, hAod_eq1, hqod_path, hy1'1, hy1'2, _, hqod_len, hMu1_nqod⟩ :=
@@ -1298,9 +1295,9 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       simp [q2, h1, h2, hy12_ne, hy2'1.symm, h3', h4])
     let C₂' : G.Walk y₁ y₁ := P.append q2.reverse
     have hP_pos : 1 ≤ P.length := by
-      generalize hy1 : y₁ = a at P hy12_ne
-      generalize hy2 : y₂ = b at P hy12_ne
-      cases P with | nil => exact absurd rfl hy12_ne | cons _ _ => simp
+      have hne_pos : ∀ {a b : V} (p : G.Walk a b), a ≠ b → 1 ≤ p.length := by
+        intro a b p hne; cases p with | nil => exact absurd rfl hne | cons _ _ => simp
+      exact hne_pos P hy12_ne
     have hC2' : C₂'.IsCycle := by
       apply isCycle_append_reverse_of_disjoint q2 P hq2 hP _ (by simp [q2])
       intro z hzP hzy1 hzy2 hzq2
@@ -1399,16 +1396,15 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         simp [P_2, hMy2, hy1'1.symm, hy2'_ne_Mu1.symm, hy2'1.symm])
       -- Complementary odd path: A_ev ++ (M u₂ - y₂')!
       have hrod_len1 : r_od.length = 1 := by omega
-      have hy2'Mu2 : G.Adj y₂' (M u₂) := by
-        generalize hMu2_eq : M u₂ = b at r_od
-        cases r_od with | nil => simp at hrod_len1 | cons h r => cases r with | nil => exact h | cons _ _ => simp at hrod_len1
-      have hrod_supp : ∀ x ∈ r_od.support, x = y₂' ∨ x = M u₂ := by
-        generalize hMu2_eq : M u₂ = b at r_od
-        cases r_od with
-        | nil => simp at hrod_len1
-        | cons _ r' => cases r' with
-          | nil => intro x hx; simpa using hx
-          | cons _ _ => simp at hrod_len1
+      have hwalk_len1 : ∀ {a b : V} (p : G.Walk a b), p.length = 1 →
+          G.Adj a b ∧ ∀ x ∈ p.support, x = a ∨ x = b := by
+        intro a b p hp
+        cases p with
+        | nil => simp at hp
+        | cons hadj r => cases r with
+          | nil => exact ⟨hadj, fun x hx => by simpa using hx⟩
+          | cons _ _ => simp at hp
+      have ⟨hy2'Mu2, hrod_supp⟩ := hwalk_len1 r_od hrod_len1
       let P_odd : G.Walk (M u₁) (M y₂) := A_ev.append (SimpleGraph.Walk.cons (hMy2 ▸ hy2'Mu2.symm) .nil)
       have hPodd_path : P_odd.IsPath := by
         apply isPath_append_of_disjoint_pc A_ev _ hAev (SimpleGraph.Walk.IsPath.mk' (by simp [hMy2, hy2'2.symm]))
