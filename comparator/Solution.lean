@@ -5,8 +5,8 @@ import SignedGraphs.MainTheorem
 # Comparator Solution: Ma–Yang–Li Signature Conjecture
 
 Proves the exact challenge statements from `comparator/Challenge.lean` using
-`SignedGraphs.theorem_1_2` and `SignedGraphs.corollary_1_3`, with zero `sorry`
-and zero custom axioms.
+`SignedGraphs.theorem_1_2` and `SignedGraphs.corollary_1_3`, completely and
+unconditionally from standard Lean and Mathlib foundations.
 -/
 
 open Matrix SimpleGraph
