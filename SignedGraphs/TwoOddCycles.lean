@@ -387,8 +387,8 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         intro z hz; simp only [Finset.mem_insert, Finset.mem_singleton] at hz
         rcases hz with rfl | rfl | rfl
         · exact Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr hb, hab⟩
-        · exact Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr ((hAsupp w₁).mp (Or.inl hw1_in)), haw₁⟩
-        · exact Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr ((hAsupp w₂).mp (Or.inr hw2_in)), haw₂⟩
+        · exact Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr ((hAsupp z).mp (Or.inl hw1_in)), haw₁⟩
+        · exact Finset.mem_filter.mpr ⟨List.mem_toFinset.mpr ((hAsupp z).mp (Or.inr hw2_in)), haw₂⟩
       have hcard3 : ({b, w₁, w₂} : Finset V).card = 3 := by
         rw [Finset.card_insert_of_notMem, Finset.card_pair hw12]
         simp [hw1b.symm, hw2b.symm]
@@ -451,18 +451,18 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         have hMa_ne_a : a ≠ M a := fun h => hMa_nC1 (h ▸ haC1)
         have hMb_ne_a : a ≠ M b := fun h => hMb_nC1 (h ▸ haC1)
         have hMa_ne_b : M a ≠ b := fun h => hMa_nC1 (h ▸ hbC1)
-        have hMb_ne_b : M b ≠ b := fun h => hMb_nC1 (h ▸ hbC1)
+        have hMb_ne_b : M b ≠ b := fun h => hMb_nC1 (h.symm ▸ hbC1)
         simp [q, hMa_ne_a, hMb_ne_a, hab_ne, G.ne_of_adj hMab, hMa_ne_b, hMb_ne_b])
       let c1' : G.Walk a a := P.append q.reverse
       have hc1' : c1'.IsCycle := by
-        apply isCycle_append_reverse_of_disjoint q P hq hP _ (by simp [q]; omega)
+        apply isCycle_append_reverse_of_disjoint q P hq hP _ (by simp [q])
         intro z hzP hza hzb hzq
         simp only [q, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil, List.mem_cons,
           List.not_mem_nil, or_false] at hzq
         rcases hzq with rfl | rfl | rfl | rfl
         · exact absurd rfl hza
-        · exact Finset.disjoint_left.mp hdisj (List.mem_toFinset.mpr ((hPC z).mp hzP)) (hM_C1 a haC1).1
-        · exact Finset.disjoint_left.mp hdisj (List.mem_toFinset.mpr ((hPC z).mp hzP)) (hM_C1 b hbC1).1
+        · exact Finset.disjoint_left.mp hdisj (List.mem_toFinset.mpr ((hPC (M a)).mp hzP)) (hM_C1 a haC1).1
+        · exact Finset.disjoint_left.mp hdisj (List.mem_toFinset.mpr ((hPC (M b)).mp hzP)) (hM_C1 b hbC1).1
         · exact absurd rfl hzb
       have hc1'_odd : Odd c1'.length := by
         rcases hodd₁ with ⟨k, hk⟩
@@ -472,18 +472,15 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       have hP_ev : Even P.length := by rcases hodd₁ with ⟨k, hk⟩; exact ⟨k, by omega⟩
       have h2P : 2 * walkModFourWeight S.sign P = 0 := by
         rw [two_mul_walkModFourWeight, (two_mul_nat_mod_four P.length).1 hP_ev]
-      have hsum : (3 : ZMod 4) + 3 =
-          2 * walkModFourWeight S.sign P +
-          (modFourWeight S.sign s(a, b) + modFourWeight S.sign s(b, M b) +
-           modFourWeight S.sign s(M b, M a) + modFourWeight S.sign s(M a, a)) := by
-        rw [← hw_c1, ← hw_c1', ← hPw]
+      have hc1'_exp : walkModFourWeight S.sign c1' = walkModFourWeight S.sign P +
+          (modFourWeight S.sign s(b, M b) + modFourWeight S.sign s(M b, M a) + modFourWeight S.sign s(M a, a)) := by
         simp only [c1', q, walkModFourWeight_append, walkModFourWeight_reverse, walkModFourWeight,
           SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil, List.map_cons, List.map_nil,
           List.sum_cons, List.sum_nil, add_zero]
         rw [Sym2.eq_swap (a := a) (b := M a), Sym2.eq_swap (a := M a) (b := M b), Sym2.eq_swap (a := M b) (b := b)]
         ring
-      rw [h2P, zero_add] at hsum
-      exact hsum.symm
+      have h62 : (3 : ZMod 4) + 3 = 2 := by decide
+      linear_combination hPw - hc1'_exp - h2P + hw_c1 + hw_c1' + h62
     -- Dispatch L = 3 vs L ≥ 5
     by_cases hL3 : c₁.length = 3
     · obtain ⟨a, b, hva, hvb, hab, hva_adj, hab_adj, hbv_adj, hc1_s⟩ := cycle_len_eq_three_verts c₁ hc₁ hL3
@@ -524,15 +521,13 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
       have hwt2 := odd_cycle_w3 S hnoc t2 ht2 ⟨1, by simp [t2]⟩
       simp only [t1, t2, walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
         List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero] at hwt1 hwt2
-      have hsum : (2 : ZMod 4) + 2 + 2 =
-          (3 : ZMod 4) + 3 +
+      rw [Sym2.eq_swap (a := M a) (b := M v₁), Sym2.eq_swap (a := M v₁) (b := v₁)] at hq1
+      rw [Sym2.eq_swap (a := M b) (b := M a), Sym2.eq_swap (a := M a) (b := a)] at hq2
+      rw [Sym2.eq_swap (a := M v₁) (b := M b), Sym2.eq_swap (a := M b) (b := b)] at hq3
+      have hsum : (2 : ZMod 4) + 2 + 2 = (3 : ZMod 4) + 3 +
           2 * modFourWeight S.sign s(v₁, M v₁) + 2 * modFourWeight S.sign s(a, M a) +
           2 * modFourWeight S.sign s(b, M b) := by
-        rw [← hq1, ← hq2, ← hq3, ← hwt1, ← hwt2]
-        rw [Sym2.eq_swap (a := M a) (b := M v₁), Sym2.eq_swap (a := M b) (b := M a),
-            Sym2.eq_swap (a := M v₁) (b := M b), Sym2.eq_swap (a := M v₁) (b := v₁),
-            Sym2.eq_swap (a := M a) (b := a), Sym2.eq_swap (a := M b) (b := b)]
-        ring
+        linear_combination -hq1 - hq2 - hq3 + hwt1 + hwt2
       rw [two_mul_modFourWeight, two_mul_modFourWeight, two_mul_modFourWeight] at hsum
       exact absurd hsum (by decide)
     · -- L ≥ 5: H' = G - V(Q) is bipartite → CD₁ + CD₂ contradicts NOC mod 4!
@@ -551,7 +546,9 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         · simp [Qcyc, hu12_ne, hu12_ne.symm, h1, h1.symm, h2, h2.symm,
             h3', h3'.symm, h4, h4.symm, hMu12_ne, hMu12_ne.symm]
       have hQsupp : Qcyc.support.toFinset = Qset := by
-        ext z; simp [Qcyc, Qset, or_comm, or_left_comm, or_assoc]
+        ext z; simp only [Qcyc, Qset, SimpleGraph.Walk.support_cons, SimpleGraph.Walk.support_nil,
+          List.mem_toFinset, List.mem_cons, List.not_mem_nil, or_false, Finset.mem_insert,
+          Finset.mem_singleton]; tauto
       have hH'_bip : (G.induce ((Qset : Set V)ᶜ)).IsBipartite := by
         apply isBipartite_of_no_odd_cycle
         intro z d hd
@@ -885,11 +882,10 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         simp only [walkModFourWeight, SimpleGraph.Walk.edges_cons, SimpleGraph.Walk.edges_nil,
           List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, add_zero]
         rw [Sym2.eq_swap (a := u₂) (b := u₁)]; ring
+      rw [Sym2.eq_swap (a := M u₂) (b := M u₁), Sym2.eq_swap (a := M u₁) (b := u₁)] at hwQ
       have hsum : (3 : ZMod 4) + 3 + 2 * modFourWeight S.sign s(u₁, u₂) + 2 * modFourWeight S.sign s(M u₁, M u₂) =
           (3 : ZMod 4) + 3 + 2 + 2 * modFourWeight S.sign s(u₁, u₂) + 2 * modFourWeight S.sign s(M x₁, x₁) := by
-        rw [← hwCD1, ← hwCD2, ← hwC1, ← hwC2, ← hwQ, ← hP1_w, ← hP2_w, hP1_split_w, hP2_split_w, hCD1_w, hCD2_w]
-        rw [Sym2.eq_swap (a := M u₂) (b := M u₁), Sym2.eq_swap (a := M u₁) (b := u₁)]
-        ring
+        linear_combination hwCD1 + hwCD2 - hCD1_w - hCD2_w - hP1_split_w + hP1_w + hwC1 - hP2_split_w + hP2_w + hwC2 + hwQ
       rw [two_mul_modFourWeight, two_mul_modFourWeight, two_mul_modFourWeight] at hsum
       exact absurd hsum (by decide)
   -- Step 5: L ≥ 5 (since L = 3 would have every pair adjacent in C₂!)
@@ -965,8 +961,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
         fin_cases i <;> fin_cases j <;> simp [v, Sym2.eq_iff] at he ⊢ <;> tauto
       · intro h
         fin_cases i <;> fin_cases j <;> simp [v] at h ⊢
-        all_goals first | exact h01 | exact h01.symm | exact h12 | exact h12.symm |
-          exact h23 | exact h23.symm | exact h34 | exact h34.symm | exact h40 | exact h40.symm
+        all_goals (first | exact h01 | exact h01.symm | exact h12 | exact h12.symm | exact h23 | exact h23.symm | exact h34 | exact h34.symm | exact h40 | exact h40.symm)
     -- Inner edges on C2: M (v i) has degree 2 in C2, and is NOT adjacent to M (v (i±1)) by hno_quad!
     have hM_not_adj_1 : ∀ i j : Fin 5, (j.val = (i.val + 1) % 5 ∨ i.val = (j.val + 1) % 5) → ¬ G.Adj (M (v i)) (M (v j)) := by
       intro i j h
