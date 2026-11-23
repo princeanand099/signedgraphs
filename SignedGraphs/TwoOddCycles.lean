@@ -1145,6 +1145,10 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     have hu12_ne : u₁ ≠ u₂ := G.ne_of_adj hu12_adj
     have hu1C1 : u₁ ∈ C1 := List.mem_toFinset.mpr hu1C
     have hu2C1 : u₂ ∈ C1 := List.mem_toFinset.mpr hu2C
+    have hMu1C2 : M u₁ ∈ C2 := (hM_C1 u₁ hu1C1).1
+    have hMu2C2 : M u₂ ∈ C2 := (hM_C1 u₂ hu2C1).1
+    have hMu1_adj : G.Adj u₁ (M u₁) := (hM_C1 u₁ hu1C1).2
+    have hMu2_adj : G.Adj u₂ (M u₂) := (hM_C1 u₂ hu2C1).2
     have hMu1_nadj : ¬ G.Adj (M u₁) (M u₂) := hno_quad u₁ u₂ hu12_e
     -- A_od.length ≥ 3 (since A_od is odd and ≠ 1 as ¬ G.Adj (M u₁) (M u₂))
     have hAod_ge3 : 3 ≤ A_od.length := by
@@ -1169,10 +1173,10 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
     have hy1C1 : y₁ ∈ C1 := (hM_C2 y₁' hy1'C2).1
     have hy2C1 : y₂ ∈ C1 := (hM_C2 y₂' hy2'C2).1
     have hy12_ne : y₁ ≠ y₂ := fun h => hy2'1 (hM_inj h).symm
-    have hy1u1 : y₁ ≠ u₁ := fun h => hy1'1 (by rw [← hM_inv y₁', h])
-    have hy1u2 : y₁ ≠ u₂ := fun h => hy1'2 (by rw [← hM_inv y₁', h])
-    have hy2u1 : y₂ ≠ u₁ := fun h => hy2'_ne_Mu1 (by rw [← hM_inv y₂', h])
-    have hy2u2 : y₂ ≠ u₂ := fun h => hy2'2 (by rw [← hM_inv y₂', h])
+    have hy1u1 : y₁ ≠ u₁ := fun h => hy1'1 (by have := congrArg M h; rwa [hM_inv] at this)
+    have hy1u2 : y₁ ≠ u₂ := fun h => hy1'2 (by have := congrArg M h; rwa [hM_inv] at this)
+    have hy2u1 : y₂ ≠ u₁ := fun h => hy2'_ne_Mu1 (by have := congrArg M h; rwa [hM_inv] at this)
+    have hy2u2 : y₂ ≠ u₂ := fun h => hy2'2 (by have := congrArg M h; rwa [hM_inv] at this)
     -- Complementary path P₁ = C₁ - u₁u₂, and its subpath P between y₁ and y₂ (disjoint from {u₁, u₂}!)
     obtain ⟨P₁, hP₁, hP1_len, hP1_supp, _⟩ := hcomp_path c₁ hc₁ hc1_chordless hu1C hu2C hu12_adj
     have hy1P1 : y₁ ∈ P₁.support := (hP1_supp y₁).mpr (List.mem_toFinset.mp hy1C1)
@@ -1224,7 +1228,7 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
           have hzP1 := SimpleGraph.Walk.support_takeUntil_subset P₁ hb hzQub
           refine ⟨List.mem_toFinset.mpr ((hP1_supp z).mp hzP1), ?_, ?_⟩
           · intro h; rw [h] at hz
-            have hnd := (hP₁.takeUntil hb).support_nodup
+            have hnd : Q_ub.support.Nodup := (hP₁.takeUntil hb).support_nodup
             rw [← hspec2, SimpleGraph.Walk.support_append, List.nodup_append] at hnd
             have hdc : P.support = a :: P.support.tail := by cases P <;> simp
             rw [hdc, List.mem_cons] at hz
@@ -1238,9 +1242,9 @@ theorem cycle_pair_obstructions_two_disjoint_odd_impl (S : SignedGraph V)
             exact hnd.2.2 u₂ hzQub u₂ (hu2_in.resolve_left hbu2.symm) rfl
         · intro hPlen_eq
           have h1 : Q_ua.length = 1 := by omega
-          cases Q_ua with
-          | nil => simp at h1
-          | cons hadj r => cases r with | nil => exact hadj | cons _ _ => simp at h1
+          cases hQ : Q_ua with
+          | nil => simp [hQ] at h1
+          | cons hadj r => cases r with | nil => exact hadj | cons _ _ => simp [hQ] at h1
       rcases horder with h1 | h2
       · obtain ⟨P, hP, hPint, hPadj⟩ := hsub_of_ord y₁ y₂ hy1P1 hy2P1 hy1u1 hy1u2 hy2u1 hy2u2 hy12_ne h1
         exact ⟨P, hP, hPint, fun h => Or.inl (hPadj h)⟩
