@@ -383,15 +383,15 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             have hcol_u := hcol2 u
             by_cases hcu0 : col u = 0
             · have huX : u ∈ X := Finset.mem_filter.mpr ⟨huC, hcu0⟩
-              refine ⟨Sum.inl 0, by simp [A_p], Sum.inr ⟨b₀, hq'_H b₀ (SimpleGraph.Walk.end_mem_support q')⟩,
-                by simp [B_p, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huX, huw₁⟩) s', ?_⟩
+              refine ⟨Sum.inl 0, by simp [A_p], _,
+                by simp [B_p, f, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huX, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2
               · exact (by cases h1)
               · exact hz₀_not_s' h2
             · have huY : u ∈ Y := Finset.mem_filter.mpr ⟨huC, by omega⟩
-              refine ⟨Sum.inl 1, by simp [A_p], Sum.inr ⟨b₀, hq'_H b₀ (SimpleGraph.Walk.end_mem_support q')⟩,
-                by simp [B_p, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huY, huw₁⟩) s', ?_⟩
+              refine ⟨Sum.inl 1, by simp [A_p], _,
+                by simp [B_p, f, List.mem_toFinset.mp hb₀C₂], SimpleGraph.Walk.cons (Exists.intro u ⟨huY, huw₁⟩) s', ?_⟩
               intro hm; rw [SimpleGraph.Walk.support_cons, List.mem_cons] at hm
               rcases hm with h1 | h2
               · exact (by cases h1)
@@ -443,12 +443,12 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
             | inl j =>
               exfalso
               have hnd := hp.support_nodup
-              rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+              rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
               have hzj : Sum.inl j ≠ Sum.inl i := fun h => hnd.1 (h ▸ hz)
               have hzb : Sum.inl j ≠ b := by
                 intro h; subst h; simp [B_p] at hb
               have hjA : Sum.inl j ∈ A_p := by fin_cases j <;> simp [A_p]
-              exact (hp_int (Sum.inl j) (List.mem_cons_of_mem _ hz) hzj hzb).1 hjA
+              exact (hp_int (Sum.inl j) (by rw [hp_eq, SimpleGraph.Walk.support_cons]; exact List.mem_cons_of_mem _ hz) hzj hzb).1 hjA
             | inr w => exact ⟨w, rfl⟩
           have hproj_q : ∀ {z_s z_e : Fin 2 ⊕ H_type} (r : G_plus.Walk z_s z_e),
               (∀ z ∈ r.support, ∃ w : H_type, z = Sum.inr w) →
@@ -491,7 +491,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
           obtain ⟨wb, hwb⟩ := hq_inr b (SimpleGraph.Walk.end_mem_support q)
           have hq_path : q.IsPath := by
             have hnd := hp.support_nodup
-            rw [SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
+            rw [hp_eq, SimpleGraph.Walk.support_cons, List.nodup_cons] at hnd
             exact SimpleGraph.Walk.IsPath.mk' hnd.2
           obtain ⟨Q, hQ_sub, hQ_path⟩ := hproj_q q hq_inr w₁ wb rfl hwb
           have hwbC₂ : wb.1 ∈ c₂.support := by
@@ -518,7 +518,7 @@ theorem cycle_pair_obstructions_disjoint_even_odd (S : SignedGraph V)
               rw [hwb]; intro h'; exact hzw (congrArg Subtype.val (Sum.inr.inj h'))
             have hz_in_B : (Sum.inr ⟨z, hH⟩ : Fin 2 ⊕ H_type) ∈ B_p := by
               simp [B_p, h]
-            exact (hp_int (Sum.inr ⟨z, hH⟩) (List.mem_cons_of_mem _ hm)
+            exact (hp_int (Sum.inr ⟨z, hH⟩) (by rw [hp_eq, SimpleGraph.Walk.support_cons]; exact List.mem_cons_of_mem _ hm)
               (fun h' => by cases h') hz_ne_b).2 hz_in_B
       obtain ⟨uX, wbX, PX, huX0, _, hwXC₂, hwbX, hPX, hPX_sub, hPX_int⟩ :=
         hproj 0 bX pX hbX hpX hpX_int
