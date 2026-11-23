@@ -16,7 +16,7 @@ variable {V : Type*} [Fintype V] [DecidableEq V]
 private lemma odd_cycle_weight_three (S : SignedGraph V) (hnoc : IsNOC S)
     {v : V} (c : S.graph.Walk v v) (hc : c.IsCycle) (hodd : Odd c.length) :
     walkModFourWeight S.sign c = 3 := by
-  exact hnoc v c hc hodd
+  exact (isNOC_iff_isNOCModFour S).mp hnoc v c hc hodd
 
 private lemma sign_triangle_prod_one (S : SignedGraph V) (hnoc : IsNOC S)
     {a b c : V} (hab : S.graph.Adj a b) (hbc : S.graph.Adj b c) (hca : S.graph.Adj c a) :
@@ -26,7 +26,7 @@ private lemma sign_triangle_prod_one (S : SignedGraph V) (hnoc : IsNOC S)
   have hne_ca : c ≠ a := S.graph.ne_of_adj hca
   let cyc : S.graph.Walk a a := .cons hab (.cons hbc (.cons hca .nil))
   have hcyc : cyc.IsCycle := by
-    refine SimpleGraph.Walk.IsCycle.mk' ?_ (by simp [cyc]) ?_
+    refine ⟨⟨?_, by simp [cyc]⟩, ?_⟩
     · refine SimpleGraph.Walk.IsTrail.mk ?_
       simp [cyc, Sym2.eq_iff, hne_ab, hne_ab.symm, hne_bc, hne_bc.symm, hne_ca, hne_ca.symm]
     · simp [cyc, hne_bc, hne_ca, hne_ca.symm]
@@ -36,7 +36,7 @@ private lemma sign_triangle_prod_one (S : SignedGraph V) (hnoc : IsNOC S)
   rcases S.sign_pm_one s(a, b) hab with h1 | h1 <;>
   rcases S.sign_pm_one s(b, c) hbc with h2 | h2 <;>
   rcases S.sign_pm_one s(c, a) hca with h3 | h3 <;>
-  simp [modFourWeight, h1, h2, h3] at hw ⊢
+  (simp [modFourWeight, h1, h2, h3] at hw ⊢; try exact absurd hw (by decide))
 
 private lemma k4_switching_iso (S : SignedGraph V) (hnoc : IsNOC S)
     (v₁ v₂ v₃ u : V)
@@ -526,7 +526,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           let c5 : G.Walk v₀ v₀ :=
             .cons hw0_adj.symm (.cons hw2_adj (.cons hu2_adj.symm (.cons hu3_adj (.cons h30 .nil))))
           have hc5 : c5.IsCycle := by
-            refine SimpleGraph.Walk.IsCycle.mk' ?_ (by simp [c5]) ?_
+            refine ⟨⟨?_, by simp [c5]⟩, ?_⟩
             · refine SimpleGraph.Walk.IsTrail.mk ?_
               simp [c5, Sym2.eq_iff, hw0, hw0.symm, hw2, hw2.symm, hw3, hw3.symm,
                 hu0, hu0.symm, hu2, hu2.symm, hu3, hu3.symm, huw, huw.symm,
@@ -538,15 +538,15 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           let t2 : G.Walk v₂ v₂ := .cons hu2_adj.symm (.cons hu3_adj (.cons h23.symm .nil))
           let t3 : G.Walk v₀ v₀ := .cons h02 (.cons h23 (.cons h30 .nil))
           have ht1 : t1.IsCycle := by
-            refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t1]) ?_
+            refine ⟨⟨⟨?_⟩, by simp [t1]⟩, ?_⟩
             · simp [t1, Sym2.eq_iff, hw0, hw0.symm, hw2, hw2.symm, hv02, hv02.symm]
             · simp [t1, hw2, hw2.symm, hw0, hw0.symm, hv02, hv02.symm]
           have ht2 : t2.IsCycle := by
-            refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t2]) ?_
+            refine ⟨⟨⟨?_⟩, by simp [t2]⟩, ?_⟩
             · simp [t2, Sym2.eq_iff, hu2, hu2.symm, hu3, hu3.symm, hv23, hv23.symm]
             · simp [t2, hu3, hu3.symm, hu2, hu2.symm, hv23, hv23.symm]
           have ht3 : t3.IsCycle := by
-            refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t3]) ?_
+            refine ⟨⟨⟨?_⟩, by simp [t3]⟩, ?_⟩
             · simp [t3, Sym2.eq_iff, hv02, hv02.symm, hv23, hv23.symm, hv03, hv03.symm]
             · simp [t3, hv23, hv23.symm, hv02, hv02.symm, hv03, hv03.symm]
           have hw_c5 := odd_cycle_weight_three S hnoc c5 hc5 ⟨2, by simp [c5]⟩
@@ -701,13 +701,13 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
           let c_abd : G.Walk a a := .cons hab_adj (.cons hbd_adj (.cons hda_adj .nil))
           let t_abu1 : G.Walk a a := .cons hab_adj (.cons hu1b.symm (.cons hu1a .nil))
           have hcabd : c_abd.IsCycle := by
-            refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [c_abd]) ?_
+            refine ⟨⟨⟨?_⟩, by simp [c_abd]⟩, ?_⟩
             · simp [c_abd, Sym2.eq_iff, hba, hba.symm, hdb, hdb.symm, hda, hda.symm]
             · simp [c_abd, hdb, hdb.symm, hda, hda.symm, hba, hba.symm]
           have htabu1 : t_abu1.IsCycle := by
             have hu1a_ne : u₁ ≠ a := G.ne_of_adj hu1a
             have hu1b_ne : u₁ ≠ b := G.ne_of_adj hu1b
-            refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [t_abu1]) ?_
+            refine ⟨⟨⟨?_⟩, by simp [t_abu1]⟩, ?_⟩
             · simp [t_abu1, Sym2.eq_iff, hba, hba.symm, hu1a_ne, hu1a_ne.symm, hu1b_ne, hu1b_ne.symm]
             · simp [t_abu1, hu1a_ne, hu1a_ne.symm, hu1b_ne, hu1b_ne.symm, hba, hba.symm]
           have hwCa := odd_cycle_weight_three S hnoc C_a hCa_cyc hCa_odd
@@ -1118,7 +1118,7 @@ theorem three_connected_non_bipartite_noc_classification (S : SignedGraph V)
         -- Triangle u₂ - z - m - u₂ has length 3 < 5 ≤ c.length!
         let tri : G.Walk u₂ u₂ := .cons hu2z (.cons hzm_adj (.cons hu2m.symm .nil))
         have htri : tri.IsCycle := by
-          refine SimpleGraph.Walk.IsCycle.mk' (SimpleGraph.Walk.IsTrail.mk ?_) (by simp [tri]) ?_
+          refine ⟨⟨⟨?_⟩, by simp [tri]⟩, ?_⟩
           · simp [tri, Sym2.eq_iff, G.ne_of_adj hu2z, (G.ne_of_adj hu2z).symm,
               G.ne_of_adj hu2m, (G.ne_of_adj hu2m).symm, hzm, hzm.symm]
           · simp [tri, G.ne_of_adj hu2z, (G.ne_of_adj hu2z).symm,
