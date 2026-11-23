@@ -806,12 +806,15 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       · exact absurd h2 hv⟩
   have hf_x : f d.x = fH xH := by
     simp only [f, hxG₂, ↓reduceDIte, shift]
-    exact sub_add_cancel' (fG₂ x₂) (fH xH)
+    change fG₂ x₂ + (fH xH - fG₂ x₂) = fH xH
+    generalize fG₂ x₂ = a; generalize fH xH = b
+    fin_cases a <;> fin_cases b <;> rfl
   have hf_y : f d.y = fH yH := by
     simp only [f, hyG₂, ↓reduceDIte, shift]
     change fG₂ y₂ + (fH xH - fG₂ x₂) = fH yH
     rw [hfG₂_xy, hfH_xy, hlen_eq]
-    ring
+    generalize fG₂ x₂ = a; generalize fH xH = b; generalize Fin.ofNat 2 p₁.length = c
+    fin_cases a <;> fin_cases b <;> fin_cases c <;> rfl
   have hf_valid : ∀ {u v : V}, S.graph.Adj u v → f u ≠ f v := by
     intro u v huv
     by_cases hu : u ∈ d.VG₂ <;> by_cases hv : v ∈ d.VG₂
@@ -832,6 +835,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       have hfv : f v = fH ⟨v, hvH⟩ := by simp [f, hv]
       rw [hfu, hfv]
       have hHadj : H.Adj ⟨u, by rcases hu_xy with rfl | rfl <;> assumption⟩ ⟨v, hvH⟩ := by
+        rw [SimpleGraph.deleteEdges_adj]
         refine ⟨Or.inl huv, fun hsym => ?_⟩
         simp only [Set.mem_singleton_iff, Sym2.eq, Sym2.rel_iff', Prod.mk.injEq,
           Prod.swap_prod_mk, Subtype.ext_iff] at hsym
@@ -853,6 +857,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       have hfu : f u = fH ⟨u, huH⟩ := by simp [f, hu]
       rw [hfu, hfv]
       have hHadj : H.Adj ⟨u, huH⟩ ⟨v, by rcases hv_xy with rfl | rfl <;> assumption⟩ := by
+        rw [SimpleGraph.deleteEdges_adj]
         refine ⟨Or.inl huv, fun hsym => ?_⟩
         simp only [Set.mem_singleton_iff, Sym2.eq, Sym2.rel_iff', Prod.mk.injEq,
           Prod.swap_prod_mk, Subtype.ext_iff] at hsym
@@ -869,6 +874,7 @@ private lemma leaf_H_nonbipartite {V : Type*} [Fintype V] [DecidableEq V]
       have hu_nxy : u ≠ d.x ∧ u ≠ d.y := ⟨fun h => hu (h ▸ hxG₂), fun h => hu (h ▸ hyG₂)⟩
       simp only [f, hu, hv, ↓reduceDIte]
       have hHadj : H.Adj ⟨u, huH⟩ ⟨v, hvH⟩ := by
+        rw [SimpleGraph.deleteEdges_adj]
         refine ⟨Or.inl huv, fun hsym => ?_⟩
         simp only [Set.mem_singleton_iff, Sym2.eq, Sym2.rel_iff', Prod.mk.injEq,
           Prod.swap_prod_mk, Subtype.ext_iff] at hsym
@@ -1052,14 +1058,16 @@ private theorem theorem_1_2_general :
                 change (2 : ZMod 4) * 0 = 2 at h2w
                 rw [h0] at h2w
                 have hv := congrArg ZMod.val h2w
-                simp at hv
+                change (0 : ℕ) = 2 at hv
+                omega
               · exact Or.inl rfl
               · exfalso
                 have h0 : (2 : ZMod 4) * 2 = 0 := rfl
                 change (2 : ZMod 4) * 2 = 2 at h2w
                 rw [h0] at h2w
                 have hv := congrArg ZMod.val h2w
-                simp at hv
+                change (0 : ℕ) = 2 at hv
+                omega
               · exact Or.inr rfl
             let sxy : ℤ := if wQ = 1 then 1 else -1
             have hsxy_pm : sxy = 1 ∨ sxy = -1 := by dsimp [sxy]; split_ifs <;> simp
