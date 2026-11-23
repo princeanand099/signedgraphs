@@ -39,7 +39,7 @@ theorem witness_noc_n1 :
       (-1 : ℤ) ^ (c.length / 2) * walkEntrySignProd (0 : Matrix (Fin 1) (Fin 1) ℝ) c = -1 := by
     intro v c hc _
     cases c with
-    | nil => exact hc.ne_nil rfl
+    | nil => exact False.elim (hc.ne_nil rfl)
     | cons h _ => exact absurd rfl h.2
   exact ⟨0, hA, fun _ => rfl, hnoc, main_theorem_noc 0 hA (fun _ => rfl) hnoc⟩
 
