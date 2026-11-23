@@ -42,7 +42,7 @@ private lemma sign_five_cycle_prod_neg_one (S : SignedGraph V) (hnoc : IsNOC S)
   rcases S.sign_pm_one s(c, d) hcd with h3 | h3 <;>
   rcases S.sign_pm_one s(d, e) hde with h4 | h4 <;>
   rcases S.sign_pm_one s(e, a) hea with h5 | h5 <;>
-  simp [modFourWeight, h1, h2, h3, h4, h5] at hw ⊢
+  (simp [modFourWeight, h1, h2, h3, h4, h5] at hw ⊢; try exact absurd hw (by decide))
 
 set_option maxHeartbeats 800000 in
 /-- If `S` is NOC and `f : Fin 10 → V` is a bijection whose pull-back graph is `petersenGraph`,
