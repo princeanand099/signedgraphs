@@ -1,6 +1,6 @@
 # Ma–Yang–Li Signature Conjecture (`signedgraphs`)
 
-Lean 4 (`v4.35.0` + Mathlib) formalization of Prince Anand's manuscript *"A Proof of the Ma–Yang–Li Signature Conjecture via Weighted Signed Graphs"* (`Ma_Yang_Li_Signature.pdf`, `ma_yang_li_signature.tex`). The main result proves that every real symmetric zero-diagonal matrix $A$ whose underlying signed graph is negative-odd-cycle (NOC) satisfies $s(A) \le 0$ (Theorem 1.2), and deduces the 2013 Ma–Yang–Li Signature Conjecture (Corollary 1.3): for every finite simple graph $G$,
+Lean 4 (`v4.35.0` + Mathlib) formalization of Prince Anand's manuscript *"A Proof of the Ma–Yang–Li Signature Conjecture via Weighted Signed Graphs"* (`Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex`). The main result proves that every real symmetric zero-diagonal matrix $A$ whose underlying signed graph is negative-odd-cycle (NOC) satisfies $s(A) \le 0$ (Theorem 1.2), and deduces the 2013 Ma–Yang–Li Signature Conjecture (Corollary 1.3): for every finite simple graph $G$,
 $$-c_3(G) \le s(G) \le c_5(G),$$
 where $s(G) = n_+(G) - n_-(G)$ is the signature of the adjacency matrix of $G$, $c_3(G)$ is the number of simple cycles of length $\equiv 3 \pmod 4$, and $c_5(G)$ is the number of simple cycles of length $\equiv 1 \pmod 4$.
 
@@ -69,4 +69,4 @@ lake exe lean4checker --fresh SignedGraphs
 - `SignedGraphs/*.lean` — Modular proof development (see `PROOF-PATH.md` and `PROGRESS.md`).
 - `EXTERNAL-AXIOMS.md` — External/custom axiom audit (none used).
 - `ATTRIBUTION.md` — Authorship, manuscript reference, and dependency attribution.
-- `Ma_Yang_Li_Signature.pdf`, `ma_yang_li_signature.tex` — Source manuscript.
+- `Ma Yang Li Signature.pdf`, `ma_yang_li_signature.tex` — Source manuscript.
