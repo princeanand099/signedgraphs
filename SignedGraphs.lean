@@ -15,4 +15,5 @@ import SignedGraphs.SchurReductions
 import SignedGraphs.SPQR
 import SignedGraphs.MainTheorem
 import SignedGraphs.Challenge
+import SignedGraphs.SanityChecks
 import SignedGraphs.AuditAxioms
